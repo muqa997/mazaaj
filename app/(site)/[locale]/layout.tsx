@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Cairo, Alexandria } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import { CartProvider } from "@/lib/cart-context";
@@ -8,7 +9,8 @@ import ThemeProvider from "@/components/ThemeProvider";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
-import "../globals.css";
+import OfflineBanner from "@/components/OfflineBanner";
+import "../../globals.css";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -54,6 +56,7 @@ export default async function LocaleLayout({
   }
 
   const dir = locale === "ar" ? "rtl" : "ltr";
+  const t = await getTranslations("common");
 
   return (
     <html
@@ -67,6 +70,7 @@ export default async function LocaleLayout({
           <NextIntlClientProvider>
             <CartProvider>
               <Navbar />
+              <OfflineBanner offlineText={t("offline")} backOnlineText={t("backOnline")} />
               <main className="flex-1 pt-[64px]">{children}</main>
               <Footer />
               <CartDrawer />

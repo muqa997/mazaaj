@@ -10,6 +10,7 @@ export default function Footer() {
   const tNav = useTranslations("nav");
   const tContact = useTranslations("contact");
   const tAbout = useTranslations("about");
+  const tCareers = useTranslations("careers");
 
   const links = [
     { href: "/", label: tNav("home") },
@@ -17,6 +18,7 @@ export default function Footer() {
     { href: "/menu", label: tNav("menu") },
     { href: "/#game-lounge", label: tNav("gameLounge") },
     { href: "/#delivery", label: tNav("delivery") },
+    { href: "/careers", label: tCareers("navLabel") },
   ];
 
   return (

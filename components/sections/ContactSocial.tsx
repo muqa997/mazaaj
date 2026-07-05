@@ -2,10 +2,11 @@
 
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { MapPin, Clock, Navigation, Instagram, Facebook, MessageCircle } from "lucide-react";
+import { MapPin, Clock, Navigation, Instagram, Facebook } from "lucide-react";
 import { fadeUp } from "@/lib/motion";
 import { SOCIAL_LINKS, MAP_EMBED_URL, MAP_DIRECTIONS_URL } from "@/lib/config";
 import TikTokIcon from "@/components/icons/TikTokIcon";
+import WhatsAppIcon from "@/components/icons/WhatsAppIcon";
 
 export default function ContactSocial() {
   const t = useTranslations("contact");
@@ -73,28 +74,28 @@ export default function ContactSocial() {
             aria-label="Instagram"
             className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
           >
-            <Instagram size={18} />
+            <Instagram size={18} strokeWidth={1.5} />
           </a>
           <a
             href={SOCIAL_LINKS.facebook}
             aria-label="Facebook"
             className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
           >
-            <Facebook size={18} />
+            <Facebook size={18} strokeWidth={1.5} />
           </a>
           <a
             href={SOCIAL_LINKS.tiktok}
             aria-label="TikTok"
             className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
           >
-            <TikTokIcon size={18} />
+            <TikTokIcon size={16} />
           </a>
           <a
             href={SOCIAL_LINKS.whatsapp}
             aria-label="WhatsApp"
             className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
           >
-            <MessageCircle size={18} />
+            <WhatsAppIcon size={18} strokeWidth={1.5} />
           </a>
         </div>
       </motion.div>

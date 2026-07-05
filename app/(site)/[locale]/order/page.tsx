@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart-context";
 import { WHATSAPP_NUMBER } from "@/lib/config";
+import { supabase } from "@/lib/supabase";
 
 export default function OrderPage() {
   const t = useTranslations("checkout");
@@ -42,6 +43,29 @@ export default function OrderPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // نحفظ الطلب بقاعدة البيانات لأغراض السجل والإحصائيات، دون إيقاف أو تأخير فتح واتساب
+    if (supabase) {
+      supabase
+        .from("orders")
+        .insert({
+          customer_name: name,
+          phone,
+          address,
+          notes: notes || null,
+          items: items.map((item) => ({
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+          })),
+          total,
+          status: "new",
+        })
+        .then(({ error }) => {
+          if (error) console.error("Failed to save order to Supabase:", error);
+        });
+    }
+
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${buildWhatsAppMessage()}`;
     window.open(url, "_blank");
   };

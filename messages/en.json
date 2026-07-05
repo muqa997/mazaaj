@@ -1,4 +1,8 @@
 {
+  "common": {
+    "offline": "No internet connection",
+    "backOnline": "Internet connection restored"
+  },
   "nav": {
     "home": "Home",
     "about": "About",
@@ -17,7 +21,7 @@
     "orderNow": "Order Now"
   },
   "about": {
-    "description": "At mazaaj, we craft an experience that fits every detail of your day. With outstanding service and quality we take pride in, we bring you a captivating blend of specialty coffee and refreshing drinks. Whether you're seeking calm and comfort on our VIP floor, or crave the excitement of game nights and match days on our games floor, we're always here to set your mood — with passion."
+    "description": "At mazaaj, we craft an experience that fits every detail of your day. With outstanding service and quality we take pride in, we bring you a captivating blend of specialty coffee, refreshing drinks, and the most delicious desserts. Whether you're seeking calm and comfort on our VIP floor, or crave the excitement of game nights and billiards on our games floor, we're always here to set your mood — with passion."
   },
   "menuPreview": {
     "eyebrow": "Menu",
@@ -50,7 +54,7 @@
   "footer": {
     "tagline": "Every mood, its own floor.",
     "quickLinksTitle": "Quick Links",
-    "contactTitle": "Contact",
+    "contactTitle": "Address",
     "contactPhoneLabel": "For contact or inquiries",
     "settingsTitle": "Appearance & Language",
     "rights": "All rights reserved"
@@ -88,5 +92,44 @@
     "notesPlaceholder": "Any special requests?",
     "submit": "Send Order via WhatsApp",
     "orderSummary": "Order Summary"
+  },
+  "careers": {
+    "navLabel": "Careers",
+    "pageTitle": "Join the mazaaj Team",
+    "pageSubtitle": "Browse our current openings and submit your application",
+    "adBadge": "Open Position",
+    "applyButton": "Apply Now",
+    "noOpeningsTitle": "No Open Positions Right Now",
+    "noOpeningsSubtitle": "Leave your information and we'll reach out when a suitable position opens up",
+    "formTitle": "Application Form",
+    "formSubtitle": "Fill in your details and we'll reach out if your experience fits",
+    "name": "Full Name",
+    "namePlaceholder": "Your name",
+    "phone": "Phone Number",
+    "phonePlaceholder": "07xxxxxxxxx",
+    "position": "Position Applying For",
+    "positionPlaceholder": "Select a position",
+    "positions": {
+      "management": "Management",
+      "floorCaptain": "Floor Captain",
+      "barista": "Barista",
+      "waiter": "Waiter",
+      "cashier": "Cashier",
+      "shishaMaster": "Shisha Master",
+      "billiardsStaff": "Billiards Hall Staff",
+      "cleaner": "Cleaner",
+      "other": "Other"
+    },
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Anything else you'd like us to know?",
+    "cv": "CV / Resume (optional)",
+    "cvPlaceholder": "Choose a file",
+    "cvHint": "PDF or Word, max 5MB",
+    "cvTooLarge": "File is larger than 5MB",
+    "submit": "Submit Application",
+    "submitting": "Submitting...",
+    "successTitle": "Application received!",
+    "successMessage": "Thanks for applying — we'll review your application and reach out if you're a good fit.",
+    "errorMessage": "Something went wrong submitting your application. Please try again or contact us directly."
   }
 }
