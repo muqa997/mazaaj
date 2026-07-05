@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, Menu as MenuIcon, X } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import Logo from "./Logo";
 import LanguageSwitcher from "./LanguageSwitcher";
 import DarkModeToggle from "./DarkModeToggle";
 import { useCart } from "@/lib/cart-context";
@@ -24,6 +24,22 @@ export default function Navbar() {
     { href: "/#contact", label: t("contact") },
   ];
 
+  const CartButton = (
+    <button
+      type="button"
+      aria-label="cart"
+      onClick={openDrawer}
+      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-primary/5 active:scale-90 transition-transform"
+    >
+      <ShoppingBag size={18} className="text-primary/70" strokeWidth={1.8} />
+      {count > 0 && (
+        <span className="absolute -top-1 -end-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-primary">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+
   return (
     <motion.header
       initial={{ y: -24, opacity: 0 }}
@@ -31,26 +47,35 @@ export default function Navbar() {
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className="fixed top-0 inset-x-0 z-50 pt-safe backdrop-blur-xl bg-background/70 border-b border-primary/10"
     >
-      <div className="flex items-center justify-between px-5 py-3 max-w-5xl mx-auto">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden shadow-glass shrink-0">
-            <Image
-              src="/logo.png"
-              alt="mazaaj"
-              width={40}
-              height={40}
-              className="h-full w-full object-cover"
-              priority
-            />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-bold text-[15px] text-primary">كافيه مزاج</span>
-            <span className="text-[10px] text-primary/45 tracking-[0.2em]">mazaaj</span>
-          </div>
+      {/* شريط الجوال: الهمبركر والسلة على الجانبين حسب اتجاه اللغة، واللوجو بالوسط */}
+      <div className="flex md:hidden items-center justify-between px-5 py-3">
+        <button
+          type="button"
+          aria-label="menu"
+          onClick={() => setIsOpen((v) => !v)}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/5 active:scale-90 transition-transform"
+        >
+          {isOpen ? (
+            <X size={18} className="text-primary/70" strokeWidth={1.8} />
+          ) : (
+            <MenuIcon size={18} className="text-primary/70" strokeWidth={1.8} />
+          )}
+        </button>
+
+        <Link href="/">
+          <Logo height={34} priority />
         </Link>
 
-        {/* روابط سطح المكتب */}
-        <nav className="hidden md:flex items-center gap-7">
+        {CartButton}
+      </div>
+
+      {/* شريط سطح المكتب */}
+      <div className="hidden md:flex items-center justify-between px-5 py-3 max-w-5xl mx-auto">
+        <Link href="/" className="flex items-center gap-3">
+          <Logo height={40} priority />
+        </Link>
+
+        <nav className="flex items-center gap-7">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -62,34 +87,7 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="cart"
-            onClick={openDrawer}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full bg-primary/5 active:scale-90 transition-transform"
-          >
-            <ShoppingBag size={18} className="text-primary/70" strokeWidth={1.8} />
-            {count > 0 && (
-              <span className="absolute -top-1 -end-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-primary">
-                {count}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            aria-label="menu"
-            onClick={() => setIsOpen((v) => !v)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/5 active:scale-90 transition-transform md:hidden"
-          >
-            {isOpen ? (
-              <X size={18} className="text-primary/70" strokeWidth={1.8} />
-            ) : (
-              <MenuIcon size={18} className="text-primary/70" strokeWidth={1.8} />
-            )}
-          </button>
-        </div>
+        {CartButton}
       </div>
 
       {/* قائمة الجوال المنسدلة */}
@@ -113,7 +111,7 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <div className="flex items-center justify-between px-3 pt-2">
+              <div className="flex flex-col items-start gap-3 px-3 pt-2">
                 <LanguageSwitcher />
                 <DarkModeToggle />
               </div>
