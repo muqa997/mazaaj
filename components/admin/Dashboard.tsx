@@ -8,6 +8,7 @@ import {
   Users,
   Briefcase,
   LayoutGrid,
+  MessageSquare,
   Trash2,
   Pencil,
   Plus,
@@ -19,9 +20,10 @@ import type {
   ApplicantRow,
   JobOpeningRow,
   JobOpeningInput,
+  SuggestionRow,
 } from "@/app/(admin)/panel/actions";
 
-type Tab = "overview" | "orders" | "applicants" | "jobs";
+type Tab = "overview" | "orders" | "applicants" | "jobs" | "suggestions";
 
 type DashboardProps = {
   logoutAction: () => Promise<void>;
@@ -35,6 +37,17 @@ type DashboardProps = {
     patch: Partial<JobOpeningInput & { is_active: boolean }>
   ) => Promise<{ error: string | null }>;
   deleteJobOpening: (id: string) => Promise<{ error: string | null }>;
+  getSuggestions: () => Promise<SuggestionRow[]>;
+};
+
+const SUGGESTION_TYPE_LABELS: Record<string, string> = {
+  bug: "الإبلاغ عن خطأ",
+  uiImprovement: "تحسين واجهة",
+  newFeature: "إضافة قسم",
+  poorService: "سوء خدمة",
+  inquiry: "استفسار",
+  compliment: "إشادة",
+  other: "أخرى",
 };
 
 const EMPTY_JOB_FORM: JobOpeningInput = {
@@ -52,6 +65,7 @@ export default function Dashboard(props: DashboardProps) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [applicants, setApplicants] = useState<ApplicantRow[]>([]);
   const [jobs, setJobs] = useState<JobOpeningRow[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [jobForm, setJobForm] = useState<JobOpeningInput | null>(null);
@@ -61,14 +75,16 @@ export default function Dashboard(props: DashboardProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [o, a, j] = await Promise.all([
+      const [o, a, j, s] = await Promise.all([
         props.getOrders(),
         props.getApplicants(),
         props.getJobOpenings(),
+        props.getSuggestions(),
       ]);
       setOrders(o ?? []);
       setApplicants(a ?? []);
       setJobs(j ?? []);
+      setSuggestions(s ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -146,6 +162,7 @@ export default function Dashboard(props: DashboardProps) {
     { key: "orders", label: "الطلبات", icon: ClipboardList },
     { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "jobs", label: "الوظائف", icon: Briefcase },
+    { key: "suggestions", label: "الاقتراحات", icon: MessageSquare },
   ];
 
   return (
@@ -191,6 +208,7 @@ export default function Dashboard(props: DashboardProps) {
               />
               <StatCard label="المتقدمون للوظائف" value={applicants.length} />
               <StatCard label="الوظائف الشاغرة" value={activeJobsCount} />
+              <StatCard label="الاقتراحات" value={suggestions.length} />
             </div>
           )}
 
@@ -419,6 +437,32 @@ export default function Dashboard(props: DashboardProps) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {tab === "suggestions" && (
+            <div className="flex flex-col gap-3">
+              {suggestions.length === 0 && (
+                <p className="py-10 text-center text-primary/50">لا توجد اقتراحات بعد</p>
+              )}
+              {suggestions.map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  className="rounded-2xl border border-primary/10 bg-background p-4"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-primary">
+                      {SUGGESTION_TYPE_LABELS[suggestion.type] ?? suggestion.type}
+                    </span>
+                    <span className="text-xs text-primary/40">
+                      {new Date(suggestion.created_at).toLocaleString("ar")}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-loose text-primary/70">
+                    {suggestion.message}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </>

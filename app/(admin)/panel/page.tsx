@@ -13,6 +13,7 @@ import {
   createJobOpening,
   updateJobOpening,
   deleteJobOpening,
+  getSuggestions,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
@@ -42,6 +43,7 @@ export default async function AdminPage() {
       createJobOpening={createJobOpening}
       updateJobOpening={updateJobOpening}
       deleteJobOpening={deleteJobOpening}
+      getSuggestions={getSuggestions}
     />
   );
 }

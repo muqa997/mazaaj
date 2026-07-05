@@ -4,21 +4,21 @@ import { Link } from "@/i18n/navigation";
 import { PHONE_DISPLAY, PHONE_TEL } from "@/lib/config";
 import LanguageSwitcher from "./LanguageSwitcher";
 import DarkModeToggle from "./DarkModeToggle";
+import SuggestionModal from "./SuggestionModal";
 
 export default function Footer() {
   const t = useTranslations("footer");
-  const tNav = useTranslations("nav");
   const tContact = useTranslations("contact");
   const tAbout = useTranslations("about");
   const tCareers = useTranslations("careers");
+  const tPrivacy = useTranslations("privacy");
+  const tTerms = useTranslations("terms");
+  const tSuggestions = useTranslations("suggestions");
 
   const links = [
-    { href: "/", label: tNav("home") },
-    { href: "/#about", label: tNav("about") },
-    { href: "/menu", label: tNav("menu") },
-    { href: "/#game-lounge", label: tNav("gameLounge") },
-    { href: "/#delivery", label: tNav("delivery") },
     { href: "/careers", label: tCareers("navLabel") },
+    { href: "/privacy", label: tPrivacy("navLabel") },
+    { href: "/terms", label: tTerms("navLabel") },
   ];
 
   return (
@@ -50,6 +50,9 @@ export default function Footer() {
                 </Link>
               </li>
             ))}
+            <li>
+              <SuggestionModal label={tSuggestions("footerLabel")} />
+            </li>
           </ul>
         </div>
 
@@ -74,7 +77,10 @@ export default function Footer() {
       </div>
 
       <div className="mx-auto mt-10 max-w-5xl border-t border-primary/10 py-5 text-center text-xs text-primary/40">
-        © {new Date().getFullYear()} mazaaj — {t("rights")}
+        <p>
+          © {new Date().getFullYear()} mazaaj — {t("rights")}
+        </p>
+        <p className="mt-1">{t("certificate")}</p>
       </div>
     </footer>
   );

@@ -72,5 +72,18 @@ on conflict (id) do nothing;
 create policy "Allow public upload to cvs" on storage.objects
   for insert to anon with check (bucket_id = 'cvs');
 
--- ملاحظة: ما فيه أي policy للقراءة العامة على أي جدول من الثلاثة عدا الوظائف الشاغرة النشطة —
--- الطلبات وطلبات التوظيف بيانات خاصة، تقرأها فقط لوحة التحكم عبر مفتاح service_role السري.
+-- اقتراحات وملاحظات الزوار (من مودال "شاركنا اقتراحك" بالفوتر)
+create table if not exists suggestions (
+  id uuid primary key default gen_random_uuid(),
+  type text not null,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table suggestions enable row level security;
+
+create policy "Allow public insert" on suggestions
+  for insert to anon with check (true);
+
+-- ملاحظة: ما فيه أي policy للقراءة العامة على أي جدول من الأربعة عدا الوظائف الشاغرة النشطة —
+-- الطلبات وطلبات التوظيف والاقتراحات بيانات خاصة، تقرأها فقط لوحة التحكم عبر مفتاح service_role السري.

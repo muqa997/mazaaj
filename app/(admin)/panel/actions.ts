@@ -154,3 +154,24 @@ export async function deleteJobOpening(id: string) {
   const { error } = await supabaseAdmin.from("job_openings").delete().eq("id", id);
   return { error: error?.message ?? null };
 }
+
+export type SuggestionRow = {
+  id: string;
+  type: string;
+  message: string;
+  created_at: string;
+};
+
+export async function getSuggestions(): Promise<SuggestionRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("suggestions")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return data ?? [];
+}

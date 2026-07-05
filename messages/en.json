@@ -57,7 +57,8 @@
     "contactTitle": "Address",
     "contactPhoneLabel": "For contact or inquiries",
     "settingsTitle": "Appearance & Language",
-    "rights": "All rights reserved"
+    "rights": "All rights reserved",
+    "certificate": "Certificate No.: 173"
   },
   "menuPage": {
     "title": "Menu",
@@ -131,5 +132,111 @@
     "successTitle": "Application received!",
     "successMessage": "Thanks for applying — we'll review your application and reach out if you're a good fit.",
     "errorMessage": "Something went wrong submitting your application. Please try again or contact us directly."
+  },
+  "privacy": {
+    "navLabel": "Privacy Policy",
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: July 5, 2026",
+    "intro": "At mazaaj cafe, we respect your privacy. This policy explains what information we collect when you use our website, and how we use and protect it.",
+    "sections": [
+      {
+        "heading": "Information We Collect",
+        "body": "When you place a delivery order, we collect your name, phone number, delivery address, and order details. When you apply for a job, we collect your name, phone number, desired position, any notes, and your CV if you choose to upload one. When you submit a suggestion or feedback through the site, we collect the suggestion type and your message. Some information — like your cart contents and your theme/language preference — is stored locally on your device only and never reaches us."
+      },
+      {
+        "heading": "How We Use Your Information",
+        "body": "We use your information to confirm delivery orders via WhatsApp, to review job applications and reach out if your experience fits, and to review your suggestions and feedback to improve our services. We do not sell or share your data with third parties, except as necessary to deliver your order."
+      },
+      {
+        "heading": "How We Store Your Data",
+        "body": "Information you send us is stored securely using Supabase, and is only accessible to authorized mazaaj staff through a protected internal dashboard."
+      },
+      {
+        "heading": "Your Rights",
+        "body": "You can contact us at any time to request access to, correction of, or deletion of the information you've submitted."
+      },
+      {
+        "heading": "Local Storage on Your Browser",
+        "body": "The site uses your browser's local storage to remember your cart contents and display preferences (language and theme). This stays on your device only and does not identify you personally."
+      },
+      {
+        "heading": "Privacy Inquiries",
+        "body": "For any privacy-related questions, contact us via WhatsApp or visit us at our location."
+      },
+      {
+        "heading": "Updates to This Policy",
+        "body": "We may update this policy from time to time. Continuing to use the site after an update means you accept the changes."
+      }
+    ]
+  },
+  "terms": {
+    "navLabel": "Terms of Use",
+    "title": "Terms of Use",
+    "lastUpdated": "Last updated: July 5, 2026",
+    "intro": "By using the mazaaj cafe website, you agree to the following terms. Please read them carefully.",
+    "sections": [
+      {
+        "heading": "Service Description",
+        "body": "The mazaaj cafe website lets you browse the menu, place delivery orders, view and apply for open positions, and share suggestions with us."
+      },
+      {
+        "heading": "Registration & Licensing",
+        "body": "mazaaj cafe is registered with the General Federation of Trade Unions in Iraq, certificate No. 173."
+      },
+      {
+        "heading": "Orders & Delivery",
+        "body": "Orders placed through the site are sent as an initial request via WhatsApp and must be confirmed by our team before being final. Prices and available items are subject to change, and delivery times and areas depend on our current capacity."
+      },
+      {
+        "heading": "Job Applications",
+        "body": "Submitting a job application through the site does not guarantee an interview or employment. We review applications and reach out only to candidates who fit our current openings."
+      },
+      {
+        "heading": "Your Responsibility",
+        "body": "You agree to provide accurate information when placing an order, applying for a job, or submitting a suggestion, and you are responsible for the accuracy of what you submit."
+      },
+      {
+        "heading": "Intellectual Property",
+        "body": "The site's content, design, and the mazaaj logo belong to us and may not be reused without prior permission."
+      },
+      {
+        "heading": "External Links",
+        "body": "The site links to third-party services (such as Google Maps, WhatsApp, and social media platforms). We are not responsible for the content or practices of these services."
+      },
+      {
+        "heading": "Limitation of Liability",
+        "body": "We make reasonable efforts to keep the information on this site accurate, but we are not liable for delays or errors beyond our control."
+      },
+      {
+        "heading": "Changes to These Terms",
+        "body": "We may update these terms from time to time; the last-updated date at the top of this page will always reflect the most recent version."
+      },
+      {
+        "heading": "Contact",
+        "body": "For any questions about these terms, contact us via WhatsApp or visit us in Ramadi, Al Anbar."
+      }
+    ]
+  },
+  "suggestions": {
+    "footerLabel": "Share Your Suggestion",
+    "heading": "We'd Love to Hear From You",
+    "subheading": "Help us improve our services with your suggestion",
+    "typeLabel": "Suggestion Type",
+    "types": {
+      "bug": "Report a Bug",
+      "uiImprovement": "Improve the Interface",
+      "newFeature": "Add a Feature",
+      "poorService": "Poor Service",
+      "inquiry": "Inquiry",
+      "compliment": "Compliment",
+      "other": "Other"
+    },
+    "messageLabel": "Suggestion Details",
+    "messagePlaceholder": "Write your suggestion or issue here..",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "thanksTitle": "Thank You!",
+    "thanksMessage": "We've received your suggestion and will take it into consideration.",
+    "errorMessage": "Something went wrong submitting this. Please try again."
   }
 }
