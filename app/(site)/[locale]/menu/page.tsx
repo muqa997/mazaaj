@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { motion } from "framer-motion";
-import { Plus, Minus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Coffee, Cake, Wind, ArrowLeft } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { placeholderMenu, type MenuItem } from "@/lib/placeholder-menu";
-import { useCart } from "@/lib/cart-context";
+
+const categoryIcons: Record<MenuItem["category"], typeof Coffee> = {
+  coffee: Coffee,
+  desserts: Cake,
+  shisha: Wind,
+};
 
 const categories: MenuItem["category"][] = ["coffee", "desserts", "shisha"];
 
-export default function MenuPage() {
-  const t = useTranslations("menuPage");
+export default function MenuDisplayPage() {
+  const t = useTranslations("interactiveMenu");
   const locale = useLocale() as "ar" | "en";
-  const { items, addItem, updateQty } = useCart();
   const [activeCategory, setActiveCategory] = useState<MenuItem["category"]>(
     "coffee"
   );
@@ -32,79 +37,60 @@ export default function MenuPage() {
         </p>
 
         <div className="mb-8 flex gap-2 overflow-x-auto">
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
-                activeCategory === category
-                  ? "bg-primary text-background"
-                  : "bg-primary/5 text-primary/60"
-              }`}
-            >
-              {t(`categories.${category}`)}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {visibleItems.map((menuItem) => {
-            const cartItem = items.find((i) => i.id === menuItem.id);
-
+          {categories.map((category) => {
+            const Icon = categoryIcons[category];
             return (
-              <motion.div
-                key={menuItem.id}
-                layout
-                className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background p-4 shadow-glass"
+              <button
+                key={category}
+                type="button"
+                onClick={() => setActiveCategory(category)}
+                className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
+                  activeCategory === category
+                    ? "bg-primary text-background"
+                    : "bg-primary/5 text-primary/60"
+                }`}
               >
-                <div>
-                  <p className="font-semibold text-primary">
-                    {menuItem.name[locale]}
-                  </p>
-                  <p className="text-sm text-primary/50">
-                    {menuItem.price.toLocaleString()} {t("currency")}
-                  </p>
-                </div>
-
-                {cartItem ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateQty(menuItem.id, cartItem.qty - 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5 active:scale-90"
-                    >
-                      <Minus size={14} className="text-primary/70" />
-                    </button>
-                    <span className="w-4 text-center text-sm font-semibold text-primary">
-                      {cartItem.qty}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => updateQty(menuItem.id, cartItem.qty + 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5 active:scale-90"
-                    >
-                      <Plus size={14} className="text-primary/70" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      addItem({
-                        id: menuItem.id,
-                        name: menuItem.name[locale],
-                        price: menuItem.price,
-                      })
-                    }
-                    className="rounded-full bg-accent/15 px-4 py-2 text-xs font-semibold text-primary active:scale-95"
-                  >
-                    {t("addToCart")}
-                  </button>
-                )}
-              </motion.div>
+                <Icon size={16} strokeWidth={1.8} />
+                {t(`categories.${category}`)}
+              </button>
             );
           })}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeCategory}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+          >
+            {visibleItems.map((menuItem) => (
+              <div
+                key={menuItem.id}
+                className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background p-5 shadow-glass"
+              >
+                <p className="font-semibold text-primary">
+                  {menuItem.name[locale]}
+                </p>
+                <p className="text-sm font-semibold text-accent">
+                  {menuItem.price.toLocaleString()} {t("currency")}
+                </p>
+              </div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="mt-12 flex flex-col items-center gap-3 rounded-3xl border border-primary/10 bg-primary/[0.03] px-6 py-8 text-center">
+          <p className="text-sm text-primary/60">{t("orderCta")}</p>
+          <Link
+            href="/order"
+            className="flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 text-sm font-semibold text-background shadow-glass"
+          >
+            {t("orderCtaButton")}
+            <ArrowLeft size={16} className="ltr:rotate-180" />
+          </Link>
         </div>
       </div>
     </div>

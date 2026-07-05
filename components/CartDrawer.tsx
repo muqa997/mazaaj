@@ -105,7 +105,7 @@ export default function CartDrawer() {
                   </span>
                 </div>
                 <Link
-                  href="/order"
+                  href="/order/checkout"
                   onClick={closeDrawer}
                   className="flex w-full items-center justify-center rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-background shadow-glass"
                 >

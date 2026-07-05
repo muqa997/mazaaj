@@ -1,6 +1,7 @@
 -- ============================================================
 -- كافيه مزاج — إعداد قاعدة البيانات الكاملة
--- الصق هذا الملف كامل بمحرر SQL بمشروع Supabase (SQL Editor) وشغّله مرة وحدة
+-- الصق هذا الملف كامل بمحرر SQL بمشروع Supabase (SQL Editor) وشغّله
+-- هذا الملف آمن لإعادة التشغيل أكثر من مرة (لن يكرر الجداول أو الصلاحيات)
 -- ============================================================
 
 -- طلبات التوظيف (من صفحة /careers)
@@ -16,6 +17,7 @@ create table if not exists job_applications (
 
 alter table job_applications enable row level security;
 
+drop policy if exists "Allow public insert" on job_applications;
 create policy "Allow public insert" on job_applications
   for insert to anon with check (true);
 
@@ -33,17 +35,20 @@ create table if not exists job_openings (
 
 alter table job_openings enable row level security;
 
+drop policy if exists "Allow public read of active jobs" on job_openings;
 create policy "Allow public read of active jobs" on job_openings
   for select to anon using (is_active = true);
 
--- الوظيفة الحالية كأول صف بالجدول
+-- الوظيفة الحالية كأول صف بالجدول (تُضاف فقط إذا لم تكن موجودة)
 insert into job_openings (position_key, title_ar, title_en, description_ar, description_en)
-values (
+select
   'billiardsStaff',
   'موظف صالة بلياردو',
   'Billiards Hall Staff',
   'يجيد إدارة الطاولات وتنظيم الحجوزات، مع أسلوب لبق وحسن التعامل مع الزبائن. لديه معرفة تامة بقواعد لعبة البلياردو.',
   'Skilled in managing billiards tables and organizing reservations, with a polished manner and excellent customer service. Has thorough knowledge of the rules of billiards.'
+where not exists (
+  select 1 from job_openings where position_key = 'billiardsStaff'
 );
 
 -- طلبات التوصيل (من صفحة /order — تُرسل عبر واتساب وتُحفظ هنا للسجل والإحصائيات)
@@ -61,6 +66,7 @@ create table if not exists orders (
 
 alter table orders enable row level security;
 
+drop policy if exists "Allow public insert" on orders;
 create policy "Allow public insert" on orders
   for insert to anon with check (true);
 
@@ -69,6 +75,7 @@ insert into storage.buckets (id, name, public)
 values ('cvs', 'cvs', false)
 on conflict (id) do nothing;
 
+drop policy if exists "Allow public upload to cvs" on storage.objects;
 create policy "Allow public upload to cvs" on storage.objects
   for insert to anon with check (bucket_id = 'cvs');
 
@@ -82,6 +89,7 @@ create table if not exists suggestions (
 
 alter table suggestions enable row level security;
 
+drop policy if exists "Allow public insert" on suggestions;
 create policy "Allow public insert" on suggestions
   for insert to anon with check (true);
 

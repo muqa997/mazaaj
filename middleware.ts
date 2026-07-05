@@ -10,10 +10,18 @@ const adminRoute = process.env.ADMIN_ROUTE;
 const ADMIN_INTERNAL_PATH = "/panel";
 const ADMIN_GATE_COOKIE = "mz_admin_gate";
 
+// يتحقق من المسار السري سواء كُتب مباشرة (/xxxxx) أو مع بادئة لغة (/ar/xxxxx، /en/xxxxx) —
+// لأن المستخدم قد يكتب الرابط وهو أصلاً على صفحة بلغة معينة فتُضاف بادئتها تلقائياً
+function matchesAdminRoute(pathname: string, adminRoute: string) {
+  const locales = routing.locales.join("|");
+  const pattern = new RegExp(`^/(?:(?:${locales})/)?${adminRoute}(?:/.*)?$`);
+  return pattern.test(pathname);
+}
+
 export default function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  if (adminRoute && pathname.startsWith(`/${adminRoute}`)) {
+  if (adminRoute && matchesAdminRoute(pathname, adminRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = ADMIN_INTERNAL_PATH;
 

@@ -72,6 +72,19 @@
     "currency": "IQD",
     "placeholderNote": "These are placeholder items for now — they'll be replaced with the real menu"
   },
+  "interactiveMenu": {
+    "title": "Menu",
+    "subtitle": "Browse our full menu in detail",
+    "categories": {
+      "coffee": "Coffee",
+      "desserts": "Desserts",
+      "shisha": "Shisha"
+    },
+    "currency": "IQD",
+    "placeholderNote": "These are placeholder items for now — they'll be replaced with the real menu and photos soon",
+    "orderCta": "Want to order online?",
+    "orderCtaButton": "Order Now"
+  },
   "cart": {
     "title": "Your Cart",
     "empty": "Your cart is currently empty",
@@ -149,7 +162,7 @@
       },
       {
         "heading": "How We Store Your Data",
-        "body": "Information you send us is stored securely using Supabase, and is only accessible to authorized mazaaj staff through a protected internal dashboard."
+        "body": "Information you send us is stored securely with a trusted data hosting platform, and is only accessible to authorized mazaaj cafe staff."
       },
       {
         "heading": "Your Rights",
@@ -192,8 +205,16 @@
         "body": "Submitting a job application through the site does not guarantee an interview or employment. We review applications and reach out only to candidates who fit our current openings."
       },
       {
+        "heading": "Minimum Age & Entry to the Cafe",
+        "body": "Entry to mazaaj cafe is restricted to guests aged 18 and older, in accordance with the directives of Iraq's Tourism Police Directorate. We reserve the full right to refuse entry or service to anyone unable to prove they meet this age requirement."
+      },
+      {
         "heading": "Your Responsibility",
         "body": "You agree to provide accurate information when placing an order, applying for a job, or submitting a suggestion, and you are responsible for the accuracy of what you submit."
+      },
+      {
+        "heading": "Unlawful Use & Damage to the Site",
+        "body": "Any attempt to hack, tamper with, or damage the site's content or technical systems in any way is strictly prohibited. Any deliberate attempt at damage, tampering, or unauthorized access will expose the responsible party to legal accountability and prosecution under applicable Iraqi law, including the Iraqi Penal Code and the Cybercrime Law."
       },
       {
         "heading": "Intellectual Property",
@@ -202,6 +223,10 @@
       {
         "heading": "External Links",
         "body": "The site links to third-party services (such as Google Maps, WhatsApp, and social media platforms). We are not responsible for the content or practices of these services."
+      },
+      {
+        "heading": "Disclaimer",
+        "body": "This site's content is provided \"as is\" without warranties of any kind, express or implied, as to its complete accuracy or freedom from error. Your use of the site and any information on it is at your own risk, and we are not liable for any direct or indirect damages arising from use of the site or reliance on its content."
       },
       {
         "heading": "Limitation of Liability",

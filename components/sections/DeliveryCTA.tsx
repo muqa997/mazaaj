@@ -15,7 +15,7 @@ export default function DeliveryCTA() {
         variants={fadeUp}
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.4 }}
+        viewport={{ once: true, amount: 0.2 }}
         className="mx-auto flex max-w-2xl flex-col items-center rounded-4xl border border-primary/10 bg-primary/[0.03] px-8 py-14 text-center"
       >
         <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent/15">
@@ -31,9 +31,9 @@ export default function DeliveryCTA() {
           {t("description")}
         </p>
 
-        <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }}>
+        <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }} transition={{ duration: 0.15 }}>
           <Link
-            href="/menu"
+            href="/order"
             className="flex items-center gap-2 rounded-full bg-primary px-8 py-4 font-semibold text-background shadow-glass"
           >
             {t("cta")}

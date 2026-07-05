@@ -19,7 +19,7 @@ export default function GameLounge() {
         variants={fadeUp}
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.4 }}
+        viewport={{ once: true, amount: 0.2 }}
         className="relative z-10 mx-auto flex max-w-2xl flex-col items-center text-center"
       >
         <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent/15">
@@ -33,7 +33,7 @@ export default function GameLounge() {
           {t("description")}
         </p>
 
-        <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }}>
+        <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }} transition={{ duration: 0.15 }}>
           <a
             href="#contact"
             className="flex items-center gap-2 rounded-full border-2 border-accent px-8 py-4 font-semibold text-background"

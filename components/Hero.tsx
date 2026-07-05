@@ -8,16 +8,16 @@ import { Link } from "@/i18n/navigation";
 const container: Variants = {
   hidden: {},
   show: {
-    transition: { staggerChildren: 0.15, delayChildren: 0.15 },
+    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
   },
 };
 
 const item: Variants = {
-  hidden: { opacity: 0, y: 22 },
+  hidden: { opacity: 0, y: 12 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
   },
 };
 
@@ -26,9 +26,12 @@ export default function Hero() {
 
   return (
     <section className="relative flex min-h-[calc(100dvh-64px)] flex-col items-center justify-center overflow-hidden px-6 text-center">
-      {/* عناصر خلفية زخرفية مضببة */}
+      {/* خلفية الهيرو: مكان مخصص لصورة حقيقية لاحقاً (public/images/hero) —
+          حالياً تدرّج وتوهجات زخرفية بديلة عن الصورة */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgb(var(--color-accent)/0.08),transparent_60%)]" />
       <div className="pointer-events-none absolute -top-20 -end-20 h-72 w-72 rounded-full bg-accent/20 blur-[100px]" />
       <div className="pointer-events-none absolute -bottom-28 -start-20 h-80 w-80 rounded-full bg-primary/10 blur-[110px]" />
+      <div className="pointer-events-none absolute top-1/3 start-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-accent/10 blur-[90px]" />
 
       <motion.div
         variants={container}
@@ -63,7 +66,12 @@ export default function Hero() {
           variants={item}
           className="flex w-full flex-col items-center gap-4 sm:w-auto sm:flex-row"
         >
-          <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }} className="w-full sm:w-auto">
+          <motion.div
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.03 }}
+            transition={{ duration: 0.15 }}
+            className="w-full sm:w-auto"
+          >
             <Link
               href="/menu"
               className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 font-semibold text-background shadow-glass-lg sm:w-auto"
@@ -73,7 +81,12 @@ export default function Hero() {
             </Link>
           </motion.div>
 
-          <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }} className="w-full sm:w-auto">
+          <motion.div
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.03 }}
+            transition={{ duration: 0.15 }}
+            className="w-full sm:w-auto"
+          >
             <Link
               href="/order"
               className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-accent px-8 py-4 font-semibold text-primary sm:w-auto"

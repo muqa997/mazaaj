@@ -61,21 +61,21 @@ export default function SuggestionModal({ label }: { label: string }) {
 
       <AnimatePresence>
         {isOpen && (
-          <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={close}
-              className="fixed inset-0 z-[70] bg-primary/30 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              className="fixed inset-x-5 top-1/2 z-[80] max-w-md -translate-y-1/2 rounded-3xl bg-background p-6 shadow-glass-lg sm:inset-x-auto sm:start-1/2 sm:-translate-x-1/2"
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-primary/30 p-5 backdrop-blur-sm"
             >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 320, damping: 32 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-background p-6 shadow-glass-lg"
+              >
               <button
                 type="button"
                 onClick={close}
@@ -155,8 +155,8 @@ export default function SuggestionModal({ label }: { label: string }) {
                   </button>
                 </form>
               )}
+              </motion.div>
             </motion.div>
-          </>
         )}
       </AnimatePresence>
     </>

@@ -22,7 +22,7 @@ export default function MenuPreview() {
         variants={fadeUp}
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.4 }}
+        viewport={{ once: true, amount: 0.2 }}
         className="mx-auto flex max-w-2xl flex-col items-center text-center"
       >
         <span className="mb-3 text-sm font-semibold tracking-[0.3em] text-accent">
@@ -47,7 +47,7 @@ export default function MenuPreview() {
           ))}
         </div>
 
-        <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }}>
+        <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }} transition={{ duration: 0.15 }}>
           <Link
             href="/menu"
             className="flex items-center gap-2 rounded-full bg-primary px-8 py-4 font-semibold text-background shadow-glass"

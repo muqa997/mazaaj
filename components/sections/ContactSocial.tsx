@@ -17,7 +17,7 @@ export default function ContactSocial() {
         variants={fadeUp}
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.4 }}
+        viewport={{ once: true, amount: 0.2 }}
         className="mx-auto flex max-w-2xl flex-col items-center text-center"
       >
         <span className="mb-3 text-sm font-semibold tracking-[0.3em] text-accent">
