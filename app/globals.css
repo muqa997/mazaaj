@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* عاجي/كريمي دافئ */
+  --color-background: 250 247 242;
+  /* بني شوكولاتي داكن */
+  --color-primary: 61 40 28;
+  /* ذهبي دافئ */
+  --color-accent: 195 162 119;
+}
+
+.dark {
+  /* بني غامق قريب من الأسود */
+  --color-background: 26 18 14;
+  /* كريمي فاتح يستخدم كنص بالوضع الداكن */
+  --color-primary: 240 231 221;
+  /* ذهبي أفتح شوي ليبرز فوق الخلفية الغامقة */
+  --color-accent: 214 178 122;
+}
+
+html,
+body {
+  /* منع تأثير الـ double-tap zoom المزعج في الآيفون */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
+body {
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-primary));
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family:
+    var(--font-cairo),
+    var(--font-alexandria),
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "SF Pro Display",
+    "Segoe UI",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* إخفاء شريط التمرير تماماً لإحساس التطبيق الأصلي */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* مساحات آمنة (Safe Area) لأجهزة آيفون */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+/* منع تحديد النص عند الضغط المطول على الأزرار وعناصر التنقل */
+button,
+a {
+  -webkit-touch-callout: none;
+}

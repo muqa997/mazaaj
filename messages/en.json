@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "menu": "Menu",
+    "gameLounge": "Game Lounge",
+    "delivery": "Delivery",
+    "contact": "Contact",
+    "orderNow": "Order Now"
+  },
+  "hero": {
+    "eyebrow": "mazaaj",
+    "titleLine1": "Every Mood",
+    "titleLine2": "Has Its Floor",
+    "subtitle": "A quiet floor to hold your thoughts, and a lively one to spark your night. Pick your vibe, and let the first sip do the rest.",
+    "browseMenu": "Browse Menu",
+    "orderNow": "Order Now"
+  },
+  "about": {
+    "description": "At mazaaj, we craft an experience that fits every detail of your day. With outstanding service and quality we take pride in, we bring you a captivating blend of specialty coffee and refreshing drinks. Whether you're seeking calm and comfort on our VIP floor, or crave the excitement of game nights and match days on our games floor, we're always here to set your mood — with passion."
+  },
+  "menuPreview": {
+    "eyebrow": "Menu",
+    "title": "Flavors For Every Mood",
+    "description": "Specialty coffee, premium desserts, and shisha in a variety of flavors — all waiting for you.",
+    "cta": "See Full Menu"
+  },
+  "gameLounge": {
+    "eyebrow": "Second Floor",
+    "title": "Game Lounge",
+    "description": "Head upstairs to a whole different world — a fully equipped game lounge for a great time with your friends, alongside the same relaxed atmosphere and top-notch service.",
+    "cta": "Learn More"
+  },
+  "delivery": {
+    "eyebrow": "Delivery",
+    "title": "Your Mood, Delivered",
+    "description": "Your favorite coffee, desserts, and shisha — order from wherever you are and we'll deliver in no time.",
+    "cta": "Order Delivery"
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Visit Us or Follow Along",
+    "addressLabel": "Location",
+    "address": "Al Anbar - Ramadi - Haji Ziyad Roundabout - beginning of Omar Street",
+    "hoursLabel": "Opening Hours",
+    "hours": "Daily 10 AM - 1 AM, Friday 2 PM - 2 AM",
+    "getDirections": "Get Directions",
+    "socialLabel": "Follow Us"
+  },
+  "footer": {
+    "tagline": "Every mood, its own floor.",
+    "quickLinksTitle": "Quick Links",
+    "contactTitle": "Contact",
+    "contactPhoneLabel": "For contact or inquiries",
+    "settingsTitle": "Settings",
+    "rights": "All rights reserved"
+  },
+  "menuPage": {
+    "title": "Menu",
+    "subtitle": "Browse our full menu and add your order to the cart",
+    "categories": {
+      "coffee": "Coffee",
+      "desserts": "Desserts",
+      "shisha": "Shisha"
+    },
+    "addToCart": "Add to Cart",
+    "currency": "IQD",
+    "placeholderNote": "These are placeholder items for now — they'll be replaced with the real menu"
+  },
+  "cart": {
+    "title": "Your Cart",
+    "empty": "Your cart is currently empty",
+    "total": "Total",
+    "checkout": "Checkout",
+    "remove": "Remove",
+    "viewCart": "View Cart"
+  },
+  "checkout": {
+    "title": "Order Details",
+    "subtitle": "Fill in your details and your order will be sent via WhatsApp to confirm",
+    "name": "Name",
+    "namePlaceholder": "Your name",
+    "phone": "Phone Number",
+    "phonePlaceholder": "07xxxxxxxxx",
+    "address": "Delivery Address",
+    "addressPlaceholder": "Area, nearest landmark",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Any special requests?",
+    "submit": "Send Order via WhatsApp",
+    "orderSummary": "Order Summary"
+  }
+}
