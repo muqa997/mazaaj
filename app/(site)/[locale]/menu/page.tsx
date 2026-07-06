@@ -3,58 +3,46 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coffee, Cake, Wind, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { placeholderMenu, type MenuItem } from "@/lib/placeholder-menu";
+import { menuData, MENU_CATEGORIES, type MenuCategory, type ShishaBase } from "@/lib/menu-data";
 
-const categoryIcons: Record<MenuItem["category"], typeof Coffee> = {
-  coffee: Coffee,
-  desserts: Cake,
-  shisha: Wind,
-};
-
-const categories: MenuItem["category"][] = ["coffee", "desserts", "shisha"];
+const SHISHA_BASES: ShishaBase[] = ["wood", "bubble", "natural"];
 
 export default function MenuDisplayPage() {
   const t = useTranslations("interactiveMenu");
+  const tBase = useTranslations("shishaBase");
   const locale = useLocale() as "ar" | "en";
-  const [activeCategory, setActiveCategory] = useState<MenuItem["category"]>(
-    "coffee"
+  const [activeCategory, setActiveCategory] = useState<MenuCategory>(
+    MENU_CATEGORIES[0]
   );
 
-  const visibleItems = placeholderMenu.filter(
-    (item) => item.category === activeCategory
-  );
+  const visibleItems = menuData.filter((item) => item.category === activeCategory);
 
   return (
-    <div className="px-6 py-10">
+    <div
+      className="min-h-screen bg-background px-6 pb-10"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 1.5rem)" }}
+    >
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-2 text-3xl font-extrabold text-primary">{t("title")}</h1>
-        <p className="mb-4 text-sm text-primary/50">{t("subtitle")}</p>
+        <p className="mb-8 text-sm text-primary/50">{t("subtitle")}</p>
 
-        <p className="mb-8 rounded-xl bg-accent/10 px-4 py-3 text-xs text-primary/60">
-          {t("placeholderNote")}
-        </p>
-
-        <div className="mb-8 flex gap-2 overflow-x-auto">
-          {categories.map((category) => {
-            const Icon = categoryIcons[category];
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setActiveCategory(category)}
-                className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
-                  activeCategory === category
-                    ? "bg-primary text-background"
-                    : "bg-primary/5 text-primary/60"
-                }`}
-              >
-                <Icon size={16} strokeWidth={1.8} />
-                {t(`categories.${category}`)}
-              </button>
-            );
-          })}
+        <div className="mb-8 flex gap-2 overflow-x-auto pb-1">
+          {MENU_CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => setActiveCategory(category)}
+              className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
+                activeCategory === category
+                  ? "bg-primary text-background"
+                  : "bg-primary/5 text-primary/60"
+              }`}
+            >
+              {t(`categories.${category}`)}
+            </button>
+          ))}
         </div>
 
         <AnimatePresence mode="wait">
@@ -69,14 +57,28 @@ export default function MenuDisplayPage() {
             {visibleItems.map((menuItem) => (
               <div
                 key={menuItem.id}
-                className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background p-5 shadow-glass"
+                className="flex flex-col gap-2 rounded-2xl border border-primary/10 bg-background p-5 shadow-glass"
               >
                 <p className="font-semibold text-primary">
                   {menuItem.name[locale]}
                 </p>
-                <p className="text-sm font-semibold text-accent">
-                  {menuItem.price.toLocaleString()} {t("currency")}
-                </p>
+
+                {menuItem.category === "shisha" ? (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {SHISHA_BASES.map((base) => (
+                      <p key={base} className="text-xs text-primary/50">
+                        {tBase(base)}:{" "}
+                        <span className="font-semibold text-accent">
+                          {menuItem.basePrices[base].toLocaleString()} {t("currency")}
+                        </span>
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-accent">
+                    {menuItem.price.toLocaleString()} {t("currency")}
+                  </p>
+                )}
               </div>
             ))}
           </motion.div>

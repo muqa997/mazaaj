@@ -64,26 +64,51 @@
     "title": "المنيو",
     "subtitle": "تصفح قائمتنا الكاملة وأضف طلبك للسلة",
     "categories": {
-      "coffee": "قهوة",
+      "coffeeClassic": "قهوة سادة",
+      "coffeeHot": "قهوة ساخنة",
+      "coffeeCold": "قهوة باردة",
+      "frappuccino": "فرابتشينو",
+      "hotChocolate": "هوت شوكليت",
+      "icedChocolate": "آيس شوكليت",
+      "milkshake": "ميلك شيك",
+      "tea": "شاي",
+      "mojito": "موهيتو",
+      "mexican": "مكسيكي",
+      "smoothie": "سموذي",
+      "juice": "عصائر طبيعية",
       "desserts": "حلويات",
       "shisha": "أراجيل"
     },
     "addToCart": "أضف للسلة",
-    "currency": "د.ع",
-    "placeholderNote": "هذه عناصر مبدئية للعرض، سيتم استبدالها بالمنيو الفعلي"
+    "currency": "د.ع"
   },
   "interactiveMenu": {
     "title": "المنيو",
     "subtitle": "تصفح قائمتنا بكل تفاصيلها",
     "categories": {
-      "coffee": "قهوة",
+      "coffeeClassic": "قهوة سادة",
+      "coffeeHot": "قهوة ساخنة",
+      "coffeeCold": "قهوة باردة",
+      "frappuccino": "فرابتشينو",
+      "hotChocolate": "هوت شوكليت",
+      "icedChocolate": "آيس شوكليت",
+      "milkshake": "ميلك شيك",
+      "tea": "شاي",
+      "mojito": "موهيتو",
+      "mexican": "مكسيكي",
+      "smoothie": "سموذي",
+      "juice": "عصائر طبيعية",
       "desserts": "حلويات",
       "shisha": "أراجيل"
     },
     "currency": "د.ع",
-    "placeholderNote": "هذه عناصر مبدئية للعرض، سيتم استبدالها بالمنيو الفعلي وصوره الحقيقية قريباً",
     "orderCta": "تريد الطلب أونلاين؟",
     "orderCtaButton": "اطلب الآن"
+  },
+  "shishaBase": {
+    "wood": "خشب",
+    "bubble": "بابلي",
+    "natural": "طبيعي"
   },
   "cart": {
     "title": "سلتك",
@@ -105,7 +130,8 @@
     "notes": "ملاحظات (اختياري)",
     "notesPlaceholder": "أي طلبات إضافية؟",
     "submit": "إرسال الطلب عبر واتساب",
-    "orderSummary": "ملخص الطلب"
+    "orderSummary": "ملخص الطلب",
+    "paymentMethodNote": "طريقة الدفع: نقدي عند الاستلام"
   },
   "careers": {
     "navLabel": "الوظائف",

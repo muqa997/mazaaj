@@ -36,6 +36,7 @@ export default function CheckoutPage() {
       ),
       ``,
       `الإجمالي: ${total.toLocaleString()} ${tMenu("currency")}`,
+      `طريقة الدفع: نقدي عند الاستلام`,
     ].filter(Boolean);
 
     return encodeURIComponent(lines.join("\n"));
@@ -170,6 +171,10 @@ export default function CheckoutPage() {
               className="w-full resize-none rounded-xl border border-primary/15 bg-background px-4 py-3 text-sm text-primary outline-none focus:border-accent"
             />
           </div>
+
+          <p className="text-center text-xs font-semibold text-primary/50">
+            {t("paymentMethodNote")}
+          </p>
 
           <button
             type="submit"

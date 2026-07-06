@@ -64,26 +64,51 @@
     "title": "Menu",
     "subtitle": "Browse our full menu and add your order to the cart",
     "categories": {
-      "coffee": "Coffee",
+      "coffeeClassic": "Classic Coffee",
+      "coffeeHot": "Hot Coffee",
+      "coffeeCold": "Cold Coffee",
+      "frappuccino": "Frappuccino",
+      "hotChocolate": "Hot Chocolate",
+      "icedChocolate": "Iced Chocolate",
+      "milkshake": "Milkshake",
+      "tea": "Tea",
+      "mojito": "Mojito",
+      "mexican": "Mexican",
+      "smoothie": "Smoothie",
+      "juice": "Natural Juices",
       "desserts": "Desserts",
       "shisha": "Shisha"
     },
     "addToCart": "Add to Cart",
-    "currency": "IQD",
-    "placeholderNote": "These are placeholder items for now — they'll be replaced with the real menu"
+    "currency": "IQD"
   },
   "interactiveMenu": {
     "title": "Menu",
     "subtitle": "Browse our full menu in detail",
     "categories": {
-      "coffee": "Coffee",
+      "coffeeClassic": "Classic Coffee",
+      "coffeeHot": "Hot Coffee",
+      "coffeeCold": "Cold Coffee",
+      "frappuccino": "Frappuccino",
+      "hotChocolate": "Hot Chocolate",
+      "icedChocolate": "Iced Chocolate",
+      "milkshake": "Milkshake",
+      "tea": "Tea",
+      "mojito": "Mojito",
+      "mexican": "Mexican",
+      "smoothie": "Smoothie",
+      "juice": "Natural Juices",
       "desserts": "Desserts",
       "shisha": "Shisha"
     },
     "currency": "IQD",
-    "placeholderNote": "These are placeholder items for now — they'll be replaced with the real menu and photos soon",
     "orderCta": "Want to order online?",
     "orderCtaButton": "Order Now"
+  },
+  "shishaBase": {
+    "wood": "Wood",
+    "bubble": "Bubble",
+    "natural": "Natural"
   },
   "cart": {
     "title": "Your Cart",
@@ -105,7 +130,8 @@
     "notes": "Notes (optional)",
     "notesPlaceholder": "Any special requests?",
     "submit": "Send Order via WhatsApp",
-    "orderSummary": "Order Summary"
+    "orderSummary": "Order Summary",
+    "paymentMethodNote": "Payment method: Cash on delivery"
   },
   "careers": {
     "navLabel": "Careers",
