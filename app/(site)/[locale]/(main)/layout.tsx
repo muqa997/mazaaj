@@ -16,7 +16,13 @@ export default async function MainLayout({
 
   return (
     <CartProvider>
-      <div className="fixed inset-x-0 top-0 z-50 pt-safe">
+      {/* transform/will-change يجبران المتصفح على طبقة تركيب منفصلة لهذا الشريط —
+          بدونها، بعض متصفحات الجوال (خصوصاً مع تأثير backdrop-blur بالهيدر) تُظهر
+          الشريط الثابت وكأنه يتحرك مع الصفحة أثناء التمرير قبل أن "يقفز" لمكانه الصحيح */}
+      <div
+        className="fixed inset-x-0 top-0 z-50 pt-safe will-change-transform"
+        style={{ transform: "translateZ(0)" }}
+      >
         <Navbar />
         <AnnouncementBar />
       </div>
