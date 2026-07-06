@@ -3,6 +3,12 @@
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ADMIN_COOKIE_NAME, createSessionToken, verifySessionToken } from "@/lib/admin-session";
+import type { OrderRow, OrderStatus } from "@/lib/orders";
+import type { PromoKey, PromoRow } from "@/lib/promos";
+import type { MenuCategory } from "@/lib/menu-data";
+
+export type { OrderRow, OrderStatus };
+export type { PromoKey, PromoRow };
 
 export async function login(code: string): Promise<{ success: boolean }> {
   const expected = process.env.ADMIN_ACCESS_CODE;
@@ -63,18 +69,6 @@ function toArabicError(error: { message: string } | null): string | null {
   return "حدث خطأ أثناء الحفظ، الرجاء المحاولة مرة أخرى.";
 }
 
-export type OrderRow = {
-  id: string;
-  customer_name: string;
-  phone: string;
-  address: string;
-  notes: string | null;
-  items: { name: string; price: number; qty: number }[];
-  total: number;
-  status: string;
-  created_at: string;
-};
-
 export async function getOrders(): Promise<OrderRow[]> {
   requireSession();
   if (!supabaseAdmin) return [];
@@ -88,8 +82,6 @@ export async function getOrders(): Promise<OrderRow[]> {
   }
   return data ?? [];
 }
-
-export type OrderStatus = "new" | "confirmed" | "delivered" | "cancelled";
 
 export async function updateOrderStatus(id: string, status: OrderStatus) {
   requireSession();
@@ -297,5 +289,59 @@ export async function updateAnnouncement(
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("announcements").update(input).eq("id", id);
+  return { error: toArabicError(error) };
+}
+
+export async function getHomePromos(): Promise<PromoRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("home_promos")
+    .select("key, image_url, target_category");
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as PromoRow[];
+}
+
+export async function updatePromoTarget(key: PromoKey, target_category: MenuCategory | null) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("home_promos")
+    .update({ target_category })
+    .eq("key", key);
+  return { error: toArabicError(error) };
+}
+
+// نخزّن الصورة بمسار ثابت لكل قسم (بدون امتداد بالاسم، الامتداد غير مهم لأن نوع
+// المحتوى يُحدَّد صراحةً بـ contentType) — هذا يستبدل الصورة القديمة تلقائياً بدل
+// تراكم ملفات يتيمة، ونضيف رقم إصدار بنهاية الرابط لتفادي تخزين المتصفح المؤقت
+export async function uploadPromoImage(key: PromoKey, formData: FormData) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "لم يتم اختيار صورة" };
+  }
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("promos")
+    .upload(key, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) {
+    return { error: toArabicError(uploadError) };
+  }
+
+  const { data: publicUrlData } = supabaseAdmin.storage.from("promos").getPublicUrl(key);
+  const imageUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+  const { error } = await supabaseAdmin
+    .from("home_promos")
+    .update({ image_url: imageUrl })
+    .eq("key", key);
+
   return { error: toArabicError(error) };
 }

@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Plus, Minus, Flame, Snowflake, CakeSlice, Wind, type LucideIcon } from "lucide-react";
 import {
   menuData,
+  MENU_CATEGORIES,
+  MENU_GROUPS as MENU_GROUP_CATEGORIES,
+  getGroupKeyForCategory,
   type MenuCategory,
+  type MenuGroupKey,
   type MenuItem,
   type ShishaBase,
 } from "@/lib/menu-data";
@@ -14,41 +19,15 @@ import { useCart } from "@/lib/cart-context";
 
 const SHISHA_BASES: ShishaBase[] = ["wood", "bubble", "natural"];
 
-const MENU_GROUPS: { key: string; icon: LucideIcon; categories: MenuCategory[] }[] = [
-  {
-    key: "hot",
-    icon: Flame,
-    categories: ["coffeeClassic", "coffeeHot", "tea", "hotChocolate"],
-  },
-  {
-    key: "cold",
-    icon: Snowflake,
-    categories: [
-      "coffeeCold",
-      "icedChocolate",
-      "frappuccino",
-      "milkshake",
-      "mojito",
-      "mexican",
-      "smoothie",
-      "juice",
-      "soda",
-    ],
-  },
-  {
-    key: "desserts",
-    icon: CakeSlice,
-    categories: [
-      "dessertsCrepe",
-      "dessertsCold",
-      "dessertsFettuccine",
-      "dessertsCrepeRoll",
-      "dessertsMiniPancake",
-      "dessertsWaffle",
-    ],
-  },
-  { key: "shisha", icon: Wind, categories: ["shisha"] },
-];
+const GROUP_ICONS: Record<MenuGroupKey, LucideIcon> = {
+  hot: Flame,
+  cold: Snowflake,
+  desserts: CakeSlice,
+  shisha: Wind,
+};
+
+const MENU_GROUPS: { key: MenuGroupKey; icon: LucideIcon; categories: MenuCategory[] }[] =
+  MENU_GROUP_CATEGORIES.map((g) => ({ ...g, icon: GROUP_ICONS[g.key] }));
 
 function QtyControl({
   qty,
@@ -196,19 +175,35 @@ function ShishaItemCard({
   );
 }
 
-export default function OrderMenuPage() {
+// يقرأ باراميتر ?category= بالرابط (مصدره أزرار "اطلب الآن"/"اطلب العرض" بالصفحة
+// الرئيسية) ليحدد المجموعة والقسم الابتدائيين بدل الافتراضي، إن كان القسم صالحاً
+function useInitialCategory(): MenuCategory | null {
+  const searchParams = useSearchParams();
+  const requested = searchParams.get("category");
+  if (requested && (MENU_CATEGORIES as string[]).includes(requested)) {
+    return requested as MenuCategory;
+  }
+  return null;
+}
+
+function OrderMenuPageContent() {
   const t = useTranslations("menuPage");
   const tGroups = useTranslations("menuPage.groups");
   const locale = useLocale() as "ar" | "en";
 
-  const [activeGroupKey, setActiveGroupKey] = useState(MENU_GROUPS[0].key);
+  const initialCategory = useInitialCategory();
+  const initialGroupKey = initialCategory
+    ? getGroupKeyForCategory(initialCategory)
+    : MENU_GROUPS[0].key;
+
+  const [activeGroupKey, setActiveGroupKey] = useState(initialGroupKey);
   const activeGroup = MENU_GROUPS.find((g) => g.key === activeGroupKey)!;
 
   const [activeCategory, setActiveCategory] = useState<MenuCategory>(
-    activeGroup.categories[0]
+    initialCategory ?? activeGroup.categories[0]
   );
 
-  const selectGroup = (key: string) => {
+  const selectGroup = (key: MenuGroupKey) => {
     setActiveGroupKey(key);
     const group = MENU_GROUPS.find((g) => g.key === key)!;
     setActiveCategory(group.categories[0]);
@@ -274,5 +269,14 @@ export default function OrderMenuPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams يتطلب حدود Suspense وإلا يفشل بناء الموقع (next build)
+export default function OrderMenuPage() {
+  return (
+    <Suspense>
+      <OrderMenuPageContent />
+    </Suspense>
   );
 }

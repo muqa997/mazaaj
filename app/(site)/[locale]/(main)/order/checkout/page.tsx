@@ -71,6 +71,9 @@ export default function CheckoutPage() {
           })),
           total: grandTotal,
           status: "new",
+          coupon_code: coupon?.code ?? null,
+          discount_amount: discountAmount,
+          delivery_fee: DELIVERY_FEE,
         })
         .then(({ error }) => {
           if (error) console.error("Failed to save order to Supabase:", error);

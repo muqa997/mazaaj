@@ -17,8 +17,8 @@ export default async function MainLayout({
   return (
     <CartProvider>
       <div className="fixed inset-x-0 top-0 z-50 pt-safe">
-        <AnnouncementBar />
         <Navbar />
+        <AnnouncementBar />
       </div>
       <OfflineBanner
         offlineText={t("offline")}

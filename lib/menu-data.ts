@@ -51,6 +51,71 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   "shisha",
 ];
 
+// أسماء الأقسام بالعربية فقط — تُستخدم بلوحة التحكم (لا توجد ترجمة next-intl هناك)
+export const MENU_CATEGORY_LABELS_AR: Record<MenuCategory, string> = {
+  coffeeClassic: "قهوة سادة",
+  coffeeHot: "قهوة ساخنة",
+  coffeeCold: "قهوة باردة",
+  frappuccino: "فرابتشينو",
+  hotChocolate: "هوت شوكليت",
+  icedChocolate: "آيس شوكليت",
+  milkshake: "ميلك شيك",
+  tea: "شاي",
+  mojito: "موهيتو",
+  mexican: "مكسيكي",
+  smoothie: "سموذي",
+  juice: "عصائر طبيعية",
+  soda: "مشروبات غازية",
+  dessertsCrepe: "كريب",
+  dessertsCold: "حلى بارد",
+  dessertsFettuccine: "فيتوشيني",
+  dessertsCrepeRoll: "كريب رول",
+  dessertsMiniPancake: "ميني بان كيك",
+  dessertsWaffle: "وافل",
+  shisha: "أراجيل",
+};
+
+export type MenuGroupKey = "hot" | "cold" | "desserts" | "shisha";
+
+// مجموعات صفحة الطلب (order/page.tsx) — مستخرجة هنا لأن رابط زر "اطلب الآن"
+// بقسمي الرائج/العروض بالصفحة الرئيسية يحتاج معرفة أي مجموعة تحتوي القسم المستهدف
+export const MENU_GROUPS: { key: MenuGroupKey; categories: MenuCategory[] }[] = [
+  {
+    key: "hot",
+    categories: ["coffeeClassic", "coffeeHot", "tea", "hotChocolate"],
+  },
+  {
+    key: "cold",
+    categories: [
+      "coffeeCold",
+      "icedChocolate",
+      "frappuccino",
+      "milkshake",
+      "mojito",
+      "mexican",
+      "smoothie",
+      "juice",
+      "soda",
+    ],
+  },
+  {
+    key: "desserts",
+    categories: [
+      "dessertsCrepe",
+      "dessertsCold",
+      "dessertsFettuccine",
+      "dessertsCrepeRoll",
+      "dessertsMiniPancake",
+      "dessertsWaffle",
+    ],
+  },
+  { key: "shisha", categories: ["shisha"] },
+];
+
+export function getGroupKeyForCategory(category: MenuCategory): MenuGroupKey {
+  return MENU_GROUPS.find((g) => g.categories.includes(category))!.key;
+}
+
 export type MenuItem =
   | {
       id: string;

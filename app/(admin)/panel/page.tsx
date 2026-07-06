@@ -22,6 +22,9 @@ import {
   getSuggestions,
   getAnnouncements,
   updateAnnouncement,
+  getHomePromos,
+  updatePromoTarget,
+  uploadPromoImage,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
@@ -60,6 +63,9 @@ export default async function AdminPage() {
       getSuggestions={getSuggestions}
       getAnnouncements={getAnnouncements}
       updateAnnouncement={updateAnnouncement}
+      getHomePromos={getHomePromos}
+      updatePromoTarget={updatePromoTarget}
+      uploadPromoImage={uploadPromoImage}
     />
   );
 }

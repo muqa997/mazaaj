@@ -19,9 +19,13 @@ import {
   Menu as MenuIcon,
   ChevronDown,
   Save,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { POSITION_KEYS } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
+import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
+import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type {
   OrderRow,
   OrderStatus,
@@ -32,6 +36,8 @@ import type {
   CouponRow,
   CouponInput,
   AnnouncementRow,
+  PromoKey,
+  PromoRow,
 } from "@/app/(admin)/panel/actions";
 
 type Tab =
@@ -39,6 +45,7 @@ type Tab =
   | "orders"
   | "coupons"
   | "announcements"
+  | "promos"
   | "applicants"
   | "jobs"
   | "suggestions";
@@ -67,6 +74,17 @@ type DashboardProps = {
     id: string,
     input: { text_ar: string; text_en: string }
   ) => Promise<{ error: string | null }>;
+  getHomePromos: () => Promise<PromoRow[]>;
+  updatePromoTarget: (
+    key: PromoKey,
+    target_category: MenuCategory | null
+  ) => Promise<{ error: string | null }>;
+  uploadPromoImage: (key: PromoKey, formData: FormData) => Promise<{ error: string | null }>;
+};
+
+const PROMO_LABELS: Record<PromoKey, { title: string; cta: string }> = {
+  trending: { title: "الرائج الآن", cta: "اطلب الآن" },
+  offer: { title: "العروض", cta: "اطلب العرض" },
 };
 
 const SUGGESTION_TYPE_LABELS: Record<string, string> = {
@@ -92,39 +110,6 @@ const EMPTY_COUPON_FORM: CouponInput = {
   discount_type: "percentage",
   discount_value: 0,
 };
-
-const STATUS_META: Record<OrderStatus, { label: string; classes: string }> = {
-  new: { label: "جديد", classes: "bg-amber-100 text-amber-800" },
-  confirmed: { label: "مؤكد", classes: "bg-blue-100 text-blue-700" },
-  delivered: { label: "مسلم", classes: "bg-green-100 text-green-700" },
-  cancelled: { label: "ملغي", classes: "bg-red-100 text-red-700" },
-};
-
-const STATUS_ORDER: OrderStatus[] = ["new", "confirmed", "delivered", "cancelled"];
-
-function toWhatsAppNumber(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("0")) return `964${digits.slice(1)}`;
-  if (digits.startsWith("964")) return digits;
-  return digits;
-}
-
-function buildConfirmMessage(order: OrderRow) {
-  const lines = [
-    `مرحباً ${order.customer_name}،`,
-    `يسعدنا طلبكم، ونود تأكيد طلبكم رقم #${order.id.slice(0, 8).toUpperCase()}`,
-    ``,
-    `تفاصيل الطلب:`,
-    ...(order.items ?? []).map(
-      (i) => `- ${i.name} × ${i.qty} = ${(i.price * i.qty).toLocaleString()} د.ع`
-    ),
-    ``,
-    `الإجمالي: ${Number(order.total).toLocaleString()} د.ع`,
-    ``,
-    `يرجى التأكيد`,
-  ];
-  return encodeURIComponent(lines.join("\n"));
-}
 
 function isSameDay(a: Date, b: Date) {
   return (
@@ -215,12 +200,23 @@ export default function Dashboard(props: DashboardProps) {
   const [jobs, setJobs] = useState<JobOpeningRow[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
+  const [promos, setPromos] = useState<PromoRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [announcementDrafts, setAnnouncementDrafts] = useState<
     Record<string, { text_ar: string; text_en: string }>
   >({});
   const [announcementSavingId, setAnnouncementSavingId] = useState<string | null>(null);
+
+  const [promoCategoryDrafts, setPromoCategoryDrafts] = useState<
+    Record<PromoKey, MenuCategory | "">
+  >({ trending: "", offer: "" });
+  const [promoSavingKey, setPromoSavingKey] = useState<PromoKey | null>(null);
+  const [promoUploadingKey, setPromoUploadingKey] = useState<PromoKey | null>(null);
+  const [promoError, setPromoError] = useState<Record<PromoKey, string>>({
+    trending: "",
+    offer: "",
+  });
 
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
@@ -235,13 +231,14 @@ export default function Dashboard(props: DashboardProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [o, c, a, j, s, an] = await Promise.all([
+      const [o, c, a, j, s, an, pr] = await Promise.all([
         props.getOrders(),
         props.getCoupons(),
         props.getApplicants(),
         props.getJobOpenings(),
         props.getSuggestions(),
         props.getAnnouncements(),
+        props.getHomePromos(),
       ]);
       setOrders(o ?? []);
       setCoupons(c ?? []);
@@ -254,6 +251,11 @@ export default function Dashboard(props: DashboardProps) {
           (an ?? []).map((item) => [item.id, { text_ar: item.text_ar, text_en: item.text_en }])
         )
       );
+      setPromos(pr ?? []);
+      setPromoCategoryDrafts({
+        trending: pr?.find((p) => p.key === "trending")?.target_category ?? "",
+        offer: pr?.find((p) => p.key === "offer")?.target_category ?? "",
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -392,11 +394,41 @@ export default function Dashboard(props: DashboardProps) {
     loadAll();
   };
 
+  const savePromoTarget = async (key: PromoKey) => {
+    setPromoSavingKey(key);
+    setPromoError((prev) => ({ ...prev, [key]: "" }));
+    const target = promoCategoryDrafts[key] || null;
+    const result = await props.updatePromoTarget(key, target);
+    if (result.error) {
+      setPromoError((prev) => ({ ...prev, [key]: result.error! }));
+    } else {
+      setPromos((prev) =>
+        prev.map((p) => (p.key === key ? { ...p, target_category: target } : p))
+      );
+    }
+    setPromoSavingKey(null);
+  };
+
+  const uploadPromoImage = async (key: PromoKey, file: File) => {
+    setPromoUploadingKey(key);
+    setPromoError((prev) => ({ ...prev, [key]: "" }));
+    const formData = new FormData();
+    formData.set("image", file);
+    const result = await props.uploadPromoImage(key, formData);
+    if (result.error) {
+      setPromoError((prev) => ({ ...prev, [key]: result.error! }));
+    } else {
+      loadAll();
+    }
+    setPromoUploadingKey(null);
+  };
+
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid }[] = [
     { key: "overview", label: "الرئيسية", icon: LayoutGrid },
     { key: "orders", label: "الطلبات", icon: ClipboardList },
     { key: "coupons", label: "الكوبونات", icon: Ticket },
     { key: "announcements", label: "الإعلانات", icon: Megaphone },
+    { key: "promos", label: "الرائج والعروض", icon: ImageIcon },
     { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "jobs", label: "الوظائف", icon: Briefcase },
     { key: "suggestions", label: "الاقتراحات", icon: MessageSquare },
@@ -892,6 +924,97 @@ export default function Dashboard(props: DashboardProps) {
                       >
                         <Save size={14} />
                         {announcementSavingId === announcement.id ? "جاري الحفظ..." : "حفظ"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {tab === "promos" && (
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-primary/50">
+                  هذان القسمان يظهران بالصفحة الرئيسية بالموقع. إذا لم تُرفع صورة لقسم
+                  معين فلن يظهر ذلك القسم للزوار إطلاقاً. زر الطلب يفتح صفحة الطلب مباشرة
+                  على القسم الذي تحدده هنا.
+                </p>
+                {(["trending", "offer"] as PromoKey[]).map((key) => {
+                  const promo = promos.find((p) => p.key === key);
+                  return (
+                    <div
+                      key={key}
+                      className="flex flex-col gap-3 rounded-2xl border border-primary/10 bg-background p-4"
+                    >
+                      <h3 className="text-sm font-bold text-primary">
+                        {PROMO_LABELS[key].title}
+                      </h3>
+
+                      <div className="flex items-center gap-4">
+                        <div className="aspect-[4/5] w-24 shrink-0 overflow-hidden rounded-xl bg-primary/5">
+                          {promo?.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={promo.image_url}
+                              alt={PROMO_LABELS[key].title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <ImageIcon size={20} className="text-primary/30" />
+                            </div>
+                          )}
+                        </div>
+
+                        <label className="flex cursor-pointer items-center gap-2 rounded-full bg-primary/5 px-4 py-2.5 text-xs font-semibold text-primary">
+                          <Upload size={14} />
+                          {promoUploadingKey === key ? "جاري الرفع..." : "رفع صورة جديدة"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={promoUploadingKey === key}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) uploadPromoImage(key, file);
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      <label className="text-xs font-semibold text-primary/60">
+                        القسم الذي يفتحه زر &quot;{PROMO_LABELS[key].cta}&quot;
+                      </label>
+                      <select
+                        value={promoCategoryDrafts[key]}
+                        onChange={(e) =>
+                          setPromoCategoryDrafts((prev) => ({
+                            ...prev,
+                            [key]: e.target.value as MenuCategory | "",
+                          }))
+                        }
+                        className="rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                      >
+                        <option value="">بدون تحديد (يفتح صفحة الطلب من البداية)</option>
+                        {MENU_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {MENU_CATEGORY_LABELS_AR[category]}
+                          </option>
+                        ))}
+                      </select>
+
+                      {promoError[key] && (
+                        <p className="text-xs text-red-500">{promoError[key]}</p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => savePromoTarget(key)}
+                        disabled={promoSavingKey === key}
+                        className="flex items-center justify-center gap-2 self-start rounded-full bg-primary px-5 py-2 text-xs font-semibold text-background disabled:opacity-50"
+                      >
+                        <Save size={14} />
+                        {promoSavingKey === key ? "جاري الحفظ..." : "حفظ"}
                       </button>
                     </div>
                   );

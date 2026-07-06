@@ -23,11 +23,17 @@
   "about": {
     "description": "At mazaaj, we craft an experience that fits every detail of your day. With outstanding service and quality we take pride in, we bring you a captivating blend of specialty coffee, refreshing drinks, and the most delicious desserts. Whether you're seeking calm and comfort on our VIP floor, or crave the excitement of game nights and billiards on our games floor, we're always here to set your mood — with passion."
   },
-  "menuPreview": {
-    "eyebrow": "Menu",
-    "title": "Flavors For Every Mood",
-    "description": "Specialty coffee, premium desserts, and shisha in a variety of flavors — all waiting for you.",
-    "cta": "See Full Menu"
+  "trendingSection": {
+    "eyebrow": "Trending Now",
+    "title": "Most Popular This Week",
+    "description": "The flavor everyone's ordering right now — try it yourself.",
+    "cta": "Order Now"
+  },
+  "offerSection": {
+    "eyebrow": "Our Offers",
+    "title": "A Deal You Can't Miss",
+    "description": "Take advantage of our current offer before it ends.",
+    "cta": "Order The Offer"
   },
   "gameLounge": {
     "eyebrow": "Second Floor",

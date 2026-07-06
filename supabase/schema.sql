@@ -61,8 +61,16 @@ create table if not exists orders (
   items jsonb not null,
   total numeric not null,
   status text not null default 'new',
+  coupon_code text,
+  discount_amount numeric not null default 0,
+  delivery_fee numeric not null default 2000,
   created_at timestamptz not null default now()
 );
+
+-- تحسبّاً لجدول orders منشأ سابقاً بدون هذه الأعمدة (تشغيل آمن لإعادة المحاولة)
+alter table orders add column if not exists coupon_code text;
+alter table orders add column if not exists discount_amount numeric not null default 0;
+alter table orders add column if not exists delivery_fee numeric not null default 2000;
 
 alter table orders enable row level security;
 
@@ -138,6 +146,35 @@ where not exists (select 1 from announcements where position = 2);
 insert into announcements (position, text_ar, text_en)
 select 3, 'تابعونا على انستغرام لأحدث العروض', 'Follow us on Instagram for our latest offers'
 where not exists (select 1 from announcements where position = 3);
+
+-- قسمي "الرائج الآن" و"العروض" بالصفحة الرئيسية (صورة + قسم منيو مستهدف لزر الطلب)
+-- تُدار بالكامل من لوحة التحكم؛ إن كانت image_url فارغة لا يظهر القسم بالموقع
+create table if not exists home_promos (
+  id uuid primary key default gen_random_uuid(),
+  key text not null unique check (key in ('trending', 'offer')),
+  image_url text,
+  target_category text,
+  created_at timestamptz not null default now()
+);
+
+alter table home_promos enable row level security;
+
+drop policy if exists "Allow public read" on home_promos;
+create policy "Allow public read" on home_promos
+  for select to anon using (true);
+
+insert into home_promos (key, image_url, target_category)
+select 'trending', null, null
+where not exists (select 1 from home_promos where key = 'trending');
+
+insert into home_promos (key, image_url, target_category)
+select 'offer', null, null
+where not exists (select 1 from home_promos where key = 'offer');
+
+-- تخزين صور قسمي الرائج/العروض — عام (يظهر بالموقع للزوار)، الرفع فقط من لوحة التحكم
+insert into storage.buckets (id, name, public)
+values ('promos', 'promos', true)
+on conflict (id) do nothing;
 
 -- ملاحظة: ما فيه أي policy للقراءة العامة على أي جدول من الأربعة عدا الوظائف الشاغرة النشطة —
 -- الطلبات وطلبات التوظيف والاقتراحات والكوبونات بيانات خاصة، تقرأها فقط لوحة التحكم عبر مفتاح service_role السري.
