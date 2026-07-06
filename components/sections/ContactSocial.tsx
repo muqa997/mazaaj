@@ -20,9 +20,6 @@ export default function ContactSocial() {
         viewport={{ once: true, amount: 0.2 }}
         className="mx-auto flex max-w-2xl flex-col items-center text-center"
       >
-        <span className="mb-3 text-sm font-semibold tracking-[0.3em] text-accent">
-          {t("eyebrow")}
-        </span>
         <h2 className="mb-10 text-3xl font-extrabold text-primary sm:text-4xl">
           {t("title")}
         </h2>
@@ -65,38 +62,40 @@ export default function ContactSocial() {
           </a>
         </div>
 
-        <p className="mb-4 text-sm font-semibold text-primary/60">
-          {t("socialLabel")}
-        </p>
-        <div className="flex items-center gap-3">
-          <a
-            href={SOCIAL_LINKS.instagram}
-            aria-label="Instagram"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
-          >
-            <Instagram size={18} strokeWidth={1.5} />
-          </a>
-          <a
-            href={SOCIAL_LINKS.facebook}
-            aria-label="Facebook"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
-          >
-            <Facebook size={18} strokeWidth={1.5} />
-          </a>
-          <a
-            href={SOCIAL_LINKS.tiktok}
-            aria-label="TikTok"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
-          >
-            <TikTokIcon size={16} />
-          </a>
-          <a
-            href={SOCIAL_LINKS.whatsapp}
-            aria-label="WhatsApp"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
-          >
-            <WhatsAppIcon size={18} strokeWidth={1.5} />
-          </a>
+        <div className="mt-14 flex w-full flex-col items-center border-t border-primary/10 pt-10">
+          <h3 className="mb-6 text-3xl font-extrabold text-primary sm:text-4xl">
+            {t("socialLabel")}
+          </h3>
+          <div className="flex items-center gap-4">
+            <a
+              href={SOCIAL_LINKS.instagram}
+              aria-label="Instagram"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
+            >
+              <Instagram size={26} strokeWidth={1.5} />
+            </a>
+            <a
+              href={SOCIAL_LINKS.facebook}
+              aria-label="Facebook"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
+            >
+              <Facebook size={26} strokeWidth={1.5} />
+            </a>
+            <a
+              href={SOCIAL_LINKS.tiktok}
+              aria-label="TikTok"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
+            >
+              <TikTokIcon size={24} />
+            </a>
+            <a
+              href={SOCIAL_LINKS.whatsapp}
+              aria-label="WhatsApp"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-background text-primary/60 shadow-glass transition-colors hover:bg-accent hover:text-primary"
+            >
+              <WhatsAppIcon size={26} strokeWidth={1.5} />
+            </a>
+          </div>
         </div>
       </motion.div>
     </section>

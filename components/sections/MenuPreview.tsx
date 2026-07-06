@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { Coffee, Cake, Wind, ArrowLeft } from "lucide-react";
+import { Coffee, GlassWater, Wind, ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { fadeUp } from "@/lib/motion";
 
@@ -11,8 +11,8 @@ export default function MenuPreview() {
   const tCategories = useTranslations("menuPage.categories");
 
   const categories = [
-    { icon: Coffee, label: tCategories("coffee") },
-    { icon: Cake, label: tCategories("desserts") },
+    { icon: Coffee, label: tCategories("coffeeHot") },
+    { icon: GlassWater, label: tCategories("juice") },
     { icon: Wind, label: tCategories("shisha") },
   ];
 

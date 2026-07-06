@@ -14,8 +14,8 @@
   },
   "hero": {
     "eyebrow": "mazaaj",
-    "titleLine1": "Every Mood",
-    "titleLine2": "Has Its Floor",
+    "titleLine1": "Your Mood",
+    "titleLine2": "Starts Here...",
     "subtitle": "A quiet floor to hold your thoughts, and a lively one to spark your night. Pick your vibe, and let the first sip do the rest.",
     "browseMenu": "Browse Menu",
     "orderNow": "Order Now"
@@ -42,12 +42,11 @@
     "cta": "Order Delivery"
   },
   "contact": {
-    "eyebrow": "Contact",
-    "title": "Visit Us or Follow Along",
+    "title": "Visit Us",
     "addressLabel": "Location",
     "address": "Al Anbar - Ramadi - Haji Ziyad Roundabout - beginning of Omar Street",
     "hoursLabel": "Opening Hours",
-    "hours": "Daily 10 AM - 1 AM, Friday 2 PM - 2 AM",
+    "hours": "Daily from 10 AM to 1 AM",
     "getDirections": "Get Directions",
     "socialLabel": "Follow Us"
   },
@@ -80,7 +79,13 @@
       "shisha": "Shisha"
     },
     "addToCart": "Add to Cart",
-    "currency": "IQD"
+    "currency": "IQD",
+    "groups": {
+      "hot": "Hot Drinks",
+      "cold": "Cold Drinks",
+      "desserts": "Desserts",
+      "shisha": "Shisha"
+    }
   },
   "interactiveMenu": {
     "title": "Menu",

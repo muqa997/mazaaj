@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Flame, Snowflake, CakeSlice, Wind, type LucideIcon } from "lucide-react";
 import {
   menuData,
-  MENU_CATEGORIES,
   type MenuCategory,
   type MenuItem,
   type ShishaBase,
@@ -14,6 +13,30 @@ import {
 import { useCart } from "@/lib/cart-context";
 
 const SHISHA_BASES: ShishaBase[] = ["wood", "bubble", "natural"];
+
+const MENU_GROUPS: { key: string; icon: LucideIcon; categories: MenuCategory[] }[] = [
+  {
+    key: "hot",
+    icon: Flame,
+    categories: ["coffeeClassic", "coffeeHot", "tea", "hotChocolate"],
+  },
+  {
+    key: "cold",
+    icon: Snowflake,
+    categories: [
+      "coffeeCold",
+      "icedChocolate",
+      "frappuccino",
+      "milkshake",
+      "mojito",
+      "mexican",
+      "smoothie",
+      "juice",
+    ],
+  },
+  { key: "desserts", icon: CakeSlice, categories: ["desserts"] },
+  { key: "shisha", icon: Wind, categories: ["shisha"] },
+];
 
 function QtyControl({
   qty,
@@ -163,10 +186,21 @@ function ShishaItemCard({
 
 export default function OrderMenuPage() {
   const t = useTranslations("menuPage");
+  const tGroups = useTranslations("menuPage.groups");
   const locale = useLocale() as "ar" | "en";
+
+  const [activeGroupKey, setActiveGroupKey] = useState(MENU_GROUPS[0].key);
+  const activeGroup = MENU_GROUPS.find((g) => g.key === activeGroupKey)!;
+
   const [activeCategory, setActiveCategory] = useState<MenuCategory>(
-    MENU_CATEGORIES[0]
+    activeGroup.categories[0]
   );
+
+  const selectGroup = (key: string) => {
+    setActiveGroupKey(key);
+    const group = MENU_GROUPS.find((g) => g.key === key)!;
+    setActiveCategory(group.categories[0]);
+  };
 
   const visibleItems = menuData.filter((item) => item.category === activeCategory);
 
@@ -176,8 +210,30 @@ export default function OrderMenuPage() {
         <h1 className="mb-2 text-3xl font-extrabold text-primary">{t("title")}</h1>
         <p className="mb-8 text-sm text-primary/50">{t("subtitle")}</p>
 
+        <div className="mb-8 grid grid-cols-2 gap-3">
+          {MENU_GROUPS.map(({ key, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => selectGroup(key)}
+              className={`flex flex-col items-center gap-2 rounded-2xl border p-5 transition-colors ${
+                activeGroupKey === key
+                  ? "border-primary bg-primary text-background"
+                  : "border-primary/10 bg-background text-primary"
+              }`}
+            >
+              <Icon
+                size={26}
+                strokeWidth={1.8}
+                className={activeGroupKey === key ? "text-background" : "text-accent"}
+              />
+              <span className="text-sm font-semibold">{tGroups(key)}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="mb-8 flex gap-2 overflow-x-auto pb-1">
-          {MENU_CATEGORIES.map((category) => (
+          {activeGroup.categories.map((category) => (
             <button
               key={category}
               type="button"

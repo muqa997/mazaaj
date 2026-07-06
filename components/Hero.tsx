@@ -48,11 +48,11 @@ export default function Hero() {
 
         <motion.h1
           variants={item}
-          className="mb-5 text-4xl font-extrabold leading-[1.35] text-primary sm:text-5xl"
+          className="mb-5 text-4xl font-extrabold leading-[1.35] sm:text-5xl"
         >
-          {t("titleLine1")}
+          <span className="text-accent">{t("titleLine1")}</span>
           <br />
-          <span className="text-accent">{t("titleLine2")}</span>
+          <span className="text-primary/70">{t("titleLine2")}</span>
         </motion.h1>
 
         <motion.p
