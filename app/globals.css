@@ -133,3 +133,30 @@ button,
 a {
   -webkit-touch-callout: none;
 }
+
+/* شريط الإعلانات المتحرك: بالعربي يتحرك من اليسار لليمين، وبالإنجليزي بالعكس */
+@keyframes marquee-forward {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes marquee-backward {
+  from {
+    transform: translateX(0%);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-forward {
+  animation: marquee-forward 22s linear infinite;
+}
+
+.animate-marquee-backward {
+  animation: marquee-backward 22s linear infinite;
+}

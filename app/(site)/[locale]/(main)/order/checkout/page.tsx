@@ -4,19 +4,25 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart-context";
-import { WHATSAPP_NUMBER } from "@/lib/config";
+import { WHATSAPP_NUMBER, DELIVERY_FEE } from "@/lib/config";
 import { supabase } from "@/lib/supabase";
+
+const PHONE_PATTERN = /^(07\d{9}|7\d{9})$/;
 
 export default function CheckoutPage() {
   const t = useTranslations("checkout");
   const tCart = useTranslations("cart");
   const tMenu = useTranslations("menuPage");
-  const { items, total } = useCart();
+  const { items, coupon, discountAmount, discountedTotal } = useCart();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
+
+  const grandTotal = discountedTotal + DELIVERY_FEE;
+  const addressPrefix = t("addressFixedPrefix");
+  const fullAddress = `${addressPrefix} - ${address}`;
 
   const buildWhatsAppMessage = () => {
     const lines = [
@@ -24,7 +30,7 @@ export default function CheckoutPage() {
       ``,
       `الاسم: ${name}`,
       `الهاتف: ${phone}`,
-      `العنوان: ${address}`,
+      `العنوان: ${fullAddress}`,
       notes ? `ملاحظات: ${notes}` : "",
       ``,
       `تفاصيل الطلب:`,
@@ -35,7 +41,9 @@ export default function CheckoutPage() {
           )}`
       ),
       ``,
-      `الإجمالي: ${total.toLocaleString()} ${tMenu("currency")}`,
+      coupon ? `خصم الكوبون (${coupon.code}): -${discountAmount.toLocaleString()} ${tMenu("currency")}` : "",
+      `أجور التوصيل: ${DELIVERY_FEE.toLocaleString()} ${tMenu("currency")}`,
+      `الإجمالي: ${grandTotal.toLocaleString()} ${tMenu("currency")}`,
       `طريقة الدفع: نقدي عند الاستلام`,
     ].filter(Boolean);
 
@@ -45,6 +53,8 @@ export default function CheckoutPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!PHONE_PATTERN.test(phone)) return;
+
     // نحفظ الطلب بقاعدة البيانات لأغراض السجل والإحصائيات، دون إيقاف أو تأخير فتح واتساب
     if (supabase) {
       supabase
@@ -52,14 +62,14 @@ export default function CheckoutPage() {
         .insert({
           customer_name: name,
           phone,
-          address,
+          address: fullAddress,
           notes: notes || null,
           items: items.map((item) => ({
             name: item.name,
             price: item.price,
             qty: item.qty,
           })),
-          total,
+          total: grandTotal,
           status: "new",
         })
         .then(({ error }) => {
@@ -110,11 +120,30 @@ export default function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-center justify-between border-t border-primary/10 pt-3 text-sm font-bold text-primary">
-            <span>{tCart("total")}</span>
-            <span>
-              {total.toLocaleString()} {tMenu("currency")}
-            </span>
+
+          <div className="mt-3 flex flex-col gap-1.5 border-t border-primary/10 pt-3">
+            {coupon && (
+              <div className="flex items-center justify-between text-sm text-green-600">
+                <span>
+                  {tCart("couponDiscountLabel")} ({coupon.code})
+                </span>
+                <span>
+                  -{discountAmount.toLocaleString()} {tMenu("currency")}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-sm text-primary/70">
+              <span>{t("deliveryFeeLabel")}</span>
+              <span>
+                {DELIVERY_FEE.toLocaleString()} {tMenu("currency")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-1.5 text-sm font-bold text-primary">
+              <span>{tCart("total")}</span>
+              <span>
+                {grandTotal.toLocaleString()} {tMenu("currency")}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -139,24 +168,34 @@ export default function CheckoutPage() {
             <input
               required
               type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              pattern="^(07\d{9}|7\d{9})$"
+              title={t("phoneInvalidTitle")}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
               placeholder={t("phonePlaceholder")}
               className="w-full rounded-xl border border-primary/15 bg-background px-4 py-3 text-sm text-primary outline-none focus:border-accent"
             />
+            <p className="mt-1.5 text-xs text-primary/50">{t("phoneHint")}</p>
           </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-primary">
               {t("address")}
             </label>
-            <input
-              required
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder={t("addressPlaceholder")}
-              className="w-full rounded-xl border border-primary/15 bg-background px-4 py-3 text-sm text-primary outline-none focus:border-accent"
-            />
+            <div className="flex items-center rounded-xl border border-primary/15 bg-background focus-within:border-accent">
+              <span className="shrink-0 whitespace-nowrap border-e border-primary/15 px-3 py-3 text-sm font-semibold text-primary/50">
+                {addressPrefix}
+              </span>
+              <input
+                required
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder={t("addressPlaceholder")}
+                className="w-full min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-primary outline-none"
+              />
+            </div>
           </div>
 
           <div>

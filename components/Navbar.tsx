@@ -45,7 +45,7 @@ export default function Navbar() {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed top-0 inset-x-0 z-50 pt-safe backdrop-blur-xl bg-background/70 border-b border-primary/10"
+      className="backdrop-blur-xl bg-background/70 border-b border-primary/10"
     >
       {/* شريط الجوال: الهمبركر والسلة على الجانبين حسب اتجاه اللغة، واللوجو بالوسط */}
       <div className="flex md:hidden items-center justify-between px-5 py-3">

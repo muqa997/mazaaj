@@ -133,7 +133,13 @@
     "total": "الإجمالي",
     "checkout": "إتمام الطلب",
     "remove": "إزالة",
-    "viewCart": "عرض السلة"
+    "viewCart": "عرض السلة",
+    "couponPlaceholder": "أدخل رمز الكوبون",
+    "couponApply": "تطبيق",
+    "couponApplying": "جاري التحقق...",
+    "couponSuccess": "تم خصم {amount} {currency}",
+    "couponInvalid": "الرمز غير صحيح أو منتهي الصلاحية",
+    "couponDiscountLabel": "خصم الكوبون"
   },
   "checkout": {
     "title": "بيانات الطلب",
@@ -142,12 +148,16 @@
     "namePlaceholder": "اكتب اسمك",
     "phone": "رقم الهاتف",
     "phonePlaceholder": "07xxxxxxxxx",
+    "phoneHint": "يُفضّل أن يكون الرقم مرتبطاً بواتساب",
+    "phoneInvalidTitle": "يجب أن يبدأ الرقم بـ 07 أو 7 ويتكون من 10 أو 11 رقماً",
     "address": "عنوان التوصيل",
-    "addressPlaceholder": "المنطقة، وأقرب معلم مميز",
+    "addressFixedPrefix": "الأنبار / الرمادي",
+    "addressPlaceholder": "اكتب المنطقة أو الشارع وأقرب نقطة دالّة",
     "notes": "ملاحظات (اختياري)",
-    "notesPlaceholder": "أي طلبات إضافية؟",
+    "notesPlaceholder": "أي ملاحظات إضافية؟ أو وقت التسليم أو إضافات لطلبكم (مثال: سكر إضافي أو بدون سكر)",
     "submit": "إرسال الطلب عبر واتساب",
     "orderSummary": "ملخص الطلب",
+    "deliveryFeeLabel": "أجور التوصيل",
     "paymentMethodNote": "طريقة الدفع: نقدي عند الاستلام"
   },
   "careers": {

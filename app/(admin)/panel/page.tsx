@@ -8,12 +8,20 @@ import {
   logout,
   refreshSession,
   getOrders,
+  updateOrderStatus,
+  deleteOrder,
+  getCoupons,
+  createCoupon,
+  updateCoupon,
+  deleteCoupon,
   getApplicants,
   getAdminJobOpenings,
   createJobOpening,
   updateJobOpening,
   deleteJobOpening,
   getSuggestions,
+  getAnnouncements,
+  updateAnnouncement,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
@@ -38,12 +46,20 @@ export default async function AdminPage() {
       logoutAction={logout}
       refreshSessionAction={refreshSession}
       getOrders={getOrders}
+      updateOrderStatus={updateOrderStatus}
+      deleteOrder={deleteOrder}
+      getCoupons={getCoupons}
+      createCoupon={createCoupon}
+      updateCoupon={updateCoupon}
+      deleteCoupon={deleteCoupon}
       getApplicants={getApplicants}
       getJobOpenings={getAdminJobOpenings}
       createJobOpening={createJobOpening}
       updateJobOpening={updateJobOpening}
       deleteJobOpening={deleteJobOpening}
       getSuggestions={getSuggestions}
+      getAnnouncements={getAnnouncements}
+      updateAnnouncement={updateAnnouncement}
     />
   );
 }

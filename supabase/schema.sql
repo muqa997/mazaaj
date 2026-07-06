@@ -93,5 +93,51 @@ drop policy if exists "Allow public insert" on suggestions;
 create policy "Allow public insert" on suggestions
   for insert to anon with check (true);
 
+-- كوبونات الخصم (تُدار بالكامل من لوحة التحكم — لا يوجد استخدام لها بواجهة الموقع بعد)
+create table if not exists coupons (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  discount_type text not null default 'fixed' check (discount_type in ('fixed', 'percentage')),
+  discount_value numeric not null,
+  created_at timestamptz not null default now()
+);
+
+alter table coupons enable row level security;
+-- بدون أي policy للزوار (anon) — لوحة التحكم فقط تصل له عبر مفتاح service_role السري
+
+-- كوبون تجريبي (يُضاف فقط إذا لم يكن موجوداً)
+insert into coupons (code, discount_type, discount_value)
+select 'MAZAAJ2026', 'percentage', 10
+where not exists (
+  select 1 from coupons where code = 'MAZAAJ2026'
+);
+
+-- شريط الإعلانات المتحرك بأعلى الموقع (3 رسائل ثابتة، تُدار من لوحة التحكم)
+create table if not exists announcements (
+  id uuid primary key default gen_random_uuid(),
+  position int not null unique,
+  text_ar text not null,
+  text_en text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table announcements enable row level security;
+
+drop policy if exists "Allow public read" on announcements;
+create policy "Allow public read" on announcements
+  for select to anon using (true);
+
+insert into announcements (position, text_ar, text_en)
+select 1, 'استخدم كوبون MAZAAJ2026 واحصل على خصم فوري', 'Use coupon MAZAAJ2026 for an instant discount'
+where not exists (select 1 from announcements where position = 1);
+
+insert into announcements (position, text_ar, text_en)
+select 2, 'التوصيل متوفر يومياً من الساعة 10 صباحاً إلى الساعة 1 صباحاً', 'Delivery available daily from 10 AM to 1 AM'
+where not exists (select 1 from announcements where position = 2);
+
+insert into announcements (position, text_ar, text_en)
+select 3, 'تابعونا على انستغرام لأحدث العروض', 'Follow us on Instagram for our latest offers'
+where not exists (select 1 from announcements where position = 3);
+
 -- ملاحظة: ما فيه أي policy للقراءة العامة على أي جدول من الأربعة عدا الوظائف الشاغرة النشطة —
--- الطلبات وطلبات التوظيف والاقتراحات بيانات خاصة، تقرأها فقط لوحة التحكم عبر مفتاح service_role السري.
+-- الطلبات وطلبات التوظيف والاقتراحات والكوبونات بيانات خاصة، تقرأها فقط لوحة التحكم عبر مفتاح service_role السري.

@@ -133,7 +133,13 @@
     "total": "Total",
     "checkout": "Checkout",
     "remove": "Remove",
-    "viewCart": "View Cart"
+    "viewCart": "View Cart",
+    "couponPlaceholder": "Enter coupon code",
+    "couponApply": "Apply",
+    "couponApplying": "Checking...",
+    "couponSuccess": "{amount} {currency} discount applied",
+    "couponInvalid": "Invalid or expired code",
+    "couponDiscountLabel": "Coupon discount"
   },
   "checkout": {
     "title": "Order Details",
@@ -142,12 +148,16 @@
     "namePlaceholder": "Your name",
     "phone": "Phone Number",
     "phonePlaceholder": "07xxxxxxxxx",
+    "phoneHint": "A number linked to WhatsApp is preferred",
+    "phoneInvalidTitle": "Number must start with 07 or 7 and be 10 or 11 digits long",
     "address": "Delivery Address",
-    "addressPlaceholder": "Area, nearest landmark",
+    "addressFixedPrefix": "Al Anbar / Ramadi",
+    "addressPlaceholder": "Write the neighborhood or street and nearest landmark",
     "notes": "Notes (optional)",
-    "notesPlaceholder": "Any special requests?",
+    "notesPlaceholder": "Any additional notes? Delivery time, or add-ons to your order (e.g. extra sugar or no sugar)",
     "submit": "Send Order via WhatsApp",
     "orderSummary": "Order Summary",
+    "deliveryFeeLabel": "Delivery Fee",
     "paymentMethodNote": "Payment method: Cash on delivery"
   },
   "careers": {
