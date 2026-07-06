@@ -32,9 +32,21 @@ const MENU_GROUPS: { key: string; icon: LucideIcon; categories: MenuCategory[] }
       "mexican",
       "smoothie",
       "juice",
+      "soda",
     ],
   },
-  { key: "desserts", icon: CakeSlice, categories: ["desserts"] },
+  {
+    key: "desserts",
+    icon: CakeSlice,
+    categories: [
+      "dessertsCrepe",
+      "dessertsCold",
+      "dessertsFettuccine",
+      "dessertsCrepeRoll",
+      "dessertsMiniPancake",
+      "dessertsWaffle",
+    ],
+  },
   { key: "shisha", icon: Wind, categories: ["shisha"] },
 ];
 
@@ -216,29 +228,31 @@ export default function OrderMenuPage() {
               key={key}
               type="button"
               onClick={() => selectGroup(key)}
-              className={`flex flex-col items-center gap-2 rounded-2xl border p-5 transition-colors ${
+              className={`flex h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 transition-colors ${
                 activeGroupKey === key
                   ? "border-primary bg-primary text-background"
                   : "border-primary/10 bg-background text-primary"
               }`}
             >
               <Icon
-                size={26}
+                size={20}
                 strokeWidth={1.8}
                 className={activeGroupKey === key ? "text-background" : "text-accent"}
               />
-              <span className="text-sm font-semibold">{tGroups(key)}</span>
+              <span className="text-center text-xs font-semibold leading-tight">
+                {tGroups(key)}
+              </span>
             </button>
           ))}
         </div>
 
-        <div className="mb-8 flex gap-2 overflow-x-auto pb-1">
+        <div className="mb-8 grid grid-flow-col grid-rows-2 gap-2 overflow-x-auto pb-2 [grid-auto-columns:max-content]">
           {activeGroup.categories.map((category) => (
             <button
               key={category}
               type="button"
               onClick={() => setActiveCategory(category)}
-              className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
+              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
                 activeCategory === category
                   ? "bg-primary text-background"
                   : "bg-primary/5 text-primary/60"

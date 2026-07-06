@@ -11,7 +11,13 @@ export type MenuCategory =
   | "mexican"
   | "smoothie"
   | "juice"
-  | "desserts"
+  | "soda"
+  | "dessertsCrepe"
+  | "dessertsCold"
+  | "dessertsFettuccine"
+  | "dessertsCrepeRoll"
+  | "dessertsMiniPancake"
+  | "dessertsWaffle"
   | "shisha";
 
 export type ShishaBase = "wood" | "bubble" | "natural";
@@ -35,7 +41,13 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   "mexican",
   "smoothie",
   "juice",
-  "desserts",
+  "soda",
+  "dessertsCrepe",
+  "dessertsCold",
+  "dessertsFettuccine",
+  "dessertsCrepeRoll",
+  "dessertsMiniPancake",
+  "dessertsWaffle",
   "shisha",
 ];
 
@@ -63,6 +75,7 @@ export const menuData: MenuItem[] = [
   { id: "cc6", category: "coffeeClassic", name: { ar: "دوبيو رستريسو", en: "Doppio Ristretto" }, price: 3000 },
   { id: "cc7", category: "coffeeClassic", name: { ar: "قهوة تركية سنكل", en: "Turkish Coffee Single" }, price: 2500 },
   { id: "cc8", category: "coffeeClassic", name: { ar: "قهوة تركية دبل", en: "Turkish Coffee Double" }, price: 3000 },
+  { id: "cc9", category: "coffeeClassic", name: { ar: "قهوة شقراء (خليجية)", en: "Blonde Coffee (Khaleeji)" }, price: 2000 },
 
   // مشروبات القهوة الساخنة
   { id: "ch1", category: "coffeeHot", name: { ar: "امريكانو هوت", en: "Americano Hot" }, price: 3000 },
@@ -90,6 +103,7 @@ export const menuData: MenuItem[] = [
   { id: "cd8", category: "coffeeCold", name: { ar: "فانيلا لاتيه", en: "Iced Vanilla Latte" }, price: 3500 },
   { id: "cd9", category: "coffeeCold", name: { ar: "جوز الهند لاتيه", en: "Iced Coconut Latte" }, price: 3500 },
   { id: "cd10", category: "coffeeCold", name: { ar: "لاتيه بندق", en: "Iced Hazelnut Latte" }, price: 3500 },
+  { id: "cd11", category: "coffeeCold", name: { ar: "ايس كابتشينو", en: "Iced Cappuccino" }, price: 3000 },
 
   // الفرابتشينو
   { id: "fr1", category: "frappuccino", name: { ar: "مزاج فراب", en: "Mazaaj Frappe" }, price: 5000 },
@@ -134,6 +148,7 @@ export const menuData: MenuItem[] = [
   { id: "tea5", category: "tea", name: { ar: "شاي بالقرفة (دارسين)", en: "Cinnamon Tea" }, price: 1000 },
   { id: "tea6", category: "tea", name: { ar: "شاي كرك", en: "Karak Tea" }, price: 3000 },
   { id: "tea7", category: "tea", name: { ar: "شاي بالورد", en: "Rose Tea" }, price: 1000 },
+  { id: "tea8", category: "tea", name: { ar: "سحلب", en: "Sahlab" }, price: 2500 },
 
   // الموهيتو
   { id: "mj1", category: "mojito", name: { ar: "فراولة موهيتو", en: "Strawberry Mojito" }, price: 3000 },
@@ -175,10 +190,45 @@ export const menuData: MenuItem[] = [
   { id: "jc10", category: "juice", name: { ar: "موز بالحليب", en: "Banana with Milk" }, price: 4000 },
   { id: "jc11", category: "juice", name: { ar: "موز بالشوكلاته", en: "Banana with Chocolate" }, price: 4000 },
 
-  // الحلويات
-  { id: "ds1", category: "desserts", name: { ar: "كريب", en: "Crepe" }, price: 5000 },
-  { id: "ds2", category: "desserts", name: { ar: "كرواسون", en: "Croissant" }, price: 4000 },
-  { id: "ds3", category: "desserts", name: { ar: "ليزي", en: "Lazy Cake" }, price: 3000 },
+  // المشروبات الغازية
+  { id: "sd1", category: "soda", name: { ar: "بيبسي", en: "Pepsi" }, price: 1500 },
+  { id: "sd2", category: "soda", name: { ar: "بيبسي دايت", en: "Pepsi Diet" }, price: 1500 },
+  { id: "sd3", category: "soda", name: { ar: "سفن اب", en: "7Up" }, price: 1500 },
+  { id: "sd4", category: "soda", name: { ar: "سفن اب دايت", en: "7Up Diet" }, price: 1500 },
+  { id: "sd5", category: "soda", name: { ar: "ميرندا", en: "Mirinda" }, price: 1500 },
+  { id: "sd6", category: "soda", name: { ar: "صودا سادة", en: "Plain Soda" }, price: 1500 },
+  { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1500 },
+  { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 2000 },
+  { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 4000 },
+
+  // الحلويات — كريب
+  { id: "ds1", category: "dessertsCrepe", name: { ar: "كريب فواكه", en: "Fruit Crepe" }, price: 6000 },
+  { id: "ds2", category: "dessertsCrepe", name: { ar: "ميني كريب", en: "Mini Crepe" }, price: 4000 },
+  { id: "ds3", category: "dessertsCrepe", name: { ar: "كريب مارشميلو", en: "Marshmallow Crepe" }, price: 5000 },
+  { id: "ds4", category: "dessertsCrepe", name: { ar: "كريب كوكيز", en: "Cookies Crepe" }, price: 5000 },
+
+  // الحلويات — حلى بارد
+  { id: "ds5", category: "dessertsCold", name: { ar: "ليزي", en: "Lazy Cake" }, price: 3000 },
+  { id: "ds6", category: "dessertsCold", name: { ar: "كرواسون", en: "Croissant" }, price: 4000 },
+
+  // الحلويات — فيتوشيني
+  { id: "ds7", category: "dessertsFettuccine", name: { ar: "فيتوشيني كريب", en: "Fettuccine Crepe" }, price: 5500 },
+  { id: "ds8", category: "dessertsFettuccine", name: { ar: "مزاج فيتوشيني", en: "Mazaaj Fettuccine" }, price: 6000 },
+
+  // الحلويات — كريب رول
+  { id: "ds9", category: "dessertsCrepeRoll", name: { ar: "كريب رول بيستاشيو", en: "Pistachio Crepe Roll" }, price: 6000 },
+  { id: "ds10", category: "dessertsCrepeRoll", name: { ar: "كريب رول لوتس", en: "Lotus Crepe Roll" }, price: 6000 },
+  { id: "ds11", category: "dessertsCrepeRoll", name: { ar: "كريب رول شوكلاته", en: "Chocolate Crepe Roll" }, price: 5500 },
+
+  // الحلويات — ميني بان كيك
+  { id: "ds12", category: "dessertsMiniPancake", name: { ar: "ميني بان كيك بالفواكه", en: "Mini Pancake with Fruits" }, price: 5000 },
+  { id: "ds13", category: "dessertsMiniPancake", name: { ar: "ميني بان كيك بالشوكولاتة", en: "Mini Pancake with Chocolate" }, price: 5000 },
+  { id: "ds14", category: "dessertsMiniPancake", name: { ar: "ميني بان كيك بالبيستاشيو", en: "Mini Pancake with Pistachio" }, price: 5500 },
+
+  // الحلويات — وافل
+  { id: "ds15", category: "dessertsWaffle", name: { ar: "بانانا وافل", en: "Banana Waffle" }, price: 5000 },
+  { id: "ds16", category: "dessertsWaffle", name: { ar: "فواكه وافل", en: "Fruit Waffle" }, price: 5500 },
+  { id: "ds17", category: "dessertsWaffle", name: { ar: "وافل بالقرفة", en: "Cinnamon Waffle" }, price: 4500 },
 
   // الأراجيل — نفس تسعير القواعد الثلاث لكل نكهة (خشب/بابلي/طبيعي)
   { id: "sh1", category: "shisha", name: { ar: "اركيلة كوفي مزاج", en: "Mazaaj Coffee Shisha" }, basePrices: SHISHA_BASE_PRICES },
