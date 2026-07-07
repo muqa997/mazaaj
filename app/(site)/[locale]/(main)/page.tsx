@@ -3,6 +3,7 @@ import Hero from "@/components/Hero";
 import PromoSection from "@/components/sections/PromoSection";
 import GameLounge from "@/components/sections/GameLounge";
 import DeliveryCTA from "@/components/sections/DeliveryCTA";
+import Services from "@/components/sections/Services";
 import ContactSocial from "@/components/sections/ContactSocial";
 import { getHomePromos } from "@/lib/promos";
 
@@ -34,6 +35,7 @@ export default async function Home() {
       />
       <GameLounge />
       <DeliveryCTA />
+      <Services />
       <ContactSocial />
     </>
   );

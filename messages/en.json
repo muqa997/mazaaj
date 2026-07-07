@@ -47,6 +47,26 @@
     "description": "Your favorite coffee, desserts, and shisha — order from wherever you are and we'll deliver in no time.",
     "cta": "Order Delivery"
   },
+  "services": {
+    "title": "Our Services",
+    "subtitle": "Enjoy the Cafe Experience",
+    "internet": {
+      "title": "Internet Service",
+      "description": "Enjoy a comfortable internet connection that lets you stay connected or get your work done while you're at the cafe."
+    },
+    "payment": {
+      "title": "Easy Electronic Payments",
+      "description": "For a seamless experience, we provide electronic payment systems across all our branches."
+    },
+    "atmosphere": {
+      "title": "Authentic Iraqi Atmosphere",
+      "description": "Our design uniquely blends the warmth of the past with the elegance of the present, reflecting true Iraqi identity."
+    },
+    "meetings": {
+      "title": "Ideal Environment for Official Meetings",
+      "description": "We provide an ideal environment for your official meetings, combining comfort with maximum professionalism."
+    }
+  },
   "contact": {
     "title": "Visit Us",
     "addressLabel": "Location",
