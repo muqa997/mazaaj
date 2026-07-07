@@ -3,19 +3,12 @@
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
-import {
-  WifiServiceIllustration,
-  PaymentServiceIllustration,
-  IraqiVibeServiceIllustration,
-  MeetingServiceIllustration,
-} from "@/components/icons/ServiceIllustrations";
 
-const SERVICES = [
-  { key: "internet", Illustration: WifiServiceIllustration },
-  { key: "payment", Illustration: PaymentServiceIllustration },
-  { key: "atmosphere", Illustration: IraqiVibeServiceIllustration },
-  { key: "meetings", Illustration: MeetingServiceIllustration },
-] as const;
+// لون خلفية ثابت (لا يتغير مع الوضع الداكن) — الصور المصممة يدوياً بنفس هذا اللون
+// خلفيةً حتى تندمج تماماً مع الصندوق بدون أي حواف ظاهرة
+const CARD_BG = "#3D281C";
+
+const SERVICES = ["internet", "payment", "atmosphere", "meetings"] as const;
 
 export default function Services() {
   const t = useTranslations("services");
@@ -37,7 +30,7 @@ export default function Services() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {SERVICES.map(({ key, Illustration }) => (
+          {SERVICES.map((key) => (
             <div
               key={key}
               className="flex flex-col rounded-3xl border border-primary/10 bg-background p-5 text-center shadow-glass"
@@ -46,8 +39,16 @@ export default function Services() {
               <p className="mb-5 text-sm leading-relaxed text-primary/60">
                 {t(`${key}.description`)}
               </p>
-              <div className="mt-auto flex items-center justify-center rounded-2xl bg-primary py-8 text-background">
-                <Illustration className="h-24 w-auto" />
+              <div
+                className="mt-auto aspect-[3/2] w-full overflow-hidden rounded-2xl"
+                style={{ backgroundColor: CARD_BG }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/images/services/${key}.jpg`}
+                  alt={t(`${key}.title`)}
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
           ))}
