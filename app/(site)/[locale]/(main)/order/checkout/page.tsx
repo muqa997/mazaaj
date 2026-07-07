@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart-context";
 import { WHATSAPP_NUMBER, DELIVERY_FEE } from "@/lib/config";
 import { supabase } from "@/lib/supabase";
+import { notifyNewOrder } from "./actions";
 
 const PHONE_PATTERN = /^(07\d{9}|7\d{9})$/;
 
@@ -79,6 +80,18 @@ export default function CheckoutPage() {
           if (error) console.error("Failed to save order to Supabase:", error);
         });
     }
+
+    // إشعار بريدي لصاحب المقهى بالطلب الجديد — بدون انتظار، حتى لا يتأخر فتح واتساب
+    notifyNewOrder({
+      customerName: name,
+      phone,
+      address: fullAddress,
+      notes: notes || null,
+      items: items.map((item) => ({ name: item.name, price: item.price, qty: item.qty })),
+      couponCode: coupon?.code ?? null,
+      discountAmount,
+      total: grandTotal,
+    });
 
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${buildWhatsAppMessage()}`;
     window.open(url, "_blank");
