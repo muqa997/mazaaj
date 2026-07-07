@@ -2,9 +2,9 @@
 
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { MapPin, Clock, Navigation, Instagram, Facebook } from "lucide-react";
+import { MapPin, Clock, Mail, Navigation, Instagram, Facebook } from "lucide-react";
 import { fadeUp } from "@/lib/motion";
-import { SOCIAL_LINKS, MAP_EMBED_URL, MAP_DIRECTIONS_URL } from "@/lib/config";
+import { SOCIAL_LINKS, MAP_EMBED_URL, MAP_DIRECTIONS_URL, CONTACT_EMAIL } from "@/lib/config";
 import TikTokIcon from "@/components/icons/TikTokIcon";
 import WhatsAppIcon from "@/components/icons/WhatsAppIcon";
 
@@ -24,7 +24,7 @@ export default function ContactSocial() {
           {t("title")}
         </h2>
 
-        <div className="mb-10 grid w-full gap-4 sm:grid-cols-2">
+        <div className="mb-10 grid w-full gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-2xl border border-primary/10 bg-background px-5 py-4 text-start">
             <MapPin size={20} className="shrink-0 text-accent" />
             <div>
@@ -39,6 +39,18 @@ export default function ContactSocial() {
               <p className="text-sm font-semibold text-primary">{t("hours")}</p>
             </div>
           </div>
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="flex items-center gap-3 rounded-2xl border border-primary/10 bg-background px-5 py-4 text-start transition-colors hover:border-accent"
+          >
+            <Mail size={20} className="shrink-0 text-accent" />
+            <div className="min-w-0">
+              <p className="text-xs text-primary/50">{t("emailLabel")}</p>
+              <p className="truncate text-sm font-semibold text-primary" dir="ltr">
+                {CONTACT_EMAIL}
+              </p>
+            </div>
+          </a>
         </div>
 
         <div className="relative mb-10 w-full overflow-hidden rounded-3xl border border-primary/10 shadow-glass-lg">

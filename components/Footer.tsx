@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { PHONE_DISPLAY, PHONE_TEL } from "@/lib/config";
+import { PHONE_DISPLAY, PHONE_TEL, CONTACT_EMAIL } from "@/lib/config";
 import LanguageSwitcher from "./LanguageSwitcher";
 import DarkModeToggle from "./DarkModeToggle";
 import SuggestionModal from "./SuggestionModal";
@@ -63,6 +63,16 @@ export default function Footer() {
             {t("contactPhoneLabel")}:{" "}
             <a href={`tel:${PHONE_TEL}`} className="font-semibold text-primary hover:text-accent">
               {PHONE_DISPLAY}
+            </a>
+          </p>
+          <p className="text-sm text-primary/60">
+            {tContact("emailLabel")}:{" "}
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              dir="ltr"
+              className="font-semibold text-primary hover:text-accent"
+            >
+              {CONTACT_EMAIL}
             </a>
           </p>
         </div>

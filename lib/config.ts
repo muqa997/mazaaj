@@ -1,6 +1,7 @@
 export const WHATSAPP_NUMBER = "9647704699946";
 export const PHONE_DISPLAY = "07704699946";
 export const PHONE_TEL = "+9647704699946";
+export const CONTACT_EMAIL = "info@mazaajcafe.com";
 
 // رسم توصيل ثابت لكل طلب — يُستخدم فقط لحساب صافي الإيراد في لوحة التحكم
 // (المجموع المحفوظ مع كل طلب هو سعر الأصناف فقط، ولا يشمل هذا الرسم)
