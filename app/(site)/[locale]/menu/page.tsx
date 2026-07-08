@@ -65,14 +65,16 @@ export default function MenuDisplayPage() {
 
                 {menuItem.category === "shisha" ? (
                   <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {SHISHA_BASES.map((base) => (
-                      <p key={base} className="text-xs text-primary/50">
-                        {tBase(base)}:{" "}
-                        <span className="font-semibold text-accent">
-                          {menuItem.basePrices[base].toLocaleString()} {t("currency")}
-                        </span>
-                      </p>
-                    ))}
+                    {SHISHA_BASES.filter((base) => menuItem.basePrices[base] !== undefined).map(
+                      (base) => (
+                        <p key={base} className="text-xs text-primary/50">
+                          {tBase(base)}:{" "}
+                          <span className="font-semibold text-accent">
+                            {menuItem.basePrices[base]!.toLocaleString()} {t("currency")}
+                          </span>
+                        </p>
+                      )
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm font-semibold text-accent">

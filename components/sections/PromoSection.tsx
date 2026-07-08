@@ -44,7 +44,7 @@ export default function PromoSection({
           {description}
         </p>
 
-        <div className="mb-8 aspect-[4/5] w-full overflow-hidden rounded-3xl shadow-glass">
+        <div className="mb-8 aspect-[5/4] w-full overflow-hidden rounded-3xl shadow-glass">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageUrl}

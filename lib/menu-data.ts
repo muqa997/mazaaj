@@ -14,18 +14,17 @@ export type MenuCategory =
   | "soda"
   | "dessertsCrepe"
   | "dessertsCold"
-  | "dessertsFettuccine"
   | "dessertsCrepeRoll"
-  | "dessertsMiniPancake"
   | "dessertsWaffle"
   | "shisha";
 
 export type ShishaBase = "wood" | "bubble" | "natural";
 
-export const SHISHA_BASE_PRICES: Record<ShishaBase, number> = {
+// السعر المشترك لقاعدتي الخشب والبابلي لأغلب نكهات الأركيلة — النكهات الطبيعية
+// الآن أصناف مستقلة بسعر واحد ثابت لكل منها (لا تستخدم هذا الثابت)
+export const SHISHA_BASE_PRICES: Record<"wood" | "bubble", number> = {
   wood: 5000,
-  bubble: 7000,
-  natural: 10000,
+  bubble: 6000,
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -44,9 +43,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   "soda",
   "dessertsCrepe",
   "dessertsCold",
-  "dessertsFettuccine",
   "dessertsCrepeRoll",
-  "dessertsMiniPancake",
   "dessertsWaffle",
   "shisha",
 ];
@@ -68,9 +65,7 @@ export const MENU_CATEGORY_LABELS_AR: Record<MenuCategory, string> = {
   soda: "مشروبات غازية",
   dessertsCrepe: "كريب",
   dessertsCold: "حلى بارد",
-  dessertsFettuccine: "فيتوشيني",
   dessertsCrepeRoll: "كريب رول",
-  dessertsMiniPancake: "ميني بان كيك",
   dessertsWaffle: "وافل",
   shisha: "أراجيل",
 };
@@ -100,14 +95,7 @@ export const MENU_GROUPS: { key: MenuGroupKey; categories: MenuCategory[] }[] = 
   },
   {
     key: "desserts",
-    categories: [
-      "dessertsCrepe",
-      "dessertsCold",
-      "dessertsFettuccine",
-      "dessertsCrepeRoll",
-      "dessertsMiniPancake",
-      "dessertsWaffle",
-    ],
+    categories: ["dessertsCrepe", "dessertsCold", "dessertsCrepeRoll", "dessertsWaffle"],
   },
   { key: "shisha", categories: ["shisha"] },
 ];
@@ -127,19 +115,21 @@ export type MenuItem =
       id: string;
       category: "shisha";
       name: { ar: string; en: string };
-      basePrices: Record<ShishaBase, number>;
+      // ليست كل الأركيلة تتوفر بكل القواعد الثلاث (مثلاً تفاحة بالخشب فقط،
+      // والنكهات الطبيعية بقاعدة طبيعي فقط) — لذا القواعد جزئية هنا
+      basePrices: Partial<Record<ShishaBase, number>>;
     };
 
 export const menuData: MenuItem[] = [
   // مشروبات القهوة السادة
   { id: "cc1", category: "coffeeClassic", name: { ar: "اسبريسو سنكل", en: "Espresso Single" }, price: 2500 },
-  { id: "cc2", category: "coffeeClassic", name: { ar: "اسبريسو دبل", en: "Espresso Double" }, price: 3000 },
+  { id: "cc2", category: "coffeeClassic", name: { ar: "اسبريسو دبل", en: "Espresso Double" }, price: 4000 },
   { id: "cc3", category: "coffeeClassic", name: { ar: "الفريدو اسبريسو", en: "Affogato Espresso" }, price: 3000 },
   { id: "cc4", category: "coffeeClassic", name: { ar: "افوكاتو", en: "Avocado Coffee" }, price: 3000 },
   { id: "cc5", category: "coffeeClassic", name: { ar: "ماكياتو", en: "Macchiato" }, price: 3000 },
   { id: "cc6", category: "coffeeClassic", name: { ar: "دوبيو رستريسو", en: "Doppio Ristretto" }, price: 3000 },
   { id: "cc7", category: "coffeeClassic", name: { ar: "قهوة تركية سنكل", en: "Turkish Coffee Single" }, price: 2500 },
-  { id: "cc8", category: "coffeeClassic", name: { ar: "قهوة تركية دبل", en: "Turkish Coffee Double" }, price: 3000 },
+  { id: "cc8", category: "coffeeClassic", name: { ar: "قهوة تركية دبل", en: "Turkish Coffee Double" }, price: 4000 },
   { id: "cc9", category: "coffeeClassic", name: { ar: "قهوة شقراء (خليجية)", en: "Blonde Coffee (Khaleeji)" }, price: 2000 },
 
   // مشروبات القهوة الساخنة
@@ -207,12 +197,11 @@ export const menuData: MenuItem[] = [
 
   // الشاي
   { id: "tea1", category: "tea", name: { ar: "شاي", en: "Tea" }, price: 1000 },
-  { id: "tea2", category: "tea", name: { ar: "شاي ليمون", en: "Lemon Tea" }, price: 2500 },
+  { id: "tea2", category: "tea", name: { ar: "شاي ليمون", en: "Lemon Tea" }, price: 2000 },
   { id: "tea3", category: "tea", name: { ar: "شاي اخضر", en: "Green Tea" }, price: 2000 },
-  { id: "tea4", category: "tea", name: { ar: "شاي ليمون بالنعناع", en: "Lemon Mint Tea" }, price: 2000 },
+  { id: "tea4", category: "tea", name: { ar: "شاي ليمون بالنعناع", en: "Lemon Mint Tea" }, price: 2500 },
   { id: "tea5", category: "tea", name: { ar: "شاي بالقرفة (دارسين)", en: "Cinnamon Tea" }, price: 1000 },
   { id: "tea6", category: "tea", name: { ar: "شاي كرك", en: "Karak Tea" }, price: 3000 },
-  { id: "tea7", category: "tea", name: { ar: "شاي بالورد", en: "Rose Tea" }, price: 1000 },
   { id: "tea8", category: "tea", name: { ar: "سحلب", en: "Sahlab" }, price: 2500 },
 
   // الموهيتو
@@ -230,7 +219,9 @@ export const menuData: MenuItem[] = [
 
   // المكسيكي
   { id: "mx1", category: "mexican", name: { ar: "مكسيكي بالتايجر", en: "Mexican Tiger" }, price: 3000 },
-  { id: "mx2", category: "mexican", name: { ar: "مكسيكي بالريدبول", en: "Mexican Red Bull" }, price: 4000 },
+  { id: "mx2", category: "mexican", name: { ar: "مكسيكي بالريدبول", en: "Mexican Red Bull" }, price: 5000 },
+  { id: "mx3", category: "mexican", name: { ar: "مكسيكي تايجر بالنكهات", en: "Mexican Tiger with Flavors" }, price: 4000 },
+  { id: "mx4", category: "mexican", name: { ar: "مكسيكي ريدبول بالنكهات", en: "Mexican Red Bull with Flavors" }, price: 5500 },
 
   // السموذي
   { id: "sm1", category: "smoothie", name: { ar: "سموذي فراولة", en: "Strawberry Smoothie" }, price: 4500 },
@@ -256,54 +247,63 @@ export const menuData: MenuItem[] = [
   { id: "jc11", category: "juice", name: { ar: "موز بالشوكلاته", en: "Banana with Chocolate" }, price: 4000 },
 
   // المشروبات الغازية
-  { id: "sd1", category: "soda", name: { ar: "بيبسي", en: "Pepsi" }, price: 1500 },
-  { id: "sd2", category: "soda", name: { ar: "بيبسي دايت", en: "Pepsi Diet" }, price: 1500 },
-  { id: "sd3", category: "soda", name: { ar: "سفن اب", en: "7Up" }, price: 1500 },
-  { id: "sd4", category: "soda", name: { ar: "سفن اب دايت", en: "7Up Diet" }, price: 1500 },
-  { id: "sd5", category: "soda", name: { ar: "ميرندا", en: "Mirinda" }, price: 1500 },
-  { id: "sd6", category: "soda", name: { ar: "صودا سادة", en: "Plain Soda" }, price: 1500 },
-  { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1500 },
-  { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 2000 },
-  { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 4000 },
+  { id: "sd1", category: "soda", name: { ar: "بيبسي", en: "Pepsi" }, price: 500 },
+  { id: "sd2", category: "soda", name: { ar: "بيبسي دايت", en: "Pepsi Diet" }, price: 500 },
+  { id: "sd3", category: "soda", name: { ar: "سفن اب", en: "7Up" }, price: 500 },
+  { id: "sd4", category: "soda", name: { ar: "سفن اب دايت", en: "7Up Diet" }, price: 500 },
+  { id: "sd5", category: "soda", name: { ar: "ميرندا", en: "Mirinda" }, price: 500 },
+  { id: "sd6", category: "soda", name: { ar: "صودا سادة", en: "Plain Soda" }, price: 1000 },
+  { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1000 },
+  { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 500 },
+  { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 500 },
 
-  // الحلويات — كريب
-  { id: "ds1", category: "dessertsCrepe", name: { ar: "كريب فواكه", en: "Fruit Crepe" }, price: 6000 },
-  { id: "ds2", category: "dessertsCrepe", name: { ar: "ميني كريب", en: "Mini Crepe" }, price: 4000 },
-  { id: "ds3", category: "dessertsCrepe", name: { ar: "كريب مارشميلو", en: "Marshmallow Crepe" }, price: 5000 },
-  { id: "ds4", category: "dessertsCrepe", name: { ar: "كريب كوكيز", en: "Cookies Crepe" }, price: 5000 },
+  // الحلويات — كريب (تشمل الفيتوشيني كريب بعد إلغاء قسمها المستقل)
+  { id: "ds1", category: "dessertsCrepe", name: { ar: "كريب شوكلاته", en: "Chocolate Crepe" }, price: 6000 },
+  { id: "ds2", category: "dessertsCrepe", name: { ar: "كريب بيستاشيو", en: "Pistachio Crepe" }, price: 6000 },
+  { id: "ds3", category: "dessertsCrepe", name: { ar: "كريب لوتس", en: "Lotus Crepe" }, price: 6000 },
+  { id: "ds4", category: "dessertsCrepe", name: { ar: "كريب اوريو", en: "Oreo Crepe" }, price: 6000 },
+  { id: "ds5", category: "dessertsCrepe", name: { ar: "كريب كندر", en: "Kinder Crepe" }, price: 6000 },
+  { id: "ds6", category: "dessertsCrepe", name: { ar: "كريب مزاج", en: "Mazaaj Crepe" }, price: 6000 },
+  { id: "ds7", category: "dessertsCrepe", name: { ar: "كريب فواكه", en: "Fruit Crepe" }, price: 7000 },
+  { id: "ds8", category: "dessertsCrepe", name: { ar: "فوتيشيني كريب", en: "Fettuccine Crepe" }, price: 6000 },
 
   // الحلويات — حلى بارد
-  { id: "ds5", category: "dessertsCold", name: { ar: "ليزي", en: "Lazy Cake" }, price: 3000 },
-  { id: "ds6", category: "dessertsCold", name: { ar: "كرواسون", en: "Croissant" }, price: 4000 },
-
-  // الحلويات — فيتوشيني
-  { id: "ds7", category: "dessertsFettuccine", name: { ar: "فيتوشيني كريب", en: "Fettuccine Crepe" }, price: 5500 },
-  { id: "ds8", category: "dessertsFettuccine", name: { ar: "مزاج فيتوشيني", en: "Mazaaj Fettuccine" }, price: 6000 },
+  { id: "ds9", category: "dessertsCold", name: { ar: "ليزي", en: "Lazy Cake" }, price: 3000 },
+  { id: "ds10", category: "dessertsCold", name: { ar: "كرواسون سادة", en: "Plain Croissant" }, price: 3500 },
+  { id: "ds11", category: "dessertsCold", name: { ar: "كرواسون شوكولاته بلجيكي", en: "Belgian Chocolate Croissant" }, price: 4500 },
+  { id: "ds12", category: "dessertsCold", name: { ar: "تراليتشة", en: "Tres Leches" }, price: 4500 },
+  { id: "ds13", category: "dessertsCold", name: { ar: "سان سباستيان", en: "San Sebastian" }, price: 6000 },
+  { id: "ds14", category: "dessertsCold", name: { ar: "تشيز كيك", en: "Cheesecake" }, price: 6000 },
+  { id: "ds15", category: "dessertsCold", name: { ar: "قطعة كيك", en: "Cake Slice" }, price: 3000 },
 
   // الحلويات — كريب رول
-  { id: "ds9", category: "dessertsCrepeRoll", name: { ar: "كريب رول بيستاشيو", en: "Pistachio Crepe Roll" }, price: 6000 },
-  { id: "ds10", category: "dessertsCrepeRoll", name: { ar: "كريب رول لوتس", en: "Lotus Crepe Roll" }, price: 6000 },
-  { id: "ds11", category: "dessertsCrepeRoll", name: { ar: "كريب رول شوكلاته", en: "Chocolate Crepe Roll" }, price: 5500 },
+  { id: "ds16", category: "dessertsCrepeRoll", name: { ar: "كريب رول بيستاشيو", en: "Pistachio Crepe Roll" }, price: 6000 },
+  { id: "ds17", category: "dessertsCrepeRoll", name: { ar: "كريب رول لوتس", en: "Lotus Crepe Roll" }, price: 6000 },
+  { id: "ds18", category: "dessertsCrepeRoll", name: { ar: "كريب رول شوكلاته", en: "Chocolate Crepe Roll" }, price: 5500 },
 
-  // الحلويات — ميني بان كيك
-  { id: "ds12", category: "dessertsMiniPancake", name: { ar: "ميني بان كيك بالفواكه", en: "Mini Pancake with Fruits" }, price: 5000 },
-  { id: "ds13", category: "dessertsMiniPancake", name: { ar: "ميني بان كيك بالشوكولاتة", en: "Mini Pancake with Chocolate" }, price: 5000 },
-  { id: "ds14", category: "dessertsMiniPancake", name: { ar: "ميني بان كيك بالبيستاشيو", en: "Mini Pancake with Pistachio" }, price: 5500 },
+  // الحلويات — وافل (نفس أصناف وأسعار الكريب الجديدة)
+  { id: "ds19", category: "dessertsWaffle", name: { ar: "وافل شوكلاته", en: "Chocolate Waffle" }, price: 6000 },
+  { id: "ds20", category: "dessertsWaffle", name: { ar: "وافل بيستاشيو", en: "Pistachio Waffle" }, price: 6000 },
+  { id: "ds21", category: "dessertsWaffle", name: { ar: "وافل لوتس", en: "Lotus Waffle" }, price: 6000 },
+  { id: "ds22", category: "dessertsWaffle", name: { ar: "وافل اوريو", en: "Oreo Waffle" }, price: 6000 },
+  { id: "ds23", category: "dessertsWaffle", name: { ar: "وافل كندر", en: "Kinder Waffle" }, price: 6000 },
+  { id: "ds24", category: "dessertsWaffle", name: { ar: "وافل مزاج", en: "Mazaaj Waffle" }, price: 6000 },
+  { id: "ds25", category: "dessertsWaffle", name: { ar: "وافل فواكه", en: "Fruit Waffle" }, price: 7000 },
+  { id: "ds26", category: "dessertsWaffle", name: { ar: "فوتيشيني وافل", en: "Fettuccine Waffle" }, price: 6000 },
 
-  // الحلويات — وافل
-  { id: "ds15", category: "dessertsWaffle", name: { ar: "بانانا وافل", en: "Banana Waffle" }, price: 5000 },
-  { id: "ds16", category: "dessertsWaffle", name: { ar: "فواكه وافل", en: "Fruit Waffle" }, price: 5500 },
-  { id: "ds17", category: "dessertsWaffle", name: { ar: "وافل بالقرفة", en: "Cinnamon Waffle" }, price: 4500 },
-
-  // الأراجيل — نفس تسعير القواعد الثلاث لكل نكهة (خشب/بابلي/طبيعي)
+  // الأراجيل — أغلب النكهات بقاعدتي خشب/بابلي فقط (بدون طبيعي)
   { id: "sh1", category: "shisha", name: { ar: "اركيلة كوفي مزاج", en: "Mazaaj Coffee Shisha" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh2", category: "shisha", name: { ar: "انكليزي 2026", en: "English 2026" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh3", category: "shisha", name: { ar: "ليمون ونعناع", en: "Lemon & Mint" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh4", category: "shisha", name: { ar: "علك ونعناع", en: "Gum & Mint" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh5", category: "shisha", name: { ar: "تفاحتين", en: "Double Apple" }, basePrices: SHISHA_BASE_PRICES },
-  { id: "sh6", category: "shisha", name: { ar: "تفاحة", en: "Apple" }, basePrices: SHISHA_BASE_PRICES },
+  // تفاحة: خشب فقط، غير متوفرة بابلي أو طبيعي
+  { id: "sh6", category: "shisha", name: { ar: "تفاحة", en: "Apple" }, basePrices: { wood: 6000 } },
   { id: "sh7", category: "shisha", name: { ar: "نعناع", en: "Mint" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh8", category: "shisha", name: { ar: "علك", en: "Gum" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh9", category: "shisha", name: { ar: "حمضيات", en: "Citrus" }, basePrices: SHISHA_BASE_PRICES },
   { id: "sh10", category: "shisha", name: { ar: "باونتي", en: "Bounty" }, basePrices: SHISHA_BASE_PRICES },
+  // النكهات الطبيعية: أصناف مستقلة بسعر واحد لكل منها
+  { id: "sh11", category: "shisha", name: { ar: "اناناس طبيعي", en: "Natural Pineapple" }, basePrices: { natural: 15000 } },
+  { id: "sh12", category: "shisha", name: { ar: "جريب فروت طبيعي", en: "Natural Grapefruit" }, basePrices: { natural: 12000 } },
 ];

@@ -56,7 +56,7 @@
     },
     "payment": {
       "title": "Easy Electronic Payments",
-      "description": "For a seamless experience, we provide electronic payment systems across all our branches."
+      "description": "For a seamless experience, we provide electronic payment systems at mazaaj cafe."
     },
     "atmosphere": {
       "title": "Authentic Iraqi Atmosphere",
@@ -105,9 +105,7 @@
       "soda": "Soft Drinks",
       "dessertsCrepe": "Crepe",
       "dessertsCold": "Cold Desserts",
-      "dessertsFettuccine": "Fettuccine",
       "dessertsCrepeRoll": "Crepe Roll",
-      "dessertsMiniPancake": "Mini Pancake",
       "dessertsWaffle": "Waffle",
       "shisha": "Shisha"
     },
@@ -139,9 +137,7 @@
       "soda": "Soft Drinks",
       "dessertsCrepe": "Crepe",
       "dessertsCold": "Cold Desserts",
-      "dessertsFettuccine": "Fettuccine",
       "dessertsCrepeRoll": "Crepe Roll",
-      "dessertsMiniPancake": "Mini Pancake",
       "dessertsWaffle": "Waffle",
       "shisha": "Shisha"
     },

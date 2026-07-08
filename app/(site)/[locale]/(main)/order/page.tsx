@@ -113,11 +113,12 @@ function ShishaItemCard({
   const t = useTranslations("menuPage");
   const tBase = useTranslations("shishaBase");
   const { items, addItem, updateQty } = useCart();
-  const [selectedBase, setSelectedBase] = useState<ShishaBase>("wood");
+  const availableBases = SHISHA_BASES.filter((base) => item.basePrices[base] !== undefined);
+  const [selectedBase, setSelectedBase] = useState<ShishaBase>(availableBases[0]);
 
   const cartId = `${item.id}-${selectedBase}`;
   const cartItem = items.find((i) => i.id === cartId);
-  const price = item.basePrices[selectedBase];
+  const price = item.basePrices[selectedBase]!;
 
   return (
     <motion.div
@@ -132,7 +133,7 @@ function ShishaItemCard({
       </div>
 
       <div className="flex gap-2">
-        {SHISHA_BASES.map((base) => (
+        {availableBases.map((base) => (
           <button
             key={base}
             type="button"
