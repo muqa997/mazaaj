@@ -36,7 +36,7 @@ export default function PromoSection({
         viewport={{ once: true, amount: 0.2 }}
         className="mx-auto flex max-w-md flex-col items-center text-center"
       >
-        <span className="mb-3 text-sm font-semibold tracking-[0.3em] text-accent">
+        <span className="mb-3 text-sm font-semibold text-accent sm:tracking-[0.3em]">
           {eyebrow}
         </span>
         <h2 className="mb-5 text-3xl font-extrabold text-primary sm:text-4xl">{title}</h2>

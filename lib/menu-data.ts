@@ -254,8 +254,8 @@ export const menuData: MenuItem[] = [
   { id: "sd5", category: "soda", name: { ar: "ميرندا", en: "Mirinda" }, price: 500 },
   { id: "sd6", category: "soda", name: { ar: "صودا سادة", en: "Plain Soda" }, price: 1000 },
   { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1000 },
-  { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 500 },
-  { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 500 },
+  { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 2000 },
+  { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 4000 },
 
   // الحلويات — كريب (تشمل الفيتوشيني كريب بعد إلغاء قسمها المستقل)
   { id: "ds1", category: "dessertsCrepe", name: { ar: "كريب شوكلاته", en: "Chocolate Crepe" }, price: 6000 },

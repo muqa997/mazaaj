@@ -16,8 +16,10 @@ export const SOCIAL_LINKS = {
   whatsapp: `https://wa.me/${WHATSAPP_NUMBER}`,
 };
 
-const MAP_LAT = "33.431453959464754";
-const MAP_LNG = "43.29765975948785";
+const MAP_LAT = "33.43157004496837";
+const MAP_LNG = "43.29760529100712";
 
 export const MAP_EMBED_URL = `https://www.google.com/maps?q=${MAP_LAT},${MAP_LNG}&z=16&output=embed`;
-export const MAP_DIRECTIONS_URL = `https://www.google.com/maps/search/?api=1&query=${MAP_LAT},${MAP_LNG}`;
+// رابط صفحة المكان الفعلية على خرائط جوجل (بعد إضافته كنشاط تجاري مسجّل) — تجربة
+// أفضل لزر "احصل على الاتجاهات" من رابط بحث مبني على الإحداثيات فقط
+export const MAP_DIRECTIONS_URL = "https://maps.app.goo.gl/T3zZufkZaBNdpFNi8";
