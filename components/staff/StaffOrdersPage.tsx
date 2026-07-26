@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
+import type { BilliardsTableRow } from "@/lib/billiards";
+import BilliardsSummaryCard from "./BilliardsSummaryCard";
 
 type StaffOrdersPageProps = {
   logoutAction: () => Promise<void>;
@@ -12,6 +14,8 @@ type StaffOrdersPageProps = {
   getOrders: () => Promise<OrderRow[]>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<{ error: string | null }>;
   deleteOrder: (id: string) => Promise<{ error: string | null }>;
+  getBilliardsTables: () => Promise<BilliardsTableRow[]>;
+  payAndResetBilliards: (tableNumber: number) => Promise<{ error: string | null }>;
 };
 
 export default function StaffOrdersPage(props: StaffOrdersPageProps) {
@@ -68,6 +72,11 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+        <BilliardsSummaryCard
+          getBilliardsTables={props.getBilliardsTables}
+          payAndResetBilliards={props.payAndResetBilliards}
+        />
+
         {loading ? (
           <p className="py-10 text-center text-primary/50">جاري التحميل...</p>
         ) : (

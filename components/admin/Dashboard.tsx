@@ -21,6 +21,7 @@ import {
   Save,
   Image as ImageIcon,
   Upload,
+  CircleDot,
 } from "lucide-react";
 import { POSITION_KEYS } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
@@ -38,6 +39,8 @@ import type {
   AnnouncementRow,
   PromoKey,
   PromoRow,
+  BilliardsTableRow,
+  BilliardsTransactionRow,
 } from "@/app/(admin)/panel/actions";
 
 type Tab =
@@ -46,6 +49,7 @@ type Tab =
   | "coupons"
   | "announcements"
   | "promos"
+  | "billiards"
   | "applicants"
   | "jobs"
   | "suggestions";
@@ -80,6 +84,8 @@ type DashboardProps = {
     target_category: MenuCategory | null
   ) => Promise<{ error: string | null }>;
   uploadPromoImage: (key: PromoKey, formData: FormData) => Promise<{ error: string | null }>;
+  getBilliardsTables: () => Promise<BilliardsTableRow[]>;
+  getBilliardsTransactions: () => Promise<BilliardsTransactionRow[]>;
 };
 
 const PROMO_LABELS: Record<PromoKey, { title: string; cta: string }> = {
@@ -189,6 +195,44 @@ function computeStats(orders: OrderRow[]) {
   };
 }
 
+function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
+  const now = new Date();
+
+  const sumBy = (rows: BilliardsTransactionRow[], key: "games_count" | "amount") =>
+    rows.reduce((sum, t) => sum + Number(t[key]), 0);
+
+  const todayTx = transactions.filter((t) => isSameDay(new Date(t.paid_at), now));
+
+  const last7DaysStart = new Date(now);
+  last7DaysStart.setDate(last7DaysStart.getDate() - 6);
+  last7DaysStart.setHours(0, 0, 0, 0);
+  const weekTx = transactions.filter((t) => new Date(t.paid_at) >= last7DaysStart);
+
+  const monthTx = transactions.filter((t) => {
+    const d = new Date(t.paid_at);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+
+  const perTable = [1, 2, 3].map((n) => {
+    const tableTx = transactions.filter((t) => t.table_number === n);
+    return {
+      table_number: n,
+      games: sumBy(tableTx, "games_count"),
+      amount: sumBy(tableTx, "amount"),
+    };
+  });
+
+  return {
+    todayGames: sumBy(todayTx, "games_count"),
+    todayAmount: sumBy(todayTx, "amount"),
+    weekGames: sumBy(weekTx, "games_count"),
+    weekAmount: sumBy(weekTx, "amount"),
+    monthGames: sumBy(monthTx, "games_count"),
+    monthAmount: sumBy(monthTx, "amount"),
+    perTable,
+  };
+}
+
 export default function Dashboard(props: DashboardProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
@@ -201,6 +245,8 @@ export default function Dashboard(props: DashboardProps) {
   const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [promos, setPromos] = useState<PromoRow[]>([]);
+  const [billiardsTables, setBilliardsTables] = useState<BilliardsTableRow[]>([]);
+  const [billiardsTransactions, setBilliardsTransactions] = useState<BilliardsTransactionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [announcementDrafts, setAnnouncementDrafts] = useState<
@@ -231,7 +277,7 @@ export default function Dashboard(props: DashboardProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [o, c, a, j, s, an, pr] = await Promise.all([
+      const [o, c, a, j, s, an, pr, bt, btx] = await Promise.all([
         props.getOrders(),
         props.getCoupons(),
         props.getApplicants(),
@@ -239,6 +285,8 @@ export default function Dashboard(props: DashboardProps) {
         props.getSuggestions(),
         props.getAnnouncements(),
         props.getHomePromos(),
+        props.getBilliardsTables(),
+        props.getBilliardsTransactions(),
       ]);
       setOrders(o ?? []);
       setCoupons(c ?? []);
@@ -256,6 +304,8 @@ export default function Dashboard(props: DashboardProps) {
         trending: pr?.find((p) => p.key === "trending")?.target_category ?? "",
         offer: pr?.find((p) => p.key === "offer")?.target_category ?? "",
       });
+      setBilliardsTables(bt ?? []);
+      setBilliardsTransactions(btx ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -275,6 +325,10 @@ export default function Dashboard(props: DashboardProps) {
   };
 
   const stats = useMemo(() => computeStats(orders), [orders]);
+  const billiardsStats = useMemo(
+    () => computeBilliardsStats(billiardsTransactions),
+    [billiardsTransactions]
+  );
   const maxWeekChartCount = Math.max(1, ...stats.last7Days.map((d) => d.count));
   const maxMonthChartCount = Math.max(1, ...stats.monthDays.map((d) => d.count));
 
@@ -429,6 +483,7 @@ export default function Dashboard(props: DashboardProps) {
     { key: "coupons", label: "الكوبونات", icon: Ticket },
     { key: "announcements", label: "الإعلانات", icon: Megaphone },
     { key: "promos", label: "الرائج والعروض", icon: ImageIcon },
+    { key: "billiards", label: "البلياردو", icon: CircleDot },
     { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "jobs", label: "الوظائف", icon: Briefcase },
     { key: "suggestions", label: "الاقتراحات", icon: MessageSquare },
@@ -1019,6 +1074,106 @@ export default function Dashboard(props: DashboardProps) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {tab === "billiards" && (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h3 className="mb-3 text-sm font-bold text-primary">
+                    الحالة الحالية (غير مدفوعة بعد)
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {billiardsTables.map((table) => (
+                      <div
+                        key={table.id}
+                        className="rounded-2xl border border-primary/10 bg-background p-4"
+                      >
+                        <p className="mb-1 text-xs text-primary/50">
+                          طاولة {table.table_number}
+                        </p>
+                        <p className="text-lg font-extrabold text-primary">
+                          {table.games_count} لعبة
+                        </p>
+                        <p className="text-sm text-primary/60">
+                          {(table.games_count * 1000).toLocaleString()} د.ع
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="mb-3 text-sm font-bold text-primary">عدد الألعاب</h3>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <StatCard label="اليوم" value={billiardsStats.todayGames} />
+                    <StatCard label="آخر 7 أيام" value={billiardsStats.weekGames} />
+                    <StatCard label="هذا الشهر" value={billiardsStats.monthGames} />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="mb-3 text-sm font-bold text-primary">الدخل المُحصَّل</h3>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <StatCard
+                      label="اليوم"
+                      value={`${billiardsStats.todayAmount.toLocaleString()} د.ع`}
+                    />
+                    <StatCard
+                      label="آخر 7 أيام"
+                      value={`${billiardsStats.weekAmount.toLocaleString()} د.ع`}
+                    />
+                    <StatCard
+                      label="هذا الشهر"
+                      value={`${billiardsStats.monthAmount.toLocaleString()} د.ع`}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">
+                    أداء الطاولات (إجمالي منذ البداية)
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {billiardsStats.perTable.map((t) => (
+                      <div
+                        key={t.table_number}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-primary/70">طاولة {t.table_number}</span>
+                        <span className="text-primary/70">{t.games} لعبة</span>
+                        <span className="font-bold text-primary">
+                          {t.amount.toLocaleString()} د.ع
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">سجل العمليات والتسديدات</h3>
+                  {billiardsTransactions.length === 0 ? (
+                    <p className="text-sm text-primary/50">لا توجد عمليات بعد</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {billiardsTransactions.map((t) => (
+                        <div
+                          key={t.id}
+                          className="flex items-center justify-between border-b border-primary/5 pb-2 text-sm last:border-0"
+                        >
+                          <span className="text-primary/50">
+                            {new Date(t.paid_at).toLocaleString("ar")}
+                          </span>
+                          <span className="text-primary/70">طاولة {t.table_number}</span>
+                          <span className="text-primary/70">{t.games_count} لعبة</span>
+                          <span className="font-bold text-primary">
+                            {Number(t.amount).toLocaleString()} د.ع
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

@@ -10,6 +10,8 @@ import {
   getStaffOrders,
   updateStaffOrderStatus,
   deleteStaffOrder,
+  getStaffBilliardsTables,
+  staffPayAndResetBilliards,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
@@ -38,6 +40,8 @@ export default async function StaffPage() {
       getOrders={getStaffOrders}
       updateOrderStatus={updateStaffOrderStatus}
       deleteOrder={deleteStaffOrder}
+      getBilliardsTables={getStaffBilliardsTables}
+      payAndResetBilliards={staffPayAndResetBilliards}
     />
   );
 }

@@ -6,8 +6,10 @@ import { ADMIN_COOKIE_NAME, createSessionToken, verifySessionToken } from "@/lib
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { PromoKey, PromoRow } from "@/lib/promos";
 import type { MenuCategory } from "@/lib/menu-data";
+import type { BilliardsTableRow, BilliardsTransactionRow } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
+export type { BilliardsTableRow, BilliardsTransactionRow };
 export type { PromoKey, PromoRow };
 
 export async function login(code: string): Promise<{ success: boolean }> {
@@ -344,4 +346,32 @@ export async function uploadPromoImage(key: PromoKey, formData: FormData) {
     .eq("key", key);
 
   return { error: toArabicError(error) };
+}
+
+export async function getBilliardsTables(): Promise<BilliardsTableRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_tables")
+    .select("*")
+    .order("table_number", { ascending: true });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsTableRow[];
+}
+
+export async function getBilliardsTransactions(): Promise<BilliardsTransactionRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .select("*")
+    .order("paid_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsTransactionRow[];
 }

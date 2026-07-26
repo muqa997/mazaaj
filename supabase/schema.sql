@@ -171,6 +171,34 @@ insert into home_promos (key, image_url, target_category)
 select 'offer', null, null
 where not exists (select 1 from home_promos where key = 'offer');
 
+-- طاولات صالة البلياردو (3 طاولات ثابتة) — الحساب بالعدّ (كيمة = 1000 د.ع)، تُدار من
+-- صفحة موظف البلياردو المنفصلة، ويظهر حسابها الحي بصفحة الكاشير ولوحة التحكم
+create table if not exists billiards_tables (
+  id uuid primary key default gen_random_uuid(),
+  table_number int not null unique check (table_number in (1, 2, 3)),
+  games_count int not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+alter table billiards_tables enable row level security;
+-- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
+
+insert into billiards_tables (table_number)
+select n from (values (1), (2), (3)) as t(n)
+where not exists (select 1 from billiards_tables where table_number = t.n);
+
+-- سجل عمليات الدفع والتصفير — يُستخدم لتقارير لوحة التحكم (يومي/أسبوعي/شهري لكل طاولة)
+create table if not exists billiards_transactions (
+  id uuid primary key default gen_random_uuid(),
+  table_number int not null,
+  games_count int not null,
+  amount numeric not null,
+  paid_at timestamptz not null default now()
+);
+
+alter table billiards_transactions enable row level security;
+-- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
+
 -- تخزين صور قسمي الرائج/العروض — عام (يظهر بالموقع للزوار)، الرفع فقط من لوحة التحكم
 insert into storage.buckets (id, name, public)
 values ('promos', 'promos', true)

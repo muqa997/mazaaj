@@ -8,8 +8,10 @@ import {
   verifyStaffSessionToken,
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
+import { GAME_PRICE, type BilliardsTableRow } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
+export type { BilliardsTableRow };
 
 export async function staffLogin(code: string): Promise<{ success: boolean }> {
   const expected = process.env.STAFF_ACCESS_CODE;
@@ -91,4 +93,45 @@ export async function deleteStaffOrder(id: string) {
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("orders").delete().eq("id", id);
   return { error: toArabicError(error) };
+}
+
+// يعرض حساب طاولات البلياردو الحي للكاشير (بدون إمكانية إضافة ألعاب — هذا خاص
+// بموظف البلياردو فقط)، مع إمكانية إنهاء الطلب وتصفير الطاولة عند الدفع بالكاشير
+export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[]> {
+  requireStaffSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_tables")
+    .select("*")
+    .order("table_number", { ascending: true });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsTableRow[];
+}
+
+export async function staffPayAndResetBilliards(tableNumber: number) {
+  requireStaffSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { data, error: fetchError } = await supabaseAdmin
+    .from("billiards_tables")
+    .select("games_count")
+    .eq("table_number", tableNumber)
+    .single();
+  if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
+  if (data.games_count === 0) return { error: null };
+
+  const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
+    table_number: tableNumber,
+    games_count: data.games_count,
+    amount: data.games_count * GAME_PRICE,
+  });
+  if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
+
+  const { error } = await supabaseAdmin
+    .from("billiards_tables")
+    .update({ games_count: 0, updated_at: new Date().toISOString() })
+    .eq("table_number", tableNumber);
+  return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }

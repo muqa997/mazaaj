@@ -25,6 +25,8 @@ import {
   getHomePromos,
   updatePromoTarget,
   uploadPromoImage,
+  getBilliardsTables,
+  getBilliardsTransactions,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
@@ -66,6 +68,8 @@ export default async function AdminPage() {
       getHomePromos={getHomePromos}
       updatePromoTarget={updatePromoTarget}
       uploadPromoImage={uploadPromoImage}
+      getBilliardsTables={getBilliardsTables}
+      getBilliardsTransactions={getBilliardsTransactions}
     />
   );
 }
