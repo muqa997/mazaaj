@@ -211,12 +211,14 @@ create table if not exists billiards_transactions (
   amount numeric not null,
   collected_by text not null default 'billiards' check (collected_by in ('billiards', 'cashier')),
   customer_ref text,
+  session_ended_at timestamptz,
   paid_at timestamptz not null default now()
 );
 
--- تحسبّاً لجدول billiards_transactions منشأ سابقاً بدون هذين العمودين
+-- تحسبّاً لجدول billiards_transactions منشأ سابقاً بدون هذه الأعمدة
 alter table billiards_transactions add column if not exists collected_by text not null default 'billiards';
 alter table billiards_transactions add column if not exists customer_ref text;
+alter table billiards_transactions add column if not exists session_ended_at timestamptz;
 
 alter table billiards_transactions enable row level security;
 -- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري

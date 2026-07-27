@@ -29,5 +29,8 @@ export type BilliardsTransactionRow = {
   amount: number;
   collected_by: BilliardsCollectedBy;
   customer_ref: string | null;
+  // وقت إنهاء الجلسة من موظف البلياردو (يُنسخ من وقت إنشاء التذكرة)، منفصل عن paid_at
+  // وهو وقت استلام الكاشير للمبلغ فعلياً
+  session_ended_at: string | null;
   paid_at: string;
 };

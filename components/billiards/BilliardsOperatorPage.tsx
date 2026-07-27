@@ -99,8 +99,8 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   };
 
   const pendingGames = tables.reduce((sum, t) => sum + t.games_count, 0);
-  const totalGamesToday = pendingGames + paidSummary.billiards.games + paidSummary.cashier.games;
-  const pendingTicketsAmount = pendingTickets.reduce((sum, t) => sum + Number(t.amount), 0);
+  const pendingTicketsGames = pendingTickets.reduce((sum, t) => sum + t.games_count, 0);
+  const totalGamesToday = pendingGames + pendingTicketsGames + paidSummary.cashier.games;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -116,12 +116,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
         </button>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-32 sm:px-6">
-        <p className="mb-4 rounded-2xl bg-primary/5 px-4 py-3 text-center text-xs font-semibold text-primary/70">
-          الدفع أصبح حصراً عند الكاشير — أخبر الزبون أن يحاسب بالأسفل، واضغط "إنهاء
-          الجلسة" لإرسال حسابه
-        </p>
-
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-24 sm:px-6">
         {loading ? (
           <p className="py-10 text-center text-primary/50">جاري التحميل...</p>
         ) : (
@@ -133,30 +128,31 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
               return (
                 <div
                   key={table.id}
-                  className="relative flex flex-col gap-4 overflow-hidden rounded-3xl p-5 shadow-glass"
+                  className="relative flex flex-col gap-4 overflow-hidden rounded-3xl p-6 shadow-glass"
                   style={{ backgroundColor: "#1a4f8f" }}
                 >
                   <BilliardsTablePockets />
 
-                  <div className="relative z-10 flex items-center justify-between">
-                    <h2 className="text-lg font-extrabold text-white">
+                  <div className="relative z-10 flex items-start justify-between">
+                    <h2 className="text-2xl font-extrabold text-white">
                       طاولة {table.table_number}
                     </h2>
-                    <span className="text-sm font-semibold text-white/70">
-                      {table.games_count} كيم
-                    </span>
+                    <div className="text-left">
+                      <p className="text-xl font-extrabold text-white">
+                        {table.games_count} كيم
+                      </p>
+                      <p className="text-sm font-semibold text-white/70">
+                        {amount.toLocaleString()} د.ع
+                      </p>
+                    </div>
                   </div>
-
-                  <p className="relative z-10 text-3xl font-extrabold text-white">
-                    {amount.toLocaleString()} <span className="text-base">د.ع</span>
-                  </p>
 
                   <div className="relative z-10 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       disabled={isBusy || table.games_count === 0}
                       onClick={() => runCountAction(table.table_number, props.removeGame)}
-                      className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                      className="flex items-center gap-1 rounded-full bg-red-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
                       aria-label="إنقاص كيم"
                     >
                       <Minus size={14} />
@@ -167,15 +163,14 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                       type="button"
                       disabled={isBusy}
                       onClick={() => runCountAction(table.table_number, props.addGame)}
-                      className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
-                      style={{ color: "#1a4f8f" }}
+                      className="flex items-center gap-1.5 rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       <Plus size={16} />
                       كيم جديد
                     </button>
                   </div>
 
-                  <div className="relative z-10 flex items-center gap-2 border-t border-white/20 pt-3">
+                  <div className="relative z-10 flex items-center gap-2 border-t border-white/20 pt-4">
                     <input
                       type="text"
                       value={customerRefs[table.table_number] ?? ""}
@@ -185,8 +180,8 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                           [table.table_number]: e.target.value,
                         }))
                       }
-                      placeholder="اسم الزبون أو رقم طاولة الجلوس (اختياري)"
-                      className="w-full min-w-0 flex-1 rounded-full bg-white/15 px-3 py-2 text-xs text-white placeholder:text-white/50 outline-none"
+                      placeholder="اسم الزبون أو رقم طاولة الجلوس"
+                      className="w-full min-w-0 flex-1 rounded-full bg-white/15 px-3.5 py-2 text-xs text-white placeholder:text-white/50 outline-none"
                     />
                     <button
                       type="button"
@@ -204,25 +199,38 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           </div>
         )}
 
-        {paidSummary.cashier.games > 0 && (
-          <p className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-center text-xs font-semibold text-primary/70">
-            دُفع عند الكاشير اليوم: {paidSummary.cashier.amount.toLocaleString()} د.ع (
-            {paidSummary.cashier.games} كيم)
-          </p>
-        )}
+        <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
+          <h3 className="mb-3 text-sm font-bold text-primary">الفواتير المعلّقة (لم تُدفع بعد)</h3>
+          {pendingTickets.length === 0 ? (
+            <p className="text-sm text-primary/50">لا توجد فواتير معلّقة حالياً</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {pendingTickets.map((ticket) => (
+                <div
+                  key={ticket.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
+                >
+                  <span className="font-semibold text-primary">
+                    {ticket.customer_ref || "بدون اسم"}
+                  </span>
+                  <span className="text-primary/50">
+                    {new Date(ticket.created_at).toLocaleString("ar")}
+                  </span>
+                  <span className="font-bold text-primary">
+                    {Number(ticket.amount).toLocaleString()} د.ع
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-primary/10 bg-background/95 px-4 py-3 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto flex max-w-2xl items-center justify-between">
+        <div className="mx-auto flex max-w-2xl items-center justify-center">
           <div className="text-center">
             <p className="text-xs text-primary/50">كيمات اليوم</p>
             <p className="font-extrabold text-primary">{totalGamesToday}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-primary/50">تذاكر معلّقة عند الكاشير</p>
-            <p className="font-extrabold text-primary">
-              {pendingTickets.length} ({pendingTicketsAmount.toLocaleString()} د.ع)
-            </p>
           </div>
         </div>
       </div>

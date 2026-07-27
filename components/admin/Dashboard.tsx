@@ -213,19 +213,14 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
 
+  // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)
   const perTable = [1, 2, 3].map((n) => {
-    const tableTx = transactions.filter((t) => t.table_number === n);
+    const tableTx = monthTx.filter((t) => t.table_number === n);
     return {
       table_number: n,
       games: sumBy(tableTx, "games_count"),
       amount: sumBy(tableTx, "amount"),
     };
-  });
-
-  // من حصّل الدفعة فعلياً — موظف البلياردو مباشرة أم الكاشير (للتسوية بين الطرفين)
-  const bySource = (rows: BilliardsTransactionRow[]) => ({
-    billiards: sumBy(rows.filter((t) => t.collected_by === "billiards"), "amount"),
-    cashier: sumBy(rows.filter((t) => t.collected_by === "cashier"), "amount"),
   });
 
   return {
@@ -235,9 +230,6 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     weekAmount: sumBy(weekTx, "amount"),
     monthGames: sumBy(monthTx, "games_count"),
     monthAmount: sumBy(monthTx, "amount"),
-    todaySource: bySource(todayTx),
-    weekSource: bySource(weekTx),
-    monthSource: bySource(monthTx),
     perTable,
   };
 }
@@ -692,6 +684,21 @@ export default function Dashboard(props: DashboardProps) {
                     value={`${stats.monthNetRevenue.toLocaleString()} د.ع`}
                   />
                 </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <StatCard
+                    label="دخل البلياردو اليوم"
+                    value={`${billiardsStats.todayAmount.toLocaleString()} د.ع`}
+                  />
+                  <StatCard
+                    label="دخل البلياردو الأسبوع"
+                    value={`${billiardsStats.weekAmount.toLocaleString()} د.ع`}
+                  />
+                  <StatCard
+                    label="دخل البلياردو الشهر"
+                    value={`${billiardsStats.monthAmount.toLocaleString()} د.ع`}
+                  />
+                </div>
               </div>
             )}
 
@@ -1113,66 +1120,26 @@ export default function Dashboard(props: DashboardProps) {
                 </div>
 
                 <div>
-                  <h3 className="mb-3 text-sm font-bold text-primary">عدد الكيمات</h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <StatCard label="اليوم" value={billiardsStats.todayGames} />
-                    <StatCard label="آخر 7 أيام" value={billiardsStats.weekGames} />
-                    <StatCard label="هذا الشهر" value={billiardsStats.monthGames} />
-                  </div>
-                </div>
-
-                <div>
                   <h3 className="mb-3 text-sm font-bold text-primary">الدخل المُحصَّل</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <StatCard
                       label="اليوم"
-                      value={`${billiardsStats.todayAmount.toLocaleString()} د.ع`}
+                      value={`${billiardsStats.todayAmount.toLocaleString()} د.ع (${billiardsStats.todayGames} كيم)`}
                     />
                     <StatCard
                       label="آخر 7 أيام"
-                      value={`${billiardsStats.weekAmount.toLocaleString()} د.ع`}
+                      value={`${billiardsStats.weekAmount.toLocaleString()} د.ع (${billiardsStats.weekGames} كيم)`}
                     />
                     <StatCard
                       label="هذا الشهر"
-                      value={`${billiardsStats.monthAmount.toLocaleString()} د.ع`}
+                      value={`${billiardsStats.monthAmount.toLocaleString()} د.ع (${billiardsStats.monthGames} كيم)`}
                     />
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">
                   <h3 className="mb-4 text-sm font-bold text-primary">
-                    الدخل حسب من حصّله — موظف البلياردو أم الكاشير
-                  </h3>
-                  <div className="flex flex-col gap-3">
-                    {(
-                      [
-                        ["اليوم", billiardsStats.todaySource],
-                        ["آخر 7 أيام", billiardsStats.weekSource],
-                        ["هذا الشهر", billiardsStats.monthSource],
-                      ] as const
-                    ).map(([label, source]) => (
-                      <div key={label} className="flex items-center justify-between text-sm">
-                        <span className="text-primary/50">{label}</span>
-                        <span className="text-primary/70">
-                          موظف البلياردو:{" "}
-                          <span className="font-bold text-primary">
-                            {source.billiards.toLocaleString()} د.ع
-                          </span>
-                        </span>
-                        <span className="text-primary/70">
-                          الكاشير:{" "}
-                          <span className="font-bold text-primary">
-                            {source.cashier.toLocaleString()} د.ع
-                          </span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-primary/10 bg-background p-5">
-                  <h3 className="mb-4 text-sm font-bold text-primary">
-                    أداء الطاولات (إجمالي منذ البداية)
+                    أداء الطاولات (هذا الشهر)
                   </h3>
                   <div className="flex flex-col gap-2">
                     {billiardsStats.perTable.map((t) => (
@@ -1202,7 +1169,13 @@ export default function Dashboard(props: DashboardProps) {
                           className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
                         >
                           <span className="text-primary/50">
-                            {new Date(t.paid_at).toLocaleString("ar")}
+                            {t.session_ended_at && (
+                              <>
+                                إنهاء الجلسة: {new Date(t.session_ended_at).toLocaleString("ar")}
+                                <br />
+                              </>
+                            )}
+                            استلام الكاشير: {new Date(t.paid_at).toLocaleString("ar")}
                           </span>
                           <span className="text-primary/70">طاولة {t.table_number}</span>
                           <span className="text-primary/70">{t.games_count} كيم</span>

@@ -57,7 +57,7 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   return (
     <div className="mb-4 flex flex-col gap-4">
       <div className="rounded-2xl border border-primary/10 bg-background p-4">
-        <h3 className="mb-3 text-sm font-bold text-primary">حساب البلياردو الحي (للعلم)</h3>
+        <h3 className="mb-3 text-sm font-bold text-primary">حساب البلياردو الحي</h3>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {tables.map((table) => {
             const amount = table.games_count * GAME_PRICE;
@@ -77,16 +77,14 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
           })}
         </div>
         <p className="mt-3 border-t border-primary/10 pt-3 text-xs font-semibold text-primary/60">
-          حسبته أنا اليوم:{" "}
-          <span className="text-primary">
-            {todayTotal.amount.toLocaleString()} د.ع ({todayTotal.games} كيم)
-          </span>
+          حساب البلياردو المستلم:{" "}
+          <span className="text-primary">{todayTotal.amount.toLocaleString()} د.ع</span>
         </p>
       </div>
 
       {tickets.length > 0 && (
         <div className="rounded-2xl border border-primary/10 bg-background p-4">
-          <h3 className="mb-3 text-sm font-bold text-primary">التذاكر المعلّقة (قابلة للدفع)</h3>
+          <h3 className="mb-3 text-sm font-bold text-primary">التذاكر المعلّقة</h3>
           <div className="flex flex-col gap-2">
             {tickets.map((ticket) => {
               const isBusy = busyTicket === ticket.id;

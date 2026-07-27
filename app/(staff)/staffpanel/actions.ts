@@ -143,6 +143,7 @@ export async function payTicket(ticketId: string) {
     amount: ticket.amount,
     collected_by: "cashier",
     customer_ref: ticket.customer_ref,
+    session_ended_at: ticket.created_at,
   });
   if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
 
