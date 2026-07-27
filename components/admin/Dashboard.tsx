@@ -223,6 +223,26 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     };
   });
 
+  const weekDays = Array.from({ length: 7 }).map((_, i) => {
+    const day = new Date(now);
+    day.setDate(day.getDate() - (6 - i));
+    const amount = sumBy(
+      transactions.filter((t) => isSameDay(new Date(t.paid_at), day)),
+      "amount"
+    );
+    return { label: day.toLocaleDateString("ar", { weekday: "short" }), amount };
+  });
+
+  const daysElapsedInMonth = now.getDate();
+  const monthDays = Array.from({ length: daysElapsedInMonth }).map((_, i) => {
+    const day = i + 1;
+    const amount = sumBy(
+      monthTx.filter((t) => new Date(t.paid_at).getDate() === day),
+      "amount"
+    );
+    return { label: String(day), amount };
+  });
+
   return {
     todayGames: sumBy(todayTx, "games_count"),
     todayAmount: sumBy(todayTx, "amount"),
@@ -231,6 +251,8 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     monthGames: sumBy(monthTx, "games_count"),
     monthAmount: sumBy(monthTx, "amount"),
     perTable,
+    weekDays,
+    monthDays,
   };
 }
 
@@ -332,6 +354,9 @@ export default function Dashboard(props: DashboardProps) {
   );
   const maxWeekChartCount = Math.max(1, ...stats.last7Days.map((d) => d.count));
   const maxMonthChartCount = Math.max(1, ...stats.monthDays.map((d) => d.count));
+  const maxBilliardsWeekAmount = Math.max(1, ...billiardsStats.weekDays.map((d) => d.amount));
+  const maxBilliardsMonthAmount = Math.max(1, ...billiardsStats.monthDays.map((d) => d.amount));
+  const maxBilliardsTableAmount = Math.max(1, ...billiardsStats.perTable.map((t) => t.amount));
 
   const changeOrderStatus = async (id: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
@@ -1198,6 +1223,69 @@ export default function Dashboard(props: DashboardProps) {
                       ))}
                     </div>
                   )}
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">
+                    أداء البلياردو (آخر 7 أيام)
+                  </h3>
+                  <div className="flex items-end justify-between gap-2 h-32">
+                    {billiardsStats.weekDays.map((day, i) => (
+                      <div key={i} className="flex flex-1 flex-col items-center gap-2">
+                        <div className="flex h-24 w-full items-end">
+                          <div
+                            className="w-full rounded-md bg-accent/60"
+                            style={{
+                              height: `${Math.max(6, (day.amount / maxBilliardsWeekAmount) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-primary/50">{day.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">
+                    أداء البلياردو (هذا الشهر يومياً)
+                  </h3>
+                  <div className="flex items-end justify-between gap-1 h-32 overflow-x-auto">
+                    {billiardsStats.monthDays.map((day, i) => (
+                      <div key={i} className="flex min-w-[10px] flex-1 flex-col items-center gap-1">
+                        <div className="flex h-24 w-full items-end">
+                          <div
+                            className="w-full rounded-sm bg-accent/60"
+                            style={{
+                              height: `${Math.max(6, (day.amount / maxBilliardsMonthAmount) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-primary/40">{day.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">
+                    أداء الطاولات الثلاث (هذا الشهر)
+                  </h3>
+                  <div className="flex items-end justify-between gap-4 h-32">
+                    {billiardsStats.perTable.map((t) => (
+                      <div key={t.table_number} className="flex flex-1 flex-col items-center gap-2">
+                        <div className="flex h-24 w-full items-end">
+                          <div
+                            className="w-full rounded-md bg-accent/60"
+                            style={{
+                              height: `${Math.max(6, (t.amount / maxBilliardsTableAmount) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-primary/50">طاولة {t.table_number}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

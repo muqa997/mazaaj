@@ -96,6 +96,14 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-primary/60">
                       {ticket.customer_ref || "بدون اسم"} — طاولة بلياردو {ticket.table_number}
+                      <span className="ms-1 font-normal text-primary/40">
+                        (
+                        {new Date(ticket.created_at).toLocaleTimeString("ar", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        )
+                      </span>
                     </p>
                     <p className="text-sm font-bold text-primary">
                       {Number(ticket.amount).toLocaleString()} د.ع
