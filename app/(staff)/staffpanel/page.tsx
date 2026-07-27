@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { STAFF_COOKIE_NAME, verifyStaffSessionToken } from "@/lib/staff-session";
+import { STAFF_GATE_HEADER } from "@/lib/gate-headers";
 import StaffLoginForm from "@/components/staff/StaffLoginForm";
 import StaffOrdersPage from "@/components/staff/StaffOrdersPage";
 import {
@@ -11,18 +12,19 @@ import {
   updateStaffOrderStatus,
   deleteStaffOrder,
   getStaffBilliardsTables,
-  staffPayAndResetBilliards,
+  getStaffPendingTickets,
+  payTicket,
+  cancelTicket,
+  getStaffBilliardsTodayTotal,
 } from "./actions";
 
-// هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
-// لما يزور أحد المسار السري الصحيح (متغير STAFF_ROUTE)، واللي يضبط كوكي تحقق
-// بنفس القيمة. أي وصول مباشر لـ /staffpanel بدون هذا الكوكي يرجع 404.
+// هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
+// أحد المسار السري الصحيح (متغير STAFF_ROUTE)، واللي يضبط ترويسة داخلية على نفس الطلب.
+// أي وصول مباشر لـ /staffpanel بدون هذه الترويسة يرجع 404.
 // هذه الصفحة منفصلة تماماً عن لوحة التحكم: باسوورد مختلف، جلسة مختلفة،
 // ولا تعرض شيء غير قسم الطلبات.
 export default async function StaffPage() {
-  const gateValue = cookies().get("mz_staff_gate")?.value;
-
-  if (!process.env.STAFF_ROUTE || gateValue !== process.env.STAFF_ROUTE) {
+  if (!process.env.STAFF_ROUTE || headers().get(STAFF_GATE_HEADER) !== "1") {
     notFound();
   }
 
@@ -41,7 +43,10 @@ export default async function StaffPage() {
       updateOrderStatus={updateStaffOrderStatus}
       deleteOrder={deleteStaffOrder}
       getBilliardsTables={getStaffBilliardsTables}
-      payAndResetBilliards={staffPayAndResetBilliards}
+      getPendingTickets={getStaffPendingTickets}
+      payTicket={payTicket}
+      cancelTicket={cancelTicket}
+      getBilliardsTodayTotal={getStaffBilliardsTodayTotal}
     />
   );
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { BILLIARDS_COOKIE_NAME, verifyBilliardsSessionToken } from "@/lib/billiards-session";
+import { BILLIARDS_GATE_HEADER } from "@/lib/gate-headers";
 import BilliardsLoginForm from "@/components/billiards/BilliardsLoginForm";
 import BilliardsOperatorPage from "@/components/billiards/BilliardsOperatorPage";
 import {
@@ -10,19 +11,18 @@ import {
   getBilliardsTables,
   addGame,
   removeGame,
-  payAndReset,
+  endSession,
+  getPendingTickets,
   getTodayPaidSummary,
 } from "./actions";
 
-// هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
-// لما يزور أحد المسار السري الصحيح (متغير BILLIARDS_ROUTE)، واللي يضبط كوكي تحقق
-// بنفس القيمة. أي وصول مباشر لـ /billiardspanel بدون هذا الكوكي يرجع 404.
+// هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
+// أحد المسار السري الصحيح (متغير BILLIARDS_ROUTE)، واللي يضبط ترويسة داخلية على نفس
+// الطلب. أي وصول مباشر لـ /billiardspanel بدون هذه الترويسة يرجع 404.
 // هذه الصفحة منفصلة تماماً عن لوحة التحكم وصفحة العاملين: باسوورد مختلف، جلسة
 // مختلفة، ولا تعرض شيء غير طاولات البلياردو الثلاث.
 export default async function BilliardsPage() {
-  const gateValue = cookies().get("mz_billiards_gate")?.value;
-
-  if (!process.env.BILLIARDS_ROUTE || gateValue !== process.env.BILLIARDS_ROUTE) {
+  if (!process.env.BILLIARDS_ROUTE || headers().get(BILLIARDS_GATE_HEADER) !== "1") {
     notFound();
   }
 
@@ -40,7 +40,8 @@ export default async function BilliardsPage() {
       getTables={getBilliardsTables}
       addGame={addGame}
       removeGame={removeGame}
-      payAndReset={payAndReset}
+      endSession={endSession}
+      getPendingTickets={getPendingTickets}
       getTodayPaidSummary={getTodayPaidSummary}
     />
   );

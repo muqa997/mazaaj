@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { ADMIN_COOKIE_NAME, verifySessionToken } from "@/lib/admin-session";
+import { ADMIN_GATE_HEADER } from "@/lib/gate-headers";
 import LoginForm from "@/components/admin/LoginForm";
 import Dashboard from "@/components/admin/Dashboard";
 import {
@@ -29,13 +30,12 @@ import {
   getBilliardsTransactions,
 } from "./actions";
 
-// هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر التحويل اللي يسويه middleware.ts
-// لما يزور أحد المسار السري الصحيح (متغير ADMIN_ROUTE)، واللي يضبط كوكي تحقق
-// بنفس القيمة. أي وصول مباشر لـ /panel بدون هذا الكوكي يرجع 404.
+// هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
+// أحد المسار السري الصحيح (متغير ADMIN_ROUTE)، واللي يضبط ترويسة داخلية على نفس الطلب.
+// أي وصول مباشر لـ /panel بدون هذه الترويسة يرجع 404 (ومستحيل انتحالها من خارج
+// السيرفر لأن middleware.ts يحذفها من أي طلب لا يطابق المسار السري أولاً).
 export default async function AdminPage() {
-  const gateValue = cookies().get("mz_admin_gate")?.value;
-
-  if (!process.env.ADMIN_ROUTE || gateValue !== process.env.ADMIN_ROUTE) {
+  if (!process.env.ADMIN_ROUTE || headers().get(ADMIN_GATE_HEADER) !== "1") {
     notFound();
   }
 

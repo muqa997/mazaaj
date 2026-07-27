@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import type { BilliardsTableRow } from "@/lib/billiards";
+import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
 import BilliardsSummaryCard from "./BilliardsSummaryCard";
 
 type StaffOrdersPageProps = {
@@ -15,7 +15,10 @@ type StaffOrdersPageProps = {
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<{ error: string | null }>;
   deleteOrder: (id: string) => Promise<{ error: string | null }>;
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
-  payAndResetBilliards: (tableNumber: number) => Promise<{ error: string | null }>;
+  getPendingTickets: () => Promise<BilliardsTicketRow[]>;
+  payTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
 
 export default function StaffOrdersPage(props: StaffOrdersPageProps) {
@@ -74,7 +77,10 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
         <BilliardsSummaryCard
           getBilliardsTables={props.getBilliardsTables}
-          payAndResetBilliards={props.payAndResetBilliards}
+          getPendingTickets={props.getPendingTickets}
+          payTicket={props.payTicket}
+          cancelTicket={props.cancelTicket}
+          getBilliardsTodayTotal={props.getBilliardsTodayTotal}
         />
 
         {loading ? (

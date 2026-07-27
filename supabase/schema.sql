@@ -187,14 +187,36 @@ insert into billiards_tables (table_number)
 select n from (values (1), (2), (3)) as t(n)
 where not exists (select 1 from billiards_tables where table_number = t.n);
 
--- سجل عمليات الدفع والتصفير — يُستخدم لتقارير لوحة التحكم (يومي/أسبوعي/شهري لكل طاولة)
+-- تذاكر بلياردو معلّقة بانتظار الدفع عند الكاشير حصراً — موظف البلياردو "ينهي جلسة"
+-- زبون محدد فتُفصل كيماته فوراً عن عداد الطاولة الحي (تتصفّر الطاولة لزبون جديد بدون
+-- انتظار الدفع)، مع مرجع اسم/رقم طاولة جلوس يعرف منه الكاشير لمن تعود عند الدفع
+create table if not exists billiards_tickets (
+  id uuid primary key default gen_random_uuid(),
+  table_number int not null,
+  games_count int not null,
+  amount numeric not null,
+  customer_ref text,
+  created_at timestamptz not null default now()
+);
+
+alter table billiards_tickets enable row level security;
+-- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
+
+-- سجل عمليات الدفع — يُستخدم لتقارير لوحة التحكم (يومي/أسبوعي/شهري لكل طاولة)
+-- collected_by: من حصّل الدفعة (الكاشير حصراً حالياً، والحقل موجود تحسّباً لأي تغيير مستقبلي)
 create table if not exists billiards_transactions (
   id uuid primary key default gen_random_uuid(),
   table_number int not null,
   games_count int not null,
   amount numeric not null,
+  collected_by text not null default 'billiards' check (collected_by in ('billiards', 'cashier')),
+  customer_ref text,
   paid_at timestamptz not null default now()
 );
+
+-- تحسبّاً لجدول billiards_transactions منشأ سابقاً بدون هذين العمودين
+alter table billiards_transactions add column if not exists collected_by text not null default 'billiards';
+alter table billiards_transactions add column if not exists customer_ref text;
 
 alter table billiards_transactions enable row level security;
 -- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري

@@ -222,6 +222,12 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     };
   });
 
+  // من حصّل الدفعة فعلياً — موظف البلياردو مباشرة أم الكاشير (للتسوية بين الطرفين)
+  const bySource = (rows: BilliardsTransactionRow[]) => ({
+    billiards: sumBy(rows.filter((t) => t.collected_by === "billiards"), "amount"),
+    cashier: sumBy(rows.filter((t) => t.collected_by === "cashier"), "amount"),
+  });
+
   return {
     todayGames: sumBy(todayTx, "games_count"),
     todayAmount: sumBy(todayTx, "amount"),
@@ -229,6 +235,9 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     weekAmount: sumBy(weekTx, "amount"),
     monthGames: sumBy(monthTx, "games_count"),
     monthAmount: sumBy(monthTx, "amount"),
+    todaySource: bySource(todayTx),
+    weekSource: bySource(weekTx),
+    monthSource: bySource(monthTx),
     perTable,
   };
 }
@@ -1093,7 +1102,7 @@ export default function Dashboard(props: DashboardProps) {
                           طاولة {table.table_number}
                         </p>
                         <p className="text-lg font-extrabold text-primary">
-                          {table.games_count} لعبة
+                          {table.games_count} كيم
                         </p>
                         <p className="text-sm text-primary/60">
                           {(table.games_count * 1000).toLocaleString()} د.ع
@@ -1104,7 +1113,7 @@ export default function Dashboard(props: DashboardProps) {
                 </div>
 
                 <div>
-                  <h3 className="mb-3 text-sm font-bold text-primary">عدد الألعاب</h3>
+                  <h3 className="mb-3 text-sm font-bold text-primary">عدد الكيمات</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <StatCard label="اليوم" value={billiardsStats.todayGames} />
                     <StatCard label="آخر 7 أيام" value={billiardsStats.weekGames} />
@@ -1132,6 +1141,37 @@ export default function Dashboard(props: DashboardProps) {
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">
                   <h3 className="mb-4 text-sm font-bold text-primary">
+                    الدخل حسب من حصّله — موظف البلياردو أم الكاشير
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    {(
+                      [
+                        ["اليوم", billiardsStats.todaySource],
+                        ["آخر 7 أيام", billiardsStats.weekSource],
+                        ["هذا الشهر", billiardsStats.monthSource],
+                      ] as const
+                    ).map(([label, source]) => (
+                      <div key={label} className="flex items-center justify-between text-sm">
+                        <span className="text-primary/50">{label}</span>
+                        <span className="text-primary/70">
+                          موظف البلياردو:{" "}
+                          <span className="font-bold text-primary">
+                            {source.billiards.toLocaleString()} د.ع
+                          </span>
+                        </span>
+                        <span className="text-primary/70">
+                          الكاشير:{" "}
+                          <span className="font-bold text-primary">
+                            {source.cashier.toLocaleString()} د.ع
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">
                     أداء الطاولات (إجمالي منذ البداية)
                   </h3>
                   <div className="flex flex-col gap-2">
@@ -1141,7 +1181,7 @@ export default function Dashboard(props: DashboardProps) {
                         className="flex items-center justify-between text-sm"
                       >
                         <span className="text-primary/70">طاولة {t.table_number}</span>
-                        <span className="text-primary/70">{t.games} لعبة</span>
+                        <span className="text-primary/70">{t.games} كيم</span>
                         <span className="font-bold text-primary">
                           {t.amount.toLocaleString()} د.ع
                         </span>
@@ -1159,13 +1199,25 @@ export default function Dashboard(props: DashboardProps) {
                       {billiardsTransactions.map((t) => (
                         <div
                           key={t.id}
-                          className="flex items-center justify-between border-b border-primary/5 pb-2 text-sm last:border-0"
+                          className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
                         >
                           <span className="text-primary/50">
                             {new Date(t.paid_at).toLocaleString("ar")}
                           </span>
                           <span className="text-primary/70">طاولة {t.table_number}</span>
-                          <span className="text-primary/70">{t.games_count} لعبة</span>
+                          <span className="text-primary/70">{t.games_count} كيم</span>
+                          {t.customer_ref && (
+                            <span className="text-primary/50">{t.customer_ref}</span>
+                          )}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                              t.collected_by === "cashier"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {t.collected_by === "cashier" ? "الكاشير" : "موظف البلياردو"}
+                          </span>
                           <span className="font-bold text-primary">
                             {Number(t.amount).toLocaleString()} د.ع
                           </span>

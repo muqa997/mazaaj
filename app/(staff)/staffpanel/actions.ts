@@ -8,10 +8,10 @@ import {
   verifyStaffSessionToken,
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import { GAME_PRICE, type BilliardsTableRow } from "@/lib/billiards";
+import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
-export type { BilliardsTableRow };
+export type { BilliardsTableRow, BilliardsTicketRow };
 
 export async function staffLogin(code: string): Promise<{ success: boolean }> {
   const expected = process.env.STAFF_ACCESS_CODE;
@@ -95,8 +95,8 @@ export async function deleteStaffOrder(id: string) {
   return { error: toArabicError(error) };
 }
 
-// يعرض حساب طاولات البلياردو الحي للكاشير (بدون إمكانية إضافة ألعاب — هذا خاص
-// بموظف البلياردو فقط)، مع إمكانية إنهاء الطلب وتصفير الطاولة عند الدفع بالكاشير
+// يعرض حساب طاولات البلياردو الحي للكاشير — للعلم فقط، بدون أي إمكانية تعديل أو دفع
+// من هنا (الطاولة الحية تخص موظف البلياردو فقط؛ الدفع يتم حصراً عبر التذاكر أدناه)
 export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[]> {
   requireStaffSession();
   if (!supabaseAdmin) return [];
@@ -111,27 +111,77 @@ export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[]> {
   return (data ?? []) as BilliardsTableRow[];
 }
 
-export async function staffPayAndResetBilliards(tableNumber: number) {
+// التذاكر المعلّقة التي أرسلها موظف البلياردو (بعد إنهاء جلسة زبون) بانتظار الدفع —
+// هذا هو المكان الوحيد الذي يتم فيه تحصيل مبلغ البلياردو فعلياً
+export async function getStaffPendingTickets(): Promise<BilliardsTicketRow[]> {
+  requireStaffSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_tickets")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsTicketRow[];
+}
+
+export async function payTicket(ticketId: string) {
   requireStaffSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { data, error: fetchError } = await supabaseAdmin
-    .from("billiards_tables")
-    .select("games_count")
-    .eq("table_number", tableNumber)
+  const { data: ticket, error: fetchError } = await supabaseAdmin
+    .from("billiards_tickets")
+    .select("*")
+    .eq("id", ticketId)
     .single();
-  if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
-  if (data.games_count === 0) return { error: null };
+  if (fetchError || !ticket) return { error: "تعذّر إيجاد التذكرة" };
 
   const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
-    table_number: tableNumber,
-    games_count: data.games_count,
-    amount: data.games_count * GAME_PRICE,
+    table_number: ticket.table_number,
+    games_count: ticket.games_count,
+    amount: ticket.amount,
+    collected_by: "cashier",
+    customer_ref: ticket.customer_ref,
   });
   if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
 
-  const { error } = await supabaseAdmin
-    .from("billiards_tables")
-    .update({ games_count: 0, updated_at: new Date().toISOString() })
-    .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء التصفير" : null };
+  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
+  return { error: error ? "حدث خطأ أثناء إزالة التذكرة" : null };
+}
+
+// إلغاء تذكرة معلّقة بالغلط (خطأ برقم الطاولة أو إرسال مكرر) — تُحذف بدون تسجيل أي دفعة
+export async function cancelTicket(ticketId: string) {
+  requireStaffSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
+  return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
+}
+
+// مجموع ما حصّله الكاشير نفسه اليوم من حسابات البلياردو (بدون ما حصّله موظف البلياردو
+// مباشرة) — يظهر بصفحة الكاشير كإحصائية مستقلة عن جلسة موظف البلياردو
+export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; amount: number }> {
+  requireStaffSession();
+  if (!supabaseAdmin) return { games: 0, amount: 0 };
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { data, error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .select("games_count, amount")
+    .eq("collected_by", "cashier")
+    .gte("paid_at", startOfDay.toISOString());
+  if (error) {
+    console.error(error);
+    return { games: 0, amount: 0 };
+  }
+
+  return (data ?? []).reduce(
+    (acc, row) => ({
+      games: acc.games + row.games_count,
+      amount: acc.amount + Number(row.amount),
+    }),
+    { games: 0, amount: 0 }
+  );
 }
