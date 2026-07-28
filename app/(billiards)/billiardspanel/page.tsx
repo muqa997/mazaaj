@@ -9,8 +9,7 @@ import {
   billiardsLogout,
   refreshBilliardsSession,
   getBilliardsTables,
-  addGame,
-  removeGame,
+  setGameCount,
   updateCustomerRef,
   endSession,
   getPendingTickets,
@@ -42,8 +41,7 @@ export default async function BilliardsPage() {
       logoutAction={billiardsLogout}
       refreshSessionAction={refreshBilliardsSession}
       getTables={getBilliardsTables}
-      addGame={addGame}
-      removeGame={removeGame}
+      setGameCount={setGameCount}
       updateCustomerRef={updateCustomerRef}
       endSession={endSession}
       getPendingTickets={getPendingTickets}

@@ -32,8 +32,7 @@ type BilliardsOperatorPageProps = {
   logoutAction: () => Promise<void>;
   refreshSessionAction: () => Promise<void>;
   getTables: () => Promise<BilliardsTableRow[]>;
-  addGame: (tableNumber: number, pool: PoolType) => Promise<{ error: string | null }>;
-  removeGame: (tableNumber: number, pool: PoolType) => Promise<{ error: string | null }>;
+  setGameCount: (tableNumber: number, pool: PoolType, count: number) => Promise<{ error: string | null }>;
   updateCustomerRef: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   endSession: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
@@ -88,6 +87,8 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const focusedTableRef = useRef<number | null>(null);
+  // مؤقتات تجميع الضغطات السريعة (debounce) لكل طاولة+قسم — مفتاحها "رقم الطاولة:القسم"
+  const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const load = async () => {
     const [t, tickets, s, n] = await Promise.all([
@@ -96,7 +97,21 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       props.getStats(),
       props.getNotes(),
     ]);
-    setTables(t);
+    // لا نستبدل عداد طاولة+قسم لا يزال بانتظار مزامنة مؤجَّلة (debounce) — لتجنّب أن
+    // يُصفِّر الاستطلاع الدوري القيمة المحلية قبل وصول التحديث الفعلي للخادم
+    setTables((prevTables) =>
+      t.map((freshTable) => {
+        const prevTable = prevTables.find((p) => p.table_number === freshTable.table_number);
+        if (!prevTable) return freshTable;
+        const eightPending = pendingSyncRef.current[`${freshTable.table_number}:eight`];
+        const ninePending = pendingSyncRef.current[`${freshTable.table_number}:nine`];
+        return {
+          ...freshTable,
+          games_count: eightPending ? prevTable.games_count : freshTable.games_count,
+          games_count_9ball: ninePending ? prevTable.games_count_9ball : freshTable.games_count_9ball,
+        };
+      })
+    );
     // لا نستبدل قيمة الحقل أثناء كتابة الموظف فيه حالياً (تجنّباً لمسحه بمزامنة الاستطلاع)
     setCustomerRefs((prev) => {
       const next = { ...prev };
@@ -117,7 +132,10 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     load();
     props.refreshSessionAction();
     const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      Object.values(pendingSyncRef.current).forEach(clearTimeout);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -126,22 +144,31 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     router.refresh();
   };
 
-  // تحديث تفاؤلي فوري للعداد المحلي قبل انتظار رد الخادم — يلغي أي تأخير محسوس عند
-  // الضغط على أزرار +/-، والاستطلاع الدوري (كل 3 ثوانٍ) يصحّح القيمة تلقائياً لاحقاً
-  const adjustGame = async (
-    tableNumber: number,
-    pool: PoolType,
-    delta: 1 | -1,
-    action: (n: number, p: PoolType) => Promise<{ error: string | null }>
-  ) => {
+  // تحديث تفاؤلي فوري للعداد المحلي عند كل ضغطة (بلا أي تأخير محسوس)، لكن الإرسال
+  // الفعلي للخادم يُجمَّع (debounce ~900ms): كل ضغطات المستخدم السريعة المتتالية على
+  // نفس العداد تُلغي المؤقّت السابق وتُعيد جدولته، فلا يُرسَل للخادم إلا القيمة
+  // النهائية مرة واحدة — هذا يمنع تعارض عدة طلبات "اقرأ ثم زِد بواحد" المتزامنة التي
+  // كانت تُفقِد بعض الضغطات وتُظهر رقماً خاطئاً عند الضغط السريع
+  const adjustGame = (tableNumber: number, pool: PoolType, delta: 1 | -1) => {
+    let nextCount = 0;
     setTables((prev) =>
       prev.map((t) => {
         if (t.table_number !== tableNumber) return t;
-        if (pool === "eight") return { ...t, games_count: Math.max(0, t.games_count + delta) };
-        return { ...t, games_count_9ball: Math.max(0, t.games_count_9ball + delta) };
+        if (pool === "eight") {
+          nextCount = Math.max(0, t.games_count + delta);
+          return { ...t, games_count: nextCount };
+        }
+        nextCount = Math.max(0, t.games_count_9ball + delta);
+        return { ...t, games_count_9ball: nextCount };
       })
     );
-    await action(tableNumber, pool);
+
+    const key = `${tableNumber}:${pool}`;
+    if (pendingSyncRef.current[key]) clearTimeout(pendingSyncRef.current[key]);
+    pendingSyncRef.current[key] = setTimeout(() => {
+      delete pendingSyncRef.current[key];
+      props.setGameCount(tableNumber, pool, nextCount);
+    }, 900);
   };
 
   const handleCustomerRefBlur = async (tableNumber: number) => {
@@ -220,55 +247,55 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                     </div>
                   </div>
 
-                  <div className="relative z-10 grid grid-cols-2 gap-3">
-                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-black/60 px-3 py-3">
-                      <span dir="ltr" className="text-sm font-bold text-white">8 Pool</span>
-                      <div className="flex items-center gap-2.5">
+                  <div className="relative z-10 flex items-stretch gap-3">
+                    <div className="flex flex-[6] flex-col items-center gap-2 rounded-2xl bg-black/60 px-3 py-3.5">
+                      <span dir="ltr" className="text-base font-bold text-white">8 Pool</span>
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
                           disabled={table.games_count === 0}
-                          onClick={() => adjustGame(table.table_number, "eight", -1, props.removeGame)}
+                          onClick={() => adjustGame(table.table_number, "eight", -1)}
                           aria-label="إنقاص كيم 8 Pool"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
                         >
-                          <Minus size={14} />
+                          <Minus size={16} />
                         </button>
-                        <span className="w-5 text-center text-sm font-extrabold text-white">
+                        <span className="w-6 text-center text-base font-extrabold text-white">
                           {table.games_count}
                         </span>
                         <button
                           type="button"
-                          onClick={() => adjustGame(table.table_number, "eight", 1, props.addGame)}
+                          onClick={() => adjustGame(table.table_number, "eight", 1)}
                           aria-label="زيادة كيم 8 Pool"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white"
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-green-500 text-white"
                         >
-                          <Plus size={14} />
+                          <Plus size={16} />
                         </button>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-yellow-400/60 px-3 py-3">
-                      <span dir="ltr" className="text-sm font-bold text-white">9 Pool</span>
-                      <div className="flex items-center gap-2.5">
+                    <div className="flex flex-[5] flex-col items-center gap-1.5 rounded-2xl bg-yellow-400/60 px-2 py-2.5">
+                      <span dir="ltr" className="text-xs font-bold text-white">9 Pool</span>
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           disabled={table.games_count_9ball === 0}
-                          onClick={() => adjustGame(table.table_number, "nine", -1, props.removeGame)}
+                          onClick={() => adjustGame(table.table_number, "nine", -1)}
                           aria-label="إنقاص كيم 9 Pool"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
                         >
-                          <Minus size={14} />
+                          <Minus size={12} />
                         </button>
-                        <span className="w-5 text-center text-sm font-extrabold text-white">
+                        <span className="w-4 text-center text-sm font-extrabold text-white">
                           {table.games_count_9ball}
                         </span>
                         <button
                           type="button"
-                          onClick={() => adjustGame(table.table_number, "nine", 1, props.addGame)}
+                          onClick={() => adjustGame(table.table_number, "nine", 1)}
                           aria-label="زيادة كيم 9 Pool"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white"
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-white"
                         >
-                          <Plus size={14} />
+                          <Plus size={12} />
                         </button>
                       </div>
                     </div>

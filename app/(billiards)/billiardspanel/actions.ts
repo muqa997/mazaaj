@@ -76,42 +76,15 @@ export async function getBilliardsTables(): Promise<BilliardsTableRow[]> {
   return (data ?? []) as BilliardsTableRow[];
 }
 
-export async function addGame(tableNumber: number, pool: PoolType) {
+// يضبط عدد كيمات القسم (٨/٩ بول) على قيمة مطلقة مباشرة (بلا قراءة مسبقة) — الواجهة
+// تُرسل القيمة النهائية بعد تجميع ضغطات المستخدم السريعة (debounce)، فتصبح كل عملية
+// كتابة واحدة مستقلة لا تتعارض مع غيرها، بعكس نمط "اقرأ ثم زِد بواحد" الذي كان يفقد
+// بعض الضغطات عند الضغط السريع المتتالي (حالة تسابق race condition)
+export async function setGameCount(tableNumber: number, pool: PoolType, count: number) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { data, error: fetchError } = await supabaseAdmin
-    .from("billiards_tables")
-    .select("games_count, games_count_9ball")
-    .eq("table_number", tableNumber)
-    .single();
-  if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
-
-  const update =
-    pool === "eight"
-      ? { games_count: data.games_count + 1 }
-      : { games_count_9ball: data.games_count_9ball + 1 };
-
-  const { error } = await supabaseAdmin
-    .from("billiards_tables")
-    .update({ ...update, updated_at: new Date().toISOString() })
-    .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء الحفظ" : null };
-}
-
-export async function removeGame(tableNumber: number, pool: PoolType) {
-  requireBilliardsSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { data, error: fetchError } = await supabaseAdmin
-    .from("billiards_tables")
-    .select("games_count, games_count_9ball")
-    .eq("table_number", tableNumber)
-    .single();
-  if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
-
-  const update =
-    pool === "eight"
-      ? { games_count: Math.max(0, data.games_count - 1) }
-      : { games_count_9ball: Math.max(0, data.games_count_9ball - 1) };
+  const safeCount = Math.max(0, Math.floor(count));
+  const update = pool === "eight" ? { games_count: safeCount } : { games_count_9ball: safeCount };
 
   const { error } = await supabaseAdmin
     .from("billiards_tables")
