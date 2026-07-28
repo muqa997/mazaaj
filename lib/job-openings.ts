@@ -23,6 +23,19 @@ export const POSITION_KEYS: PositionKey[] = [
   "other",
 ];
 
+// أسماء المسميات الوظيفية بالعربية — تُستخدم بلوحة التحكم (لا توجد ترجمة next-intl هناك)
+export const POSITION_LABELS_AR: Record<PositionKey, string> = {
+  management: "إدارة",
+  floorCaptain: "كابتن صالة",
+  barista: "بارستا",
+  waiter: "نادل",
+  cashier: "موظف كاشير",
+  shishaMaster: "متخصص الأراكيل",
+  billiardsStaff: "موظف صالة بلياردو",
+  cleaner: "عامل نظافة",
+  other: "أخرى",
+};
+
 export type JobOpening = {
   id: string;
   positionKey: PositionKey;

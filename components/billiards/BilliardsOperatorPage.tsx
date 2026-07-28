@@ -66,10 +66,10 @@ function BilliardsTablePockets() {
   );
 }
 
-// نقطة خضراء نابضة تدل أن الطاولة نشطة حالياً (فيها كيمات لم تُدفع بعد)
+// نقطة خضراء نابضة تدل أن الطاولة نشطة حالياً (فيها كيمات لم تُدفع بعد) — تتوسط أعلى البطاقة
 function ActiveDot() {
   return (
-    <span className="absolute end-4 top-4 z-10 flex h-3 w-3">
+    <span className="absolute start-1/2 top-4 z-10 flex h-3 w-3 -translate-x-1/2">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
       <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
     </span>
@@ -126,15 +126,22 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     router.refresh();
   };
 
-  const runCountAction = async (
+  // تحديث تفاؤلي فوري للعداد المحلي قبل انتظار رد الخادم — يلغي أي تأخير محسوس عند
+  // الضغط على أزرار +/-، والاستطلاع الدوري (كل 3 ثوانٍ) يصحّح القيمة تلقائياً لاحقاً
+  const adjustGame = async (
     tableNumber: number,
     pool: PoolType,
+    delta: 1 | -1,
     action: (n: number, p: PoolType) => Promise<{ error: string | null }>
   ) => {
-    setBusyTable(tableNumber);
+    setTables((prev) =>
+      prev.map((t) => {
+        if (t.table_number !== tableNumber) return t;
+        if (pool === "eight") return { ...t, games_count: Math.max(0, t.games_count + delta) };
+        return { ...t, games_count_9ball: Math.max(0, t.games_count_9ball + delta) };
+      })
+    );
     await action(tableNumber, pool);
-    await load();
-    setBusyTable(null);
   };
 
   const handleCustomerRefBlur = async (tableNumber: number) => {
@@ -164,6 +171,8 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     await load();
     setNoteBusy(false);
   };
+
+  const maxTablePool = Math.max(1, ...stats.perTable.flatMap((t) => [t.eight, t.nine]));
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -206,20 +215,20 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                     <div className="text-left">
                       <p className="text-xl font-extrabold text-white">{totalGames} كيم</p>
                       <p className="text-sm font-semibold text-white/70">
-                        {amount.toLocaleString()} د.ع
+                        {amount.toLocaleString("en-US")} د.ع
                       </p>
                     </div>
                   </div>
 
                   <div className="relative z-10 grid grid-cols-2 gap-3">
-                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/10 px-3 py-3">
-                      <span className="text-[11px] font-bold text-white/70">٨ بول</span>
+                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-black/60 px-3 py-3">
+                      <span dir="ltr" className="text-sm font-bold text-white">8 Pool</span>
                       <div className="flex items-center gap-2.5">
                         <button
                           type="button"
-                          disabled={isBusy || table.games_count === 0}
-                          onClick={() => runCountAction(table.table_number, "eight", props.removeGame)}
-                          aria-label="إنقاص كيم ٨ بول"
+                          disabled={table.games_count === 0}
+                          onClick={() => adjustGame(table.table_number, "eight", -1, props.removeGame)}
+                          aria-label="إنقاص كيم 8 Pool"
                           className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
                         >
                           <Minus size={14} />
@@ -229,24 +238,23 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                         </span>
                         <button
                           type="button"
-                          disabled={isBusy}
-                          onClick={() => runCountAction(table.table_number, "eight", props.addGame)}
-                          aria-label="زيادة كيم ٨ بول"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white disabled:opacity-60"
+                          onClick={() => adjustGame(table.table_number, "eight", 1, props.addGame)}
+                          aria-label="زيادة كيم 8 Pool"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white"
                         >
                           <Plus size={14} />
                         </button>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/10 px-3 py-3">
-                      <span className="text-[11px] font-bold text-white/70">9 Pool</span>
+                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-yellow-400/60 px-3 py-3">
+                      <span dir="ltr" className="text-sm font-bold text-white">9 Pool</span>
                       <div className="flex items-center gap-2.5">
                         <button
                           type="button"
-                          disabled={isBusy || table.games_count_9ball === 0}
-                          onClick={() => runCountAction(table.table_number, "nine", props.removeGame)}
-                          aria-label="إنقاص كيم ٩ بول"
+                          disabled={table.games_count_9ball === 0}
+                          onClick={() => adjustGame(table.table_number, "nine", -1, props.removeGame)}
+                          aria-label="إنقاص كيم 9 Pool"
                           className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
                         >
                           <Minus size={14} />
@@ -256,10 +264,9 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                         </span>
                         <button
                           type="button"
-                          disabled={isBusy}
-                          onClick={() => runCountAction(table.table_number, "nine", props.addGame)}
-                          aria-label="زيادة كيم ٩ بول"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white disabled:opacity-60"
+                          onClick={() => adjustGame(table.table_number, "nine", 1, props.addGame)}
+                          aria-label="زيادة كيم 9 Pool"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white"
                         >
                           <Plus size={14} />
                         </button>
@@ -317,13 +324,13 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                   <span className="text-primary/50">
                     {new Date(ticket.created_at).toLocaleString("ar")}
                   </span>
-                  <span className="text-xs text-primary/50">
-                    {ticket.games_count > 0 && `٨بول: ${ticket.games_count}`}
+                  <span dir="ltr" className="text-xs text-primary/50">
+                    {ticket.games_count > 0 && `8 Pool: ${ticket.games_count}`}
                     {ticket.games_count > 0 && ticket.games_count_9ball > 0 && " · "}
-                    {ticket.games_count_9ball > 0 && `٩بول: ${ticket.games_count_9ball}`}
+                    {ticket.games_count_9ball > 0 && `9 Pool: ${ticket.games_count_9ball}`}
                   </span>
                   <span className="font-bold text-primary">
-                    {Number(ticket.amount).toLocaleString()} د.ع
+                    {Number(ticket.amount).toLocaleString("en-US")} د.ع
                   </span>
                 </div>
               ))}
@@ -344,10 +351,12 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
               <div key={label} className="rounded-xl bg-primary/5 px-3 py-2.5">
                 <p className="mb-1 text-xs font-semibold text-primary/60">{label}</p>
                 <p className="text-sm text-primary">
-                  <span className="font-bold">{counts.eight}</span> كيم ٨ بول
+                  <span className="font-bold">{counts.eight}</span> كيم{" "}
+                  <span dir="ltr">8 Pool</span>
                 </p>
                 <p className="text-sm text-primary">
-                  <span className="font-bold">{counts.nine}</span> كيم ٩ بول
+                  <span className="font-bold">{counts.nine}</span> كيم{" "}
+                  <span dir="ltr">9 Pool</span>
                 </p>
               </div>
             ))}
@@ -356,14 +365,30 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
           <h3 className="mb-4 text-sm font-bold text-primary">أداء الطاولات (هذا الشهر — عدد الكيمات)</h3>
-          <div className="flex flex-col gap-2">
+          <div className="flex h-32 items-end justify-between gap-4">
             {stats.perTable.map((t) => (
-              <div key={t.table_number} className="flex items-center justify-between text-sm">
-                <span className="text-primary/70">طاولة {t.table_number}</span>
-                <span className="text-primary/70">٨ بول: {t.eight}</span>
-                <span className="font-bold text-primary">٩ بول: {t.nine}</span>
+              <div key={t.table_number} className="flex flex-1 flex-col items-center gap-2">
+                <div className="flex h-24 w-full items-end justify-center gap-1.5">
+                  <div
+                    className="w-6 rounded-t-md bg-black/70"
+                    style={{ height: `${Math.max(4, (t.eight / maxTablePool) * 100)}%` }}
+                  />
+                  <div
+                    className="w-6 rounded-t-md bg-yellow-400"
+                    style={{ height: `${Math.max(4, (t.nine / maxTablePool) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[11px] text-primary/50">طاولة {t.table_number}</span>
               </div>
             ))}
+          </div>
+          <div dir="ltr" className="mt-3 flex items-center justify-center gap-4 text-[11px] text-primary/50">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-black/70" /> 8 Pool
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" /> 9 Pool
+            </span>
           </div>
         </div>
 
@@ -416,11 +441,15 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-primary/10 bg-background/95 px-4 py-3 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-2xl items-center justify-center gap-8">
           <div className="text-center">
-            <p className="text-xs text-primary/50">٨ بول اليوم</p>
+            <p className="text-xs text-primary/50">
+              <span dir="ltr">8 Pool</span> اليوم
+            </p>
             <p className="font-extrabold text-primary">{stats.today.eight}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-primary/50">٩ بول اليوم</p>
+            <p className="text-xs text-primary/50">
+              <span dir="ltr">9 Pool</span> اليوم
+            </p>
             <p className="font-extrabold text-primary">{stats.today.nine}</p>
           </div>
         </div>

@@ -66,7 +66,7 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const handlePayTable = async (table: BilliardsTableRow) => {
     const amount = computePoolAmount(table.games_count, table.games_count_9ball);
     const confirmed = window.confirm(
-      `تأكيد استلام حساب طاولة ${table.table_number} بمبلغ ${amount.toLocaleString()} د.ع؟\nسيتم تصفير الطاولة فوراً ولا يمكن التراجع عن هذا الإجراء.`
+      `تأكيد استلام حساب طاولة ${table.table_number} بمبلغ ${amount.toLocaleString("en-US")} د.ع؟\nسيتم تصفير الطاولة فوراً ولا يمكن التراجع عن هذا الإجراء.`
     );
     if (!confirmed) return;
     setBusyTable(table.table_number);
@@ -97,9 +97,11 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                     {table.customer_ref}
                   </p>
                 )}
-                <p className="text-lg font-bold text-primary">{amount.toLocaleString()} د.ع</p>
-                <p className="mb-3 text-xs text-primary/50">
-                  ٨ بول: {table.games_count} · ٩ بول: {table.games_count_9ball}
+                <p className="text-lg font-bold text-primary">
+                  {amount.toLocaleString("en-US")} د.ع
+                </p>
+                <p dir="ltr" className="mb-3 text-xs text-primary/50">
+                  8 Pool: {table.games_count} · 9 Pool: {table.games_count_9ball}
                 </p>
                 <button
                   type="button"
@@ -114,10 +116,12 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
             );
           })}
         </div>
-        <p className="mt-3 border-t border-primary/10 pt-3 text-xs font-semibold text-primary/60">
-          حساب البلياردو المستلم:{" "}
-          <span className="text-primary">{todayTotal.amount.toLocaleString()} د.ع</span>
-        </p>
+        <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl bg-primary/5 py-4 text-center">
+          <p className="text-sm font-semibold text-primary/60">حساب البلياردو المستلم</p>
+          <p className="text-2xl font-extrabold text-primary">
+            {todayTotal.amount.toLocaleString("en-US")} د.ع
+          </p>
+        </div>
       </div>
 
       {tickets.length > 0 && (
@@ -144,10 +148,10 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                       </span>
                     </p>
                     <p className="text-sm font-bold text-primary">
-                      {Number(ticket.amount).toLocaleString()} د.ع
-                      <span className="ms-1 font-normal text-primary/50">
-                        ({ticket.games_count} ٨بول
-                        {ticket.games_count_9ball > 0 && ` + ${ticket.games_count_9ball} ٩بول`})
+                      {Number(ticket.amount).toLocaleString("en-US")} د.ع
+                      <span dir="ltr" className="ms-1 font-normal text-primary/50">
+                        ({ticket.games_count} 8 Pool
+                        {ticket.games_count_9ball > 0 && ` + ${ticket.games_count_9ball} 9 Pool`})
                       </span>
                     </p>
                   </div>

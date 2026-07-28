@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -22,9 +22,10 @@ import {
   Image as ImageIcon,
   Upload,
   CircleDot,
+  Phone,
 } from "lucide-react";
 import { computePoolAmount } from "@/lib/billiards";
-import { POSITION_KEYS } from "@/lib/job-openings";
+import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
@@ -260,6 +261,16 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     weekDays,
     monthDays,
   };
+}
+
+// نقطة خضراء نابضة تدل أن الطاولة نشطة حالياً (فيها كيمات لم تُدفع بعد) — أعلى يسار البطاقة
+function BilliardsActiveDot() {
+  return (
+    <span className="absolute end-2.5 top-2.5 flex h-2.5 w-2.5">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+    </span>
+  );
 }
 
 export default function Dashboard(props: DashboardProps) {
@@ -522,10 +533,10 @@ export default function Dashboard(props: DashboardProps) {
     { key: "overview", label: "الرئيسية", icon: LayoutGrid },
     { key: "orders", label: "الطلبات", icon: ClipboardList },
     { key: "billiards", label: "البلياردو", icon: CircleDot },
+    { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "coupons", label: "الكوبونات", icon: Ticket },
     { key: "announcements", label: "الإعلانات", icon: Megaphone },
     { key: "promos", label: "الرائج والعروض", icon: ImageIcon },
-    { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "jobs", label: "الوظائف", icon: Briefcase },
     { key: "suggestions", label: "الاقتراحات", icon: MessageSquare },
   ];
@@ -713,30 +724,30 @@ export default function Dashboard(props: DashboardProps) {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <StatCard
                     label="صافي مبيعات اليوم (المسلّمة)"
-                    value={`${stats.todayNetRevenue.toLocaleString()} د.ع`}
+                    value={`${stats.todayNetRevenue.toLocaleString("en-US")} د.ع`}
                   />
                   <StatCard
                     label="صافي مبيعات الأسبوع (المسلّمة)"
-                    value={`${stats.weekNetRevenue.toLocaleString()} د.ع`}
+                    value={`${stats.weekNetRevenue.toLocaleString("en-US")} د.ع`}
                   />
                   <StatCard
                     label="صافي مبيعات الشهر (المسلّمة)"
-                    value={`${stats.monthNetRevenue.toLocaleString()} د.ع`}
+                    value={`${stats.monthNetRevenue.toLocaleString("en-US")} د.ع`}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <StatCard
                     label="دخل البلياردو اليوم"
-                    value={`${billiardsStats.todayAmount.toLocaleString()} د.ع`}
+                    value={`${billiardsStats.todayAmount.toLocaleString("en-US")} د.ع`}
                   />
                   <StatCard
                     label="دخل البلياردو الأسبوع"
-                    value={`${billiardsStats.weekAmount.toLocaleString()} د.ع`}
+                    value={`${billiardsStats.weekAmount.toLocaleString("en-US")} د.ع`}
                   />
                   <StatCard
                     label="دخل البلياردو الشهر"
-                    value={`${billiardsStats.monthAmount.toLocaleString()} د.ع`}
+                    value={`${billiardsStats.monthAmount.toLocaleString("en-US")} د.ع`}
                   />
                 </div>
               </div>
@@ -790,7 +801,7 @@ export default function Dashboard(props: DashboardProps) {
                                 <span>
                                   {item.name} × {item.qty}
                                 </span>
-                                <span>{(item.price * item.qty).toLocaleString()} د.ع</span>
+                                <span>{(item.price * item.qty).toLocaleString("en-US")} د.ع</span>
                               </li>
                             ))}
                           </ul>
@@ -800,7 +811,7 @@ export default function Dashboard(props: DashboardProps) {
                             </p>
                           )}
                           <p className="mb-3 font-bold text-primary">
-                            الإجمالي: {Number(order.total).toLocaleString()} د.ع
+                            الإجمالي: {Number(order.total).toLocaleString("en-US")} د.ع
                           </p>
                         </div>
                       )}
@@ -840,7 +851,7 @@ export default function Dashboard(props: DashboardProps) {
                         </button>
 
                         <span className="ms-auto font-bold text-primary">
-                          {Number(order.total).toLocaleString()} د.ع
+                          {Number(order.total).toLocaleString("en-US")} د.ع
                         </span>
                       </div>
                     </div>
@@ -958,7 +969,7 @@ export default function Dashboard(props: DashboardProps) {
                         <p className="text-sm text-accent">
                           {coupon.discount_type === "percentage"
                             ? `خصم ${coupon.discount_value}%`
-                            : `خصم ${coupon.discount_value.toLocaleString()} د.ع`}
+                            : `خصم ${coupon.discount_value.toLocaleString("en-US")} د.ع`}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
@@ -1143,8 +1154,11 @@ export default function Dashboard(props: DashboardProps) {
                     {billiardsTables.map((table) => (
                       <div
                         key={table.id}
-                        className="rounded-2xl border border-primary/10 bg-background p-4"
+                        className="relative rounded-2xl border border-primary/10 bg-background p-4"
                       >
+                        {(table.games_count > 0 || table.games_count_9ball > 0) && (
+                          <BilliardsActiveDot />
+                        )}
                         <p className="mb-1 text-xs text-primary/50">
                           طاولة {table.table_number}
                         </p>
@@ -1154,11 +1168,11 @@ export default function Dashboard(props: DashboardProps) {
                           </p>
                         )}
                         <p className="text-lg font-extrabold text-primary">
-                          {computePoolAmount(table.games_count, table.games_count_9ball).toLocaleString()}{" "}
+                          {computePoolAmount(table.games_count, table.games_count_9ball).toLocaleString("en-US")}{" "}
                           د.ع
                         </p>
-                        <p className="text-xs text-primary/60">
-                          ٨ بول: {table.games_count} · ٩ بول: {table.games_count_9ball}
+                        <p dir="ltr" className="text-xs text-primary/60">
+                          8 Pool: {table.games_count} · 9 Pool: {table.games_count_9ball}
                         </p>
                       </div>
                     ))}
@@ -1170,15 +1184,39 @@ export default function Dashboard(props: DashboardProps) {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <StatCard
                       label="اليوم"
-                      value={`${billiardsStats.todayAmount.toLocaleString()} د.ع (٨بول ${billiardsStats.todayPool.eight} + ٩بول ${billiardsStats.todayPool.nine})`}
+                      value={
+                        <>
+                          {billiardsStats.todayAmount.toLocaleString("en-US")} د.ع{" "}
+                          <span dir="ltr" className="text-sm font-normal text-primary/50">
+                            (8 Pool {billiardsStats.todayPool.eight} + 9 Pool{" "}
+                            {billiardsStats.todayPool.nine})
+                          </span>
+                        </>
+                      }
                     />
                     <StatCard
                       label="آخر 7 أيام"
-                      value={`${billiardsStats.weekAmount.toLocaleString()} د.ع (٨بول ${billiardsStats.weekPool.eight} + ٩بول ${billiardsStats.weekPool.nine})`}
+                      value={
+                        <>
+                          {billiardsStats.weekAmount.toLocaleString("en-US")} د.ع{" "}
+                          <span dir="ltr" className="text-sm font-normal text-primary/50">
+                            (8 Pool {billiardsStats.weekPool.eight} + 9 Pool{" "}
+                            {billiardsStats.weekPool.nine})
+                          </span>
+                        </>
+                      }
                     />
                     <StatCard
                       label="هذا الشهر"
-                      value={`${billiardsStats.monthAmount.toLocaleString()} د.ع (٨بول ${billiardsStats.monthPool.eight} + ٩بول ${billiardsStats.monthPool.nine})`}
+                      value={
+                        <>
+                          {billiardsStats.monthAmount.toLocaleString("en-US")} د.ع{" "}
+                          <span dir="ltr" className="text-sm font-normal text-primary/50">
+                            (8 Pool {billiardsStats.monthPool.eight} + 9 Pool{" "}
+                            {billiardsStats.monthPool.nine})
+                          </span>
+                        </>
+                      }
                     />
                   </div>
                 </div>
@@ -1194,11 +1232,11 @@ export default function Dashboard(props: DashboardProps) {
                         className="flex items-center justify-between text-sm"
                       >
                         <span className="text-primary/70">طاولة {t.table_number}</span>
-                        <span className="text-primary/70">
-                          ٨بول {t.pool.eight} · ٩بول {t.pool.nine}
+                        <span dir="ltr" className="text-primary/70">
+                          8 Pool {t.pool.eight} · 9 Pool {t.pool.nine}
                         </span>
                         <span className="font-bold text-primary">
-                          {t.amount.toLocaleString()} د.ع
+                          {t.amount.toLocaleString("en-US")} د.ع
                         </span>
                       </div>
                     ))}
@@ -1237,10 +1275,10 @@ export default function Dashboard(props: DashboardProps) {
                             استلام الكاشير: {new Date(t.paid_at).toLocaleString("ar")}
                           </span>
                           <span className="text-primary/70">طاولة {t.table_number}</span>
-                          <span className="text-primary/70">
-                            {t.games_count > 0 && `٨بول ${t.games_count}`}
+                          <span dir="ltr" className="text-primary/70">
+                            {t.games_count > 0 && `8 Pool ${t.games_count}`}
                             {t.games_count > 0 && t.games_count_9ball > 0 && " + "}
-                            {t.games_count_9ball > 0 && `٩بول ${t.games_count_9ball}`}
+                            {t.games_count_9ball > 0 && `9 Pool ${t.games_count_9ball}`}
                           </span>
                           {t.customer_ref && (
                             <span className="text-primary/50">{t.customer_ref}</span>
@@ -1255,7 +1293,7 @@ export default function Dashboard(props: DashboardProps) {
                             {t.collected_by === "cashier" ? "الكاشير" : "موظف البلياردو"}
                           </span>
                           <span className="font-bold text-primary">
-                            {Number(t.amount).toLocaleString()} د.ع
+                            {Number(t.amount).toLocaleString("en-US")} د.ع
                           </span>
                         </div>
                       ))}
@@ -1344,9 +1382,26 @@ export default function Dashboard(props: DashboardProps) {
                         {new Date(applicant.created_at).toLocaleString("ar")}
                       </span>
                     </div>
-                    <p className="mb-1 text-sm text-primary/60">{applicant.phone}</p>
+                    <div className="mb-1 flex items-center gap-2">
+                      <a
+                        href={`tel:${applicant.phone}`}
+                        className="flex items-center gap-1 text-sm text-primary/60 underline-offset-2 hover:underline"
+                      >
+                        <Phone size={12} />
+                        {applicant.phone}
+                      </a>
+                      <a
+                        href={`https://wa.me/${toWhatsAppNumber(applicant.phone)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="مراسلة عبر واتساب"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700"
+                      >
+                        <MessageSquare size={12} />
+                      </a>
+                    </div>
                     <p className="mb-1 text-sm font-semibold text-accent">
-                      {applicant.position}
+                      {POSITION_LABELS_AR[applicant.position as PositionKey] ?? applicant.position}
                     </p>
                     {applicant.notes && (
                       <p className="mb-2 text-sm text-primary/50">{applicant.notes}</p>
@@ -1544,7 +1599,7 @@ export default function Dashboard(props: DashboardProps) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-2xl border border-primary/10 bg-background p-4">
       <p className="mb-1 text-xs text-primary/50">{label}</p>
