@@ -165,9 +165,12 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
 
     const key = `${tableNumber}:${pool}`;
     if (pendingSyncRef.current[key]) clearTimeout(pendingSyncRef.current[key]);
-    pendingSyncRef.current[key] = setTimeout(() => {
+    pendingSyncRef.current[key] = setTimeout(async () => {
+      // نُبقي المفتاح "معلّقاً" طوال مدة الطلب نفسه (وليس فقط قبل إرساله) — وإلا فقد
+      // يصل استطلاع الخادم الدوري بينما الطلب لا يزال بالطريق ويُرجع القيمة القديمة
+      // مؤقتاً قبل أن يستقر الرقم الصحيح، مما يبدو كتأخّر أو ارتداد بصري في العداد
+      await props.setGameCount(tableNumber, pool, nextCount);
       delete pendingSyncRef.current[key];
-      props.setGameCount(tableNumber, pool, nextCount);
     }, 900);
   };
 
@@ -239,17 +242,17 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                     <h2 className="text-2xl font-extrabold text-white">
                       طاولة {table.table_number}
                     </h2>
-                    <div className="text-left">
-                      <p className="text-xl font-extrabold text-white">{totalGames} كيم</p>
+                    <div dir="ltr" className="text-left">
+                      <p className="text-xl font-extrabold text-white">{totalGames} G</p>
                       <p className="text-sm font-semibold text-white/70">
-                        {amount.toLocaleString("en-US")} د.ع
+                        {amount.toLocaleString("en-US")}
                       </p>
                     </div>
                   </div>
 
                   <div className="relative z-10 flex items-stretch gap-3">
-                    <div className="flex flex-[6] flex-col items-center gap-2 rounded-2xl bg-black/60 px-3 py-3.5">
-                      <span dir="ltr" className="text-base font-bold text-white">8 Pool</span>
+                    <div className="flex flex-[11] flex-col items-center justify-center gap-2 rounded-2xl bg-black/60 px-3 py-3.5">
+                      <span dir="ltr" className="text-sm font-bold text-white">8 Pool</span>
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
@@ -274,28 +277,28 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                       </div>
                     </div>
 
-                    <div className="flex flex-[5] flex-col items-center gap-1.5 rounded-2xl bg-yellow-400/60 px-2 py-2.5">
+                    <div className="flex flex-[9] flex-col items-center justify-center gap-2 rounded-2xl bg-yellow-400/60 px-3 py-3">
                       <span dir="ltr" className="text-xs font-bold text-white">9 Pool</span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <button
                           type="button"
                           disabled={table.games_count_9ball === 0}
                           onClick={() => adjustGame(table.table_number, "nine", -1)}
                           aria-label="إنقاص كيم 9 Pool"
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
                         >
-                          <Minus size={12} />
+                          <Minus size={14} />
                         </button>
-                        <span className="w-4 text-center text-sm font-extrabold text-white">
+                        <span className="w-5 text-center text-sm font-extrabold text-white">
                           {table.games_count_9ball}
                         </span>
                         <button
                           type="button"
                           onClick={() => adjustGame(table.table_number, "nine", 1)}
                           aria-label="زيادة كيم 9 Pool"
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white"
                         >
-                          <Plus size={12} />
+                          <Plus size={14} />
                         </button>
                       </div>
                     </div>
