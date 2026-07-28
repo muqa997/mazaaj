@@ -7,9 +7,16 @@ import {
   createBilliardsSessionToken,
   verifyBilliardsSessionToken,
 } from "@/lib/billiards-session";
-import { GAME_PRICE, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
+import {
+  computePoolAmount,
+  type BilliardsTableRow,
+  type BilliardsTicketRow,
+  type BilliardsNoteRow,
+} from "@/lib/billiards";
 
-export type { BilliardsTableRow, BilliardsTicketRow };
+export type { BilliardsTableRow, BilliardsTicketRow, BilliardsNoteRow };
+
+export type PoolType = "eight" | "nine";
 
 export async function billiardsLogin(code: string): Promise<{ success: boolean }> {
   const expected = process.env.BILLIARDS_ACCESS_CODE;
@@ -69,97 +76,92 @@ export async function getBilliardsTables(): Promise<BilliardsTableRow[]> {
   return (data ?? []) as BilliardsTableRow[];
 }
 
-export async function addGame(tableNumber: number) {
+export async function addGame(tableNumber: number, pool: PoolType) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { data, error: fetchError } = await supabaseAdmin
     .from("billiards_tables")
-    .select("games_count")
+    .select("games_count, games_count_9ball")
     .eq("table_number", tableNumber)
     .single();
   if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
 
+  const update =
+    pool === "eight"
+      ? { games_count: data.games_count + 1 }
+      : { games_count_9ball: data.games_count_9ball + 1 };
+
   const { error } = await supabaseAdmin
     .from("billiards_tables")
-    .update({ games_count: data.games_count + 1, updated_at: new Date().toISOString() })
+    .update({ ...update, updated_at: new Date().toISOString() })
     .eq("table_number", tableNumber);
   return { error: error ? "حدث خطأ أثناء الحفظ" : null };
 }
 
-export async function removeGame(tableNumber: number) {
+export async function removeGame(tableNumber: number, pool: PoolType) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { data, error: fetchError } = await supabaseAdmin
     .from("billiards_tables")
-    .select("games_count")
+    .select("games_count, games_count_9ball")
     .eq("table_number", tableNumber)
     .single();
   if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
 
-  const newCount = Math.max(0, data.games_count - 1);
+  const update =
+    pool === "eight"
+      ? { games_count: Math.max(0, data.games_count - 1) }
+      : { games_count_9ball: Math.max(0, data.games_count_9ball - 1) };
+
   const { error } = await supabaseAdmin
     .from("billiards_tables")
-    .update({ games_count: newCount, updated_at: new Date().toISOString() })
+    .update({ ...update, updated_at: new Date().toISOString() })
     .eq("table_number", tableNumber);
   return { error: error ? "حدث خطأ أثناء الحفظ" : null };
 }
 
-// مجموع كيمات ومبالغ اليوم المُحصَّلة فعلياً (معاملات مدفوعة فقط)، مقسّمة حسب من حصّلها —
-// موظف البلياردو مباشرة أم الكاشير — حتى يعرف موظف البلياردو أن زبوناً حاسب عند الكاشير
-export async function getTodayPaidSummary(): Promise<{
-  billiards: { games: number; amount: number };
-  cashier: { games: number; amount: number };
-}> {
+// يُحفظ اسم/رقم طاولة الزبون فور الكتابة (وليس فقط عند إنهاء الجلسة) ليظهر حياً عند الكاشير
+export async function updateCustomerRef(tableNumber: number, customerRef: string) {
   requireBilliardsSession();
-  const empty = { billiards: { games: 0, amount: 0 }, cashier: { games: 0, amount: 0 } };
-  if (!supabaseAdmin) return empty;
-
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const { data, error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .select("games_count, amount, collected_by")
-    .gte("paid_at", startOfDay.toISOString());
-  if (error) {
-    console.error(error);
-    return empty;
-  }
-
-  return (data ?? []).reduce((acc, row) => {
-    const bucket = row.collected_by === "cashier" ? "cashier" : "billiards";
-    acc[bucket].games += row.games_count;
-    acc[bucket].amount += Number(row.amount);
-    return acc;
-  }, empty);
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("billiards_tables")
+    .update({ customer_ref: customerRef.trim() || null })
+    .eq("table_number", tableNumber);
+  return { error: error ? "حدث خطأ أثناء الحفظ" : null };
 }
 
-// إنهاء جلسة زبون: يفصل كيماته الحالية عن عداد الطاولة الحي في "تذكرة" مستقلة بانتظار
-// الدفع عند الكاشير حصراً — وتُصفَّر الطاولة فوراً لتصبح جاهزة لزبون جديد بدون انتظار
-// الدفع، حتى لو الزبون السابق ما غادر الطابق فعلياً بعد (يمنع تداخل كيمات زبونين بنفس
-// الطاولة). مرجع الزبون (اسم أو رقم طاولة الجلوس) اختياري ليعرف الكاشير لمن تعود التذكرة
+// إنهاء جلسة زبون: يفصل كيمات الطاولة الحالية (٨ بول و٩ بول معاً) عن عداد الطاولة
+// الحي في "تذكرة" مستقلة بانتظار الدفع عند الكاشير حصراً — وتُصفَّر الطاولة فوراً
+// لتصبح جاهزة لزبون جديد بدون انتظار الدفع
 export async function endSession(tableNumber: number, customerRef: string) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { data, error: fetchError } = await supabaseAdmin
     .from("billiards_tables")
-    .select("games_count")
+    .select("games_count, games_count_9ball")
     .eq("table_number", tableNumber)
     .single();
   if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
-  if (data.games_count === 0) return { error: null };
+  if (data.games_count === 0 && data.games_count_9ball === 0) return { error: null };
 
   const { error: ticketError } = await supabaseAdmin.from("billiards_tickets").insert({
     table_number: tableNumber,
     games_count: data.games_count,
-    amount: data.games_count * GAME_PRICE,
+    games_count_9ball: data.games_count_9ball,
+    amount: computePoolAmount(data.games_count, data.games_count_9ball),
     customer_ref: customerRef.trim() || null,
   });
   if (ticketError) return { error: "حدث خطأ أثناء إنشاء التذكرة" };
 
   const { error } = await supabaseAdmin
     .from("billiards_tables")
-    .update({ games_count: 0, updated_at: new Date().toISOString() })
+    .update({
+      games_count: 0,
+      games_count_9ball: 0,
+      customer_ref: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("table_number", tableNumber);
   return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }
@@ -178,4 +180,112 @@ export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
     return [];
   }
   return (data ?? []) as BilliardsTicketRow[];
+}
+
+type PoolCounts = { eight: number; nine: number };
+
+// إحصائيات اليوم/الأسبوع/الشهر وأداء الطاولات الشهري، مقسّمة ٨ بول/٩ بول كلٌ على حدة.
+// "اليوم" فقط يجمع (الحي غير المدفوع + التذاكر المعلّقة + المدفوع فعلياً) لأنها تعكس
+// كل ما لُعب اليوم بغضّ النظر عن حالة الدفع؛ الأسبوع/الشهر وأداء الطاولات تعتمد على
+// المدفوع فعلياً فقط (نفس منطق لوحة تحكم المدير) لتفادي تعقيد حساب التذاكر عبر أيام متعددة
+export async function getBilliardsOperatorStats(): Promise<{
+  today: PoolCounts;
+  week: PoolCounts;
+  month: PoolCounts;
+  perTable: { table_number: number; eight: number; nine: number }[];
+}> {
+  requireBilliardsSession();
+  const empty = {
+    today: { eight: 0, nine: 0 },
+    week: { eight: 0, nine: 0 },
+    month: { eight: 0, nine: 0 },
+    perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
+  };
+  if (!supabaseAdmin) return empty;
+
+  const now = new Date();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(startOfWeek.getDate() - 6);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fetchSince = new Date(now);
+  fetchSince.setDate(fetchSince.getDate() - 35);
+
+  const [tablesRes, ticketsRes, txRes] = await Promise.all([
+    supabaseAdmin.from("billiards_tables").select("games_count, games_count_9ball"),
+    supabaseAdmin
+      .from("billiards_tickets")
+      .select("games_count, games_count_9ball, created_at")
+      .gte("created_at", startOfDay.toISOString()),
+    supabaseAdmin
+      .from("billiards_transactions")
+      .select("table_number, games_count, games_count_9ball, paid_at")
+      .gte("paid_at", fetchSince.toISOString()),
+  ]);
+
+  const tables = tablesRes.data ?? [];
+  const tickets = ticketsRes.data ?? [];
+  const transactions = txRes.data ?? [];
+
+  const liveEight = tables.reduce((s, t) => s + t.games_count, 0);
+  const liveNine = tables.reduce((s, t) => s + t.games_count_9ball, 0);
+  const ticketsEight = tickets.reduce((s, t) => s + t.games_count, 0);
+  const ticketsNine = tickets.reduce((s, t) => s + t.games_count_9ball, 0);
+
+  const sumTx = (rows: typeof transactions) => ({
+    eight: rows.reduce((s, t) => s + t.games_count, 0),
+    nine: rows.reduce((s, t) => s + t.games_count_9ball, 0),
+  });
+
+  const todayTx = transactions.filter((t) => new Date(t.paid_at) >= startOfDay);
+  const weekTx = transactions.filter((t) => new Date(t.paid_at) >= startOfWeek);
+  const monthTx = transactions.filter((t) => new Date(t.paid_at) >= startOfMonth);
+
+  const todayPaid = sumTx(todayTx);
+  const weekPaid = sumTx(weekTx);
+  const monthPaid = sumTx(monthTx);
+
+  const perTable = [1, 2, 3].map((n) => {
+    const tableTx = sumTx(monthTx.filter((t) => t.table_number === n));
+    return { table_number: n, eight: tableTx.eight, nine: tableTx.nine };
+  });
+
+  return {
+    today: { eight: liveEight + ticketsEight + todayPaid.eight, nine: liveNine + ticketsNine + todayPaid.nine },
+    week: { eight: weekPaid.eight, nine: weekPaid.nine },
+    month: { eight: monthPaid.eight, nine: monthPaid.nine },
+    perTable,
+  };
+}
+
+export async function getNotes(): Promise<BilliardsNoteRow[]> {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_notes")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsNoteRow[];
+}
+
+export async function addNote(text: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const trimmed = text.trim();
+  if (!trimmed) return { error: null };
+  const { error } = await supabaseAdmin.from("billiards_notes").insert({ text: trimmed });
+  return { error: error ? "حدث خطأ أثناء إضافة الملاحظة" : null };
+}
+
+export async function deleteNote(noteId: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("billiards_notes").delete().eq("id", noteId);
+  return { error: error ? "حدث خطأ أثناء حذف الملاحظة" : null };
 }

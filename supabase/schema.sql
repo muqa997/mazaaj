@@ -187,6 +187,12 @@ insert into billiards_tables (table_number)
 select n from (values (1), (2), (3)) as t(n)
 where not exists (select 1 from billiards_tables where table_number = t.n);
 
+-- تحسبّاً لجدول billiards_tables منشأ سابقاً بدون هذه الأعمدة: عداد ٩ بول مستقل عن
+-- عداد ٨ بول (games_count) الأصلي، ومرجع اسم/رقم طاولة الزبون الحي (يُحفظ فور الكتابة
+-- من صفحة موظف البلياردو، يظهر للكاشير حتى قبل إنهاء الجلسة)
+alter table billiards_tables add column if not exists games_count_9ball int not null default 0;
+alter table billiards_tables add column if not exists customer_ref text;
+
 -- تذاكر بلياردو معلّقة بانتظار الدفع عند الكاشير حصراً — موظف البلياردو "ينهي جلسة"
 -- زبون محدد فتُفصل كيماته فوراً عن عداد الطاولة الحي (تتصفّر الطاولة لزبون جديد بدون
 -- انتظار الدفع)، مع مرجع اسم/رقم طاولة جلوس يعرف منه الكاشير لمن تعود عند الدفع
@@ -201,6 +207,9 @@ create table if not exists billiards_tickets (
 
 alter table billiards_tickets enable row level security;
 -- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
+
+-- تحسبّاً لجدول billiards_tickets منشأ سابقاً بدون عمود ٩ بول
+alter table billiards_tickets add column if not exists games_count_9ball int not null default 0;
 
 -- سجل عمليات الدفع — يُستخدم لتقارير لوحة التحكم (يومي/أسبوعي/شهري لكل طاولة)
 -- collected_by: من حصّل الدفعة (الكاشير حصراً حالياً، والحقل موجود تحسّباً لأي تغيير مستقبلي)
@@ -219,8 +228,19 @@ create table if not exists billiards_transactions (
 alter table billiards_transactions add column if not exists collected_by text not null default 'billiards';
 alter table billiards_transactions add column if not exists customer_ref text;
 alter table billiards_transactions add column if not exists session_ended_at timestamptz;
+alter table billiards_transactions add column if not exists games_count_9ball int not null default 0;
 
 alter table billiards_transactions enable row level security;
+-- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
+
+-- ملاحظات حرة لموظف البلياردو (دين، تذكير، إلخ) — غير مرتبطة بطاولة معينة
+create table if not exists billiards_notes (
+  id uuid primary key default gen_random_uuid(),
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table billiards_notes enable row level security;
 -- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
 
 -- تخزين صور قسمي الرائج/العروض — عام (يظهر بالموقع للزوار)، الرفع فقط من لوحة التحكم

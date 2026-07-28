@@ -11,9 +11,13 @@ import {
   getBilliardsTables,
   addGame,
   removeGame,
+  updateCustomerRef,
   endSession,
   getPendingTickets,
-  getTodayPaidSummary,
+  getBilliardsOperatorStats,
+  getNotes,
+  addNote,
+  deleteNote,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
@@ -40,9 +44,13 @@ export default async function BilliardsPage() {
       getTables={getBilliardsTables}
       addGame={addGame}
       removeGame={removeGame}
+      updateCustomerRef={updateCustomerRef}
       endSession={endSession}
       getPendingTickets={getPendingTickets}
-      getTodayPaidSummary={getTodayPaidSummary}
+      getStats={getBilliardsOperatorStats}
+      getNotes={getNotes}
+      addNote={addNote}
+      deleteNote={deleteNote}
     />
   );
 }

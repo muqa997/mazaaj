@@ -8,7 +8,7 @@ import {
   verifyStaffSessionToken,
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
+import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
 export type { BilliardsTableRow, BilliardsTicketRow };
@@ -95,8 +95,8 @@ export async function deleteStaffOrder(id: string) {
   return { error: toArabicError(error) };
 }
 
-// يعرض حساب طاولات البلياردو الحي للكاشير — للعلم فقط، بدون أي إمكانية تعديل أو دفع
-// من هنا (الطاولة الحية تخص موظف البلياردو فقط؛ الدفع يتم حصراً عبر التذاكر أدناه)
+// يعرض حساب طاولات البلياردو الحي للكاشير — بما فيها اسم/رقم الزبون الحي إن كتبه
+// موظف البلياردو، مع إمكانية الدفع المباشر من هنا عبر payTableDirect بالأسفل
 export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[]> {
   requireStaffSession();
   if (!supabaseAdmin) return [];
@@ -109,6 +109,42 @@ export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[]> {
     return [];
   }
   return (data ?? []) as BilliardsTableRow[];
+}
+
+// دفع مباشر لحساب الطاولة الحي (٨+٩ بول) دون الحاجة لموظف البلياردو لإنهاء الجلسة —
+// يسجّل معاملة (session_ended_at فارغة، إذ لا توجد "جلسة مُنهاة" هنا) ويصفّر الطاولة فوراً
+export async function payTableDirect(tableNumber: number) {
+  requireStaffSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { data: table, error: fetchError } = await supabaseAdmin
+    .from("billiards_tables")
+    .select("games_count, games_count_9ball, customer_ref")
+    .eq("table_number", tableNumber)
+    .single();
+  if (fetchError || !table) return { error: "تعذّر إيجاد الطاولة" };
+  if (table.games_count === 0 && table.games_count_9ball === 0) return { error: null };
+
+  const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
+    table_number: tableNumber,
+    games_count: table.games_count,
+    games_count_9ball: table.games_count_9ball,
+    amount: computePoolAmount(table.games_count, table.games_count_9ball),
+    collected_by: "cashier",
+    customer_ref: table.customer_ref,
+    session_ended_at: null,
+  });
+  if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
+
+  const { error } = await supabaseAdmin
+    .from("billiards_tables")
+    .update({
+      games_count: 0,
+      games_count_9ball: 0,
+      customer_ref: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("table_number", tableNumber);
+  return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }
 
 // التذاكر المعلّقة التي أرسلها موظف البلياردو (بعد إنهاء جلسة زبون) بانتظار الدفع —
@@ -140,6 +176,7 @@ export async function payTicket(ticketId: string) {
   const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
     table_number: ticket.table_number,
     games_count: ticket.games_count,
+    games_count_9ball: ticket.games_count_9ball,
     amount: ticket.amount,
     collected_by: "cashier",
     customer_ref: ticket.customer_ref,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Wallet, X } from "lucide-react";
-import { GAME_PRICE, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
+import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -11,14 +11,25 @@ type BilliardsSummaryCardProps = {
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
+
+function ActiveDot() {
+  return (
+    <span className="absolute end-2.5 top-2.5 flex h-2.5 w-2.5">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+    </span>
+  );
+}
 
 export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [tables, setTables] = useState<BilliardsTableRow[]>([]);
   const [tickets, setTickets] = useState<BilliardsTicketRow[]>([]);
   const [todayTotal, setTodayTotal] = useState({ games: 0, amount: 0 });
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
+  const [busyTable, setBusyTable] = useState<number | null>(null);
 
   const load = async () => {
     const [t, tk, total] = await Promise.all([
@@ -52,26 +63,53 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
     setBusyTicket(null);
   };
 
+  const handlePayTable = async (table: BilliardsTableRow) => {
+    const amount = computePoolAmount(table.games_count, table.games_count_9ball);
+    const confirmed = window.confirm(
+      `تأكيد استلام حساب طاولة ${table.table_number} بمبلغ ${amount.toLocaleString()} د.ع؟\nسيتم تصفير الطاولة فوراً ولا يمكن التراجع عن هذا الإجراء.`
+    );
+    if (!confirmed) return;
+    setBusyTable(table.table_number);
+    await props.payTableDirect(table.table_number);
+    await load();
+    setBusyTable(null);
+  };
+
   if (tables.length === 0) return null;
 
   return (
     <div className="mb-4 flex flex-col gap-4">
       <div className="rounded-2xl border border-primary/10 bg-background p-4">
         <h3 className="mb-3 text-sm font-bold text-primary">حساب البلياردو الحي</h3>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {tables.map((table) => {
-            const amount = table.games_count * GAME_PRICE;
+            const amount = computePoolAmount(table.games_count, table.games_count_9ball);
+            const isActive = table.games_count > 0 || table.games_count_9ball > 0;
+            const isBusy = busyTable === table.table_number;
             return (
-              <div key={table.id} className="rounded-xl bg-primary/5 px-3 py-2.5">
-                <p className="text-xs font-semibold text-primary/60">
+              <div key={table.id} className="relative rounded-xl bg-primary/5 px-4 py-3.5">
+                {isActive && <ActiveDot />}
+                <p className="mb-1 text-sm font-semibold text-primary/60">
                   طاولة {table.table_number}
                 </p>
-                <p className="text-sm font-bold text-primary">
-                  {amount.toLocaleString()} د.ع
-                  <span className="ms-1 font-normal text-primary/50">
-                    ({table.games_count} كيم)
-                  </span>
+                {table.customer_ref && (
+                  <p className="mb-1 truncate text-xs font-semibold text-accent">
+                    {table.customer_ref}
+                  </p>
+                )}
+                <p className="text-lg font-bold text-primary">{amount.toLocaleString()} د.ع</p>
+                <p className="mb-3 text-xs text-primary/50">
+                  ٨ بول: {table.games_count} · ٩ بول: {table.games_count_9ball}
                 </p>
+                <button
+                  type="button"
+                  disabled={!isActive || isBusy}
+                  onClick={() => handlePayTable(table)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-full bg-green-100 py-1.5 text-green-700 disabled:opacity-40"
+                >
+                  <Wallet size={13} />
+                  <span className="text-xs font-bold">دفع</span>
+                </button>
               </div>
             );
           })}
@@ -108,7 +146,8 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                     <p className="text-sm font-bold text-primary">
                       {Number(ticket.amount).toLocaleString()} د.ع
                       <span className="ms-1 font-normal text-primary/50">
-                        ({ticket.games_count} كيم)
+                        ({ticket.games_count} ٨بول
+                        {ticket.games_count_9ball > 0 && ` + ${ticket.games_count_9ball} ٩بول`})
                       </span>
                     </p>
                   </div>

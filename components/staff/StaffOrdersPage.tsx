@@ -18,6 +18,7 @@ type StaffOrdersPageProps = {
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
 
@@ -80,6 +81,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
           getPendingTickets={props.getPendingTickets}
           payTicket={props.payTicket}
           cancelTicket={props.cancelTicket}
+          payTableDirect={props.payTableDirect}
           getBilliardsTodayTotal={props.getBilliardsTodayTotal}
         />
 

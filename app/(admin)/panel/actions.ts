@@ -362,12 +362,18 @@ export async function getBilliardsTables(): Promise<BilliardsTableRow[]> {
   return (data ?? []) as BilliardsTableRow[];
 }
 
+// نجلب آخر 35 يوماً فقط (تكفي لحساب إحصائيات الشهر الحالي كاملة) بدل كل السجل التاريخي —
+// يخفّف حمل الصفحة؛ سجل العمليات بالواجهة يعرض آخر 7 أيام افتراضياً من هذه البيانات
+// نفسها مع رابط لعرض الباقي (حتى 35 يوماً) دون الحاجة لطلب إضافي
 export async function getBilliardsTransactions(): Promise<BilliardsTransactionRow[]> {
   requireSession();
   if (!supabaseAdmin) return [];
+  const fetchSince = new Date();
+  fetchSince.setDate(fetchSince.getDate() - 35);
   const { data, error } = await supabaseAdmin
     .from("billiards_transactions")
     .select("*")
+    .gte("paid_at", fetchSince.toISOString())
     .order("paid_at", { ascending: false });
   if (error) {
     console.error(error);

@@ -23,6 +23,7 @@ import {
   Upload,
   CircleDot,
 } from "lucide-react";
+import { computePoolAmount } from "@/lib/billiards";
 import { POSITION_KEYS } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
@@ -201,6 +202,11 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   const sumBy = (rows: BilliardsTransactionRow[], key: "games_count" | "amount") =>
     rows.reduce((sum, t) => sum + Number(t[key]), 0);
 
+  const sumPool = (rows: BilliardsTransactionRow[]) => ({
+    eight: rows.reduce((sum, t) => sum + Number(t.games_count), 0),
+    nine: rows.reduce((sum, t) => sum + Number(t.games_count_9ball), 0),
+  });
+
   const todayTx = transactions.filter((t) => isSameDay(new Date(t.paid_at), now));
 
   const last7DaysStart = new Date(now);
@@ -213,12 +219,12 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
 
-  // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)
+  // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)، مقسّم ٨ بول/٩ بول
   const perTable = [1, 2, 3].map((n) => {
     const tableTx = monthTx.filter((t) => t.table_number === n);
     return {
       table_number: n,
-      games: sumBy(tableTx, "games_count"),
+      pool: sumPool(tableTx),
       amount: sumBy(tableTx, "amount"),
     };
   });
@@ -244,11 +250,11 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   });
 
   return {
-    todayGames: sumBy(todayTx, "games_count"),
+    todayPool: sumPool(todayTx),
     todayAmount: sumBy(todayTx, "amount"),
-    weekGames: sumBy(weekTx, "games_count"),
+    weekPool: sumPool(weekTx),
     weekAmount: sumBy(weekTx, "amount"),
-    monthGames: sumBy(monthTx, "games_count"),
+    monthPool: sumPool(monthTx),
     monthAmount: sumBy(monthTx, "amount"),
     perTable,
     weekDays,
@@ -270,6 +276,7 @@ export default function Dashboard(props: DashboardProps) {
   const [promos, setPromos] = useState<PromoRow[]>([]);
   const [billiardsTables, setBilliardsTables] = useState<BilliardsTableRow[]>([]);
   const [billiardsTransactions, setBilliardsTransactions] = useState<BilliardsTransactionRow[]>([]);
+  const [showFullBilliardsLog, setShowFullBilliardsLog] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [announcementDrafts, setAnnouncementDrafts] = useState<
@@ -357,6 +364,14 @@ export default function Dashboard(props: DashboardProps) {
   const maxBilliardsWeekAmount = Math.max(1, ...billiardsStats.weekDays.map((d) => d.amount));
   const maxBilliardsMonthAmount = Math.max(1, ...billiardsStats.monthDays.map((d) => d.amount));
   const maxBilliardsTableAmount = Math.max(1, ...billiardsStats.perTable.map((t) => t.amount));
+
+  // سجل العمليات: آخر 7 أيام افتراضياً (تخفيفاً للصفحة)، مع رابط لعرض كل ما جُلب (حتى 35 يوماً)
+  const visibleBilliardsTransactions = useMemo(() => {
+    if (showFullBilliardsLog) return billiardsTransactions;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return billiardsTransactions.filter((t) => new Date(t.paid_at) >= sevenDaysAgo);
+  }, [billiardsTransactions, showFullBilliardsLog]);
 
   const changeOrderStatus = async (id: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
@@ -506,10 +521,10 @@ export default function Dashboard(props: DashboardProps) {
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid }[] = [
     { key: "overview", label: "الرئيسية", icon: LayoutGrid },
     { key: "orders", label: "الطلبات", icon: ClipboardList },
+    { key: "billiards", label: "البلياردو", icon: CircleDot },
     { key: "coupons", label: "الكوبونات", icon: Ticket },
     { key: "announcements", label: "الإعلانات", icon: Megaphone },
     { key: "promos", label: "الرائج والعروض", icon: ImageIcon },
-    { key: "billiards", label: "البلياردو", icon: CircleDot },
     { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "jobs", label: "الوظائف", icon: Briefcase },
     { key: "suggestions", label: "الاقتراحات", icon: MessageSquare },
@@ -1133,11 +1148,17 @@ export default function Dashboard(props: DashboardProps) {
                         <p className="mb-1 text-xs text-primary/50">
                           طاولة {table.table_number}
                         </p>
+                        {table.customer_ref && (
+                          <p className="mb-1 truncate text-xs font-semibold text-accent">
+                            {table.customer_ref}
+                          </p>
+                        )}
                         <p className="text-lg font-extrabold text-primary">
-                          {table.games_count} كيم
+                          {computePoolAmount(table.games_count, table.games_count_9ball).toLocaleString()}{" "}
+                          د.ع
                         </p>
-                        <p className="text-sm text-primary/60">
-                          {(table.games_count * 1000).toLocaleString()} د.ع
+                        <p className="text-xs text-primary/60">
+                          ٨ بول: {table.games_count} · ٩ بول: {table.games_count_9ball}
                         </p>
                       </div>
                     ))}
@@ -1149,15 +1170,15 @@ export default function Dashboard(props: DashboardProps) {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <StatCard
                       label="اليوم"
-                      value={`${billiardsStats.todayAmount.toLocaleString()} د.ع (${billiardsStats.todayGames} كيم)`}
+                      value={`${billiardsStats.todayAmount.toLocaleString()} د.ع (٨بول ${billiardsStats.todayPool.eight} + ٩بول ${billiardsStats.todayPool.nine})`}
                     />
                     <StatCard
                       label="آخر 7 أيام"
-                      value={`${billiardsStats.weekAmount.toLocaleString()} د.ع (${billiardsStats.weekGames} كيم)`}
+                      value={`${billiardsStats.weekAmount.toLocaleString()} د.ع (٨بول ${billiardsStats.weekPool.eight} + ٩بول ${billiardsStats.weekPool.nine})`}
                     />
                     <StatCard
                       label="هذا الشهر"
-                      value={`${billiardsStats.monthAmount.toLocaleString()} د.ع (${billiardsStats.monthGames} كيم)`}
+                      value={`${billiardsStats.monthAmount.toLocaleString()} د.ع (٨بول ${billiardsStats.monthPool.eight} + ٩بول ${billiardsStats.monthPool.nine})`}
                     />
                   </div>
                 </div>
@@ -1173,7 +1194,9 @@ export default function Dashboard(props: DashboardProps) {
                         className="flex items-center justify-between text-sm"
                       >
                         <span className="text-primary/70">طاولة {t.table_number}</span>
-                        <span className="text-primary/70">{t.games} كيم</span>
+                        <span className="text-primary/70">
+                          ٨بول {t.pool.eight} · ٩بول {t.pool.nine}
+                        </span>
                         <span className="font-bold text-primary">
                           {t.amount.toLocaleString()} د.ع
                         </span>
@@ -1183,12 +1206,23 @@ export default function Dashboard(props: DashboardProps) {
                 </div>
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">
-                  <h3 className="mb-4 text-sm font-bold text-primary">سجل العمليات والتسديدات</h3>
-                  {billiardsTransactions.length === 0 ? (
-                    <p className="text-sm text-primary/50">لا توجد عمليات بعد</p>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-primary">
+                      سجل العمليات والتسديدات {!showFullBilliardsLog && "(آخر 7 أيام)"}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowFullBilliardsLog((v) => !v)}
+                      className="text-xs font-semibold text-accent underline"
+                    >
+                      {showFullBilliardsLog ? "عرض آخر 7 أيام فقط" : "عرض السجل الأقدم"}
+                    </button>
+                  </div>
+                  {visibleBilliardsTransactions.length === 0 ? (
+                    <p className="text-sm text-primary/50">لا توجد عمليات بهذه الفترة</p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {billiardsTransactions.map((t) => (
+                      {visibleBilliardsTransactions.map((t) => (
                         <div
                           key={t.id}
                           className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
@@ -1203,7 +1237,11 @@ export default function Dashboard(props: DashboardProps) {
                             استلام الكاشير: {new Date(t.paid_at).toLocaleString("ar")}
                           </span>
                           <span className="text-primary/70">طاولة {t.table_number}</span>
-                          <span className="text-primary/70">{t.games_count} كيم</span>
+                          <span className="text-primary/70">
+                            {t.games_count > 0 && `٨بول ${t.games_count}`}
+                            {t.games_count > 0 && t.games_count_9ball > 0 && " + "}
+                            {t.games_count_9ball > 0 && `٩بول ${t.games_count_9ball}`}
+                          </span>
                           {t.customer_ref && (
                             <span className="text-primary/50">{t.customer_ref}</span>
                           )}
