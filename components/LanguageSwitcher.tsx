@@ -11,7 +11,15 @@ const LOCALES = [
   { code: "en", label: "English" },
 ];
 
-export default function LanguageSwitcher({ className = "" }: { className?: string }) {
+export default function LanguageSwitcher({
+  className = "",
+  dropDirection = "up",
+  align = "start",
+}: {
+  className?: string;
+  dropDirection?: "up" | "down";
+  align?: "start" | "left";
+}) {
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
@@ -50,7 +58,9 @@ export default function LanguageSwitcher({ className = "" }: { className?: strin
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-full start-0 z-20 mb-2 min-w-[130px] overflow-hidden rounded-2xl border border-primary/10 bg-background shadow-glass-lg"
+            className={`absolute z-20 min-w-[130px] overflow-hidden rounded-2xl border border-primary/10 bg-background shadow-glass-lg ${
+              align === "left" ? "left-0" : "start-0"
+            } ${dropDirection === "up" ? "bottom-full mb-2" : "top-full mt-2"}`}
           >
             {LOCALES.map((l) => (
               <button

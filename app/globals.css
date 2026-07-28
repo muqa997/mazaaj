@@ -160,3 +160,65 @@ a {
 .animate-marquee-backward {
   animation: marquee-backward 22s linear infinite;
 }
+
+/* مؤثرات صفحة المنيو التفاعلي: بخار للمشروبات الساخنة، حركة خفيفة لمكعب
+   الثلج بالمشروبات الباردة، دخان ناعم للأراجيل — طبقات صغيرة فوق رسمة
+   البطاقة فقط، transform/opacity حصراً للأداء الخفيف على الجوال */
+@keyframes steam-rise {
+  0% {
+    transform: translateY(0) scaleX(1);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-16px) scaleX(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes ice-drift {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(6deg);
+  }
+}
+
+@keyframes smoke-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(3px, -12px) scale(1.25);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate(-3px, -22px) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-steam-rise {
+  animation: steam-rise 3.2s ease-in-out infinite;
+}
+
+.animate-ice-drift {
+  animation: ice-drift 2.4s ease-in-out infinite;
+}
+
+.animate-smoke-drift {
+  animation: smoke-drift 4.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-steam-rise,
+  .animate-ice-drift,
+  .animate-smoke-drift {
+    animation: none;
+  }
+}
