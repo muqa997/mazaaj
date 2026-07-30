@@ -139,10 +139,14 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     setLoading(false);
   };
 
-  const load = async () => {
-    const [, s, n] = await Promise.all([loadCore(), props.getStats(), props.getNotes()]);
-    setStats(s);
+  const loadNotes = async () => {
+    const n = await props.getNotes();
     setNotes(n);
+  };
+
+  const load = async () => {
+    const [, s] = await Promise.all([loadCore(), props.getStats(), loadNotes()]);
+    setStats(s);
   };
 
   useEffect(() => {
@@ -196,10 +200,17 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     await props.updateCustomerRef(tableNumber, customerRefs[tableNumber] ?? "");
   };
 
-  // نستخدم loadCore (بلا إحصائيات) بعد إجراءات الفواتير حتى تظهر النتيجة فوراً —
-  // الإحصائيات (بما فيها دخل اليوم) تلحق خلال أقصى 3 ثوانٍ عبر الاستطلاع الدوري
+  // تحديث تفاؤلي فوري (نفس أسلوب عدّادات الكيمات): تُصفَّر الطاولة بالواجهة لحظة
+  // الضغط بدل انتظار رد الخادم بالكامل، ثم loadCore بالخلفية للتأكد والمزامنة
   const handleEndSession = async (tableNumber: number) => {
     setBusyTable(tableNumber);
+    setTables((prev) =>
+      prev.map((t) =>
+        t.table_number === tableNumber
+          ? { ...t, games_count: 0, games_count_9ball: 0, customer_ref: null }
+          : t
+      )
+    );
     await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
     await loadCore();
     setBusyTable(null);
@@ -207,6 +218,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
 
   const handlePayTicket = async (ticketId: string) => {
     setBusyTicket(ticketId);
+    setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
     await props.payTicket(ticketId);
     await loadCore();
     setBusyTicket(null);
@@ -214,6 +226,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
 
   const handleCancelTicket = async (ticketId: string) => {
     setBusyTicket(ticketId);
+    setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
     await props.cancelTicket(ticketId);
     await loadCore();
     setBusyTicket(null);
@@ -234,18 +247,22 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   };
 
   const handleAddNote = async () => {
-    if (!noteText.trim()) return;
+    const text = noteText.trim();
+    if (!text) return;
     setNoteBusy(true);
-    await props.addNote(noteText);
     setNoteText("");
-    await load();
+    // تحديث تفاؤلي فوري بمعرّف مؤقت — يُستبدل بالسجل الحقيقي بعد loadNotes بالخلفية
+    setNotes((prev) => [{ id: `temp-${Date.now()}`, text, created_at: new Date().toISOString() }, ...prev]);
+    await props.addNote(text);
+    await loadNotes();
     setNoteBusy(false);
   };
 
   const handleDeleteNote = async (noteId: string) => {
     setNoteBusy(true);
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
     await props.deleteNote(noteId);
-    await load();
+    await loadNotes();
     setNoteBusy(false);
   };
 
