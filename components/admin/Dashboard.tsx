@@ -250,6 +250,12 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return { label: String(day), amount };
   });
 
+  // ما استلمه موظف البلياردو نقداً من الزبائن ولم يسلّمه للكاشير بعد — رصيد "بحوزته"
+  // اللحظي، يعطي المدير مؤشراً مباشراً على مدى انتظام الموظف بالتسليم اليومي
+  const outstandingTx = transactions.filter(
+    (t) => t.collected_by === "billiards" && !t.handed_over_at
+  );
+
   return {
     todayPool: sumPool(todayTx),
     todayAmount: sumBy(todayTx, "amount"),
@@ -260,6 +266,8 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     perTable,
     weekDays,
     monthDays,
+    outstandingWithOperatorAmount: sumBy(outstandingTx, "amount"),
+    outstandingWithOperatorCount: outstandingTx.length,
   };
 }
 
@@ -750,6 +758,28 @@ export default function Dashboard(props: DashboardProps) {
                     value={`${billiardsStats.monthAmount.toLocaleString("en-US")} د.ع`}
                   />
                 </div>
+
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    billiardsStats.outstandingWithOperatorAmount > 0
+                      ? "border-amber-500/30 bg-amber-500/10"
+                      : "border-primary/10 bg-background"
+                  }`}
+                >
+                  <div>
+                    <p className="mb-1 text-xs text-primary/50">
+                      بحوزة موظف البلياردو الآن (لم يُسلَّم بعد)
+                    </p>
+                    <p className="text-lg font-extrabold text-primary sm:text-xl">
+                      {billiardsStats.outstandingWithOperatorAmount.toLocaleString("en-US")} د.ع
+                    </p>
+                  </div>
+                  {billiardsStats.outstandingWithOperatorCount > 0 && (
+                    <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
+                      {billiardsStats.outstandingWithOperatorCount} معاملة
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1146,6 +1176,28 @@ export default function Dashboard(props: DashboardProps) {
 
             {tab === "billiards" && (
               <div className="flex flex-col gap-6">
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    billiardsStats.outstandingWithOperatorAmount > 0
+                      ? "border-amber-500/30 bg-amber-500/10"
+                      : "border-primary/10 bg-background"
+                  }`}
+                >
+                  <div>
+                    <p className="mb-1 text-xs text-primary/50">
+                      بحوزة موظف البلياردو الآن (لم يُسلَّم بعد)
+                    </p>
+                    <p className="text-lg font-extrabold text-primary sm:text-xl">
+                      {billiardsStats.outstandingWithOperatorAmount.toLocaleString("en-US")} د.ع
+                    </p>
+                  </div>
+                  {billiardsStats.outstandingWithOperatorCount > 0 && (
+                    <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
+                      {billiardsStats.outstandingWithOperatorCount} معاملة
+                    </span>
+                  )}
+                </div>
+
                 <div>
                   <h3 className="mb-3 text-sm font-bold text-primary">
                     الحالة الحالية (غير مدفوعة بعد)
@@ -1272,7 +1324,17 @@ export default function Dashboard(props: DashboardProps) {
                                 <br />
                               </>
                             )}
-                            استلام الكاشير: {new Date(t.paid_at).toLocaleString("ar")}
+                            وقت الاستلام: {new Date(t.paid_at).toLocaleString("ar")}
+                            {t.collected_by === "billiards" && (
+                              <>
+                                <br />
+                                {t.handed_over_at ? (
+                                  <>سُلِّم للكاشير: {new Date(t.handed_over_at).toLocaleString("ar")}</>
+                                ) : (
+                                  <span className="font-semibold text-amber-700">لم يُسلَّم للكاشير بعد</span>
+                                )}
+                              </>
+                            )}
                           </span>
                           <span className="text-primary/70">طاولة {t.table_number}</span>
                           <span dir="ltr" className="text-primary/70">

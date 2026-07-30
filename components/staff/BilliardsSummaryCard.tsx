@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, X } from "lucide-react";
-import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
+import { Wallet, X, HandCoins } from "lucide-react";
+import {
+  computePoolAmount,
+  type BilliardsTableRow,
+  type BilliardsTicketRow,
+  type BilliardsTransactionRow,
+} from "@/lib/billiards";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -12,6 +17,9 @@ type BilliardsSummaryCardProps = {
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
+  getPendingHandovers: () => Promise<BilliardsTransactionRow[]>;
+  confirmHandover: (transactionId: string) => Promise<{ error: string | null }>;
+  confirmAllHandovers: () => Promise<{ error: string | null }>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
 
@@ -27,18 +35,23 @@ function ActiveDot() {
 export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [tables, setTables] = useState<BilliardsTableRow[]>([]);
   const [tickets, setTickets] = useState<BilliardsTicketRow[]>([]);
+  const [handovers, setHandovers] = useState<BilliardsTransactionRow[]>([]);
   const [todayTotal, setTodayTotal] = useState({ games: 0, amount: 0 });
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
+  const [busyHandover, setBusyHandover] = useState<string | null>(null);
+  const [busyAllHandovers, setBusyAllHandovers] = useState(false);
 
   const load = async () => {
-    const [t, tk, total] = await Promise.all([
+    const [t, tk, ho, total] = await Promise.all([
       props.getBilliardsTables(),
       props.getPendingTickets(),
+      props.getPendingHandovers(),
       props.getBilliardsTodayTotal(),
     ]);
     setTables(t);
     setTickets(tk);
+    setHandovers(ho);
     setTodayTotal(total);
   };
 
@@ -73,6 +86,25 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
     await props.payTableDirect(table.table_number);
     await load();
     setBusyTable(null);
+  };
+
+  const handleConfirmHandover = async (transactionId: string) => {
+    setBusyHandover(transactionId);
+    await props.confirmHandover(transactionId);
+    await load();
+    setBusyHandover(null);
+  };
+
+  const handleConfirmAllHandovers = async () => {
+    const total = handovers.reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const confirmed = window.confirm(
+      `تأكيد استلام كامل المبلغ من موظف البلياردو (${total.toLocaleString("en-US")} د.ع)؟`
+    );
+    if (!confirmed) return;
+    setBusyAllHandovers(true);
+    await props.confirmAllHandovers();
+    await load();
+    setBusyAllHandovers(false);
   };
 
   if (tables.length === 0) return null;
@@ -179,6 +211,66 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {handovers.length > 0 && (
+        <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-primary">تسليم البلياردو من الموظف</h3>
+            <button
+              type="button"
+              disabled={busyAllHandovers || busyHandover !== null}
+              onClick={handleConfirmAllHandovers}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-green-500 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+            >
+              <HandCoins size={13} />
+              تسليم الكل
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {handovers.map((tx) => {
+              const isBusy = busyHandover === tx.id;
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between gap-2 rounded-xl bg-primary/5 px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-primary/60">
+                      {tx.customer_ref || "بدون اسم"} — طاولة بلياردو {tx.table_number}
+                      <span className="ms-1 font-normal text-primary/40">
+                        (
+                        {new Date(tx.paid_at).toLocaleTimeString("ar", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        )
+                      </span>
+                    </p>
+                    <p className="text-sm font-bold text-primary">
+                      {Number(tx.amount).toLocaleString("en-US")} د.ع
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isBusy || busyAllHandovers}
+                    onClick={() => handleConfirmHandover(tx.id)}
+                    className="flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2.5 py-1.5 text-green-700 disabled:opacity-40"
+                  >
+                    <HandCoins size={13} />
+                    <span className="text-[11px] font-bold">تم الاستلام</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-center text-xs font-semibold text-primary/50">
+            المجموع بانتظار التسليم:{" "}
+            <span className="font-extrabold text-green-600">
+              {handovers.reduce((sum, tx) => sum + Number(tx.amount), 0).toLocaleString("en-US")} د.ع
+            </span>
+          </p>
         </div>
       )}
     </div>

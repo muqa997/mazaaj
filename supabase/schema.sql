@@ -212,7 +212,9 @@ alter table billiards_tickets enable row level security;
 alter table billiards_tickets add column if not exists games_count_9ball int not null default 0;
 
 -- سجل عمليات الدفع — يُستخدم لتقارير لوحة التحكم (يومي/أسبوعي/شهري لكل طاولة)
--- collected_by: من حصّل الدفعة (الكاشير حصراً حالياً، والحقل موجود تحسّباً لأي تغيير مستقبلي)
+-- collected_by: من استلم الدفعة أول مرة من الزبون (الموظف بالطابق الأول عادةً، أو الكاشير
+-- إن نزل الزبون مباشرة). handed_over_at: وقت تأكيد الكاشير استلامه النقد يدوياً من الموظف
+-- (يبقى فارغاً طالما المبلغ بحوزة الموظف؛ غير ذي صلة إن كان collected_by = 'cashier' أصلاً)
 create table if not exists billiards_transactions (
   id uuid primary key default gen_random_uuid(),
   table_number int not null,
@@ -221,7 +223,8 @@ create table if not exists billiards_transactions (
   collected_by text not null default 'billiards' check (collected_by in ('billiards', 'cashier')),
   customer_ref text,
   session_ended_at timestamptz,
-  paid_at timestamptz not null default now()
+  paid_at timestamptz not null default now(),
+  handed_over_at timestamptz
 );
 
 -- تحسبّاً لجدول billiards_transactions منشأ سابقاً بدون هذه الأعمدة
@@ -229,6 +232,7 @@ alter table billiards_transactions add column if not exists collected_by text no
 alter table billiards_transactions add column if not exists customer_ref text;
 alter table billiards_transactions add column if not exists session_ended_at timestamptz;
 alter table billiards_transactions add column if not exists games_count_9ball int not null default 0;
+alter table billiards_transactions add column if not exists handed_over_at timestamptz;
 
 alter table billiards_transactions enable row level security;
 -- بدون أي policy للزوار (anon) — تُدار فقط عبر مفتاح service_role السري
