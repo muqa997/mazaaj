@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
+import type { BilliardsTableRow, BilliardsTicketRow, BilliardsTransactionRow } from "@/lib/billiards";
 import BilliardsSummaryCard from "./BilliardsSummaryCard";
 
 type StaffOrdersPageProps = {
@@ -19,6 +19,7 @@ type StaffOrdersPageProps = {
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
+  getCashierHandoverPending: () => Promise<BilliardsTransactionRow[]>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
 
@@ -82,6 +83,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
           payTicket={props.payTicket}
           cancelTicket={props.cancelTicket}
           payTableDirect={props.payTableDirect}
+          getCashierHandoverPending={props.getCashierHandoverPending}
           getBilliardsTodayTotal={props.getBilliardsTodayTotal}
         />
 

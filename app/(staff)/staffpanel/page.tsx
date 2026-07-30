@@ -16,6 +16,7 @@ import {
   payTicket,
   cancelTicket,
   payTableDirect,
+  getStaffCashierHandoverPending,
   getStaffBilliardsTodayTotal,
 } from "./actions";
 
@@ -48,6 +49,7 @@ export default async function StaffPage() {
       payTicket={payTicket}
       cancelTicket={cancelTicket}
       payTableDirect={payTableDirect}
+      getCashierHandoverPending={getStaffCashierHandoverPending}
       getBilliardsTodayTotal={getStaffBilliardsTodayTotal}
     />
   );

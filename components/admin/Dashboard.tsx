@@ -795,9 +795,7 @@ export default function Dashboard(props: DashboardProps) {
                   }`}
                 >
                   <div>
-                    <p className="mb-1 text-xs text-primary/50">
-                      بحوزة موظف البلياردو الآن (لم تُسلَّم للمدير بعد)
-                    </p>
+                    <p className="mb-1 text-xs text-primary/50">بحوزة موظف البلياردو الآن</p>
                     <p className="text-lg font-extrabold text-primary sm:text-xl">
                       {billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع
                     </p>
@@ -806,6 +804,13 @@ export default function Dashboard(props: DashboardProps) {
                         + {billiardsStats.withCashierAmount.toLocaleString("en-US")} د.ع لا تزال بحوزة الكاشير
                       </p>
                     )}
+                    <p className="mt-1 text-[11px] font-semibold text-primary/50">
+                      المجموع:{" "}
+                      {(billiardsStats.withOperatorAmount + billiardsStats.withCashierAmount).toLocaleString(
+                        "en-US"
+                      )}{" "}
+                      د.ع
+                    </p>
                   </div>
                   {billiardsStats.withOperatorCount > 0 && (
                     <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
@@ -1218,9 +1223,7 @@ export default function Dashboard(props: DashboardProps) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <p className="mb-1 text-xs text-primary/50">
-                        بحوزة موظف البلياردو الآن (لم تُسلَّم للمدير بعد)
-                      </p>
+                      <p className="mb-1 text-xs text-primary/50">بحوزة موظف البلياردو الآن</p>
                       <p className="text-lg font-extrabold text-primary sm:text-xl">
                         {billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع
                       </p>
@@ -1229,6 +1232,13 @@ export default function Dashboard(props: DashboardProps) {
                           + {billiardsStats.withCashierAmount.toLocaleString("en-US")} د.ع لا تزال بحوزة الكاشير (بانتظار استلام الموظف)
                         </p>
                       )}
+                      <p className="mt-1 text-[11px] font-semibold text-primary/50">
+                        المجموع:{" "}
+                        {(billiardsStats.withOperatorAmount + billiardsStats.withCashierAmount).toLocaleString(
+                          "en-US"
+                        )}{" "}
+                        د.ع
+                      </p>
                     </div>
                     {billiardsStats.withOperatorCount > 0 && (
                       <span className="shrink-0 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
@@ -1284,42 +1294,26 @@ export default function Dashboard(props: DashboardProps) {
                 <div>
                   <h3 className="mb-3 text-sm font-bold text-primary">الدخل المُحصَّل</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <StatCard
-                      label="اليوم"
-                      value={
-                        <>
-                          {billiardsStats.todayAmount.toLocaleString("en-US")} د.ع{" "}
+                    {(
+                      [
+                        ["اليوم", billiardsStats.todayAmount, billiardsStats.todayPool],
+                        ["آخر 7 أيام", billiardsStats.weekAmount, billiardsStats.weekPool],
+                        ["هذا الشهر", billiardsStats.monthAmount, billiardsStats.monthPool],
+                      ] as const
+                    ).map(([label, amount, pool]) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-accent/25 bg-accent/10 p-4"
+                      >
+                        <p className="mb-1 text-xs text-primary/50">{label}</p>
+                        <p className="text-lg font-extrabold text-primary sm:text-xl">
+                          {amount.toLocaleString("en-US")} د.ع{" "}
                           <span dir="ltr" className="text-sm font-normal text-primary/50">
-                            (8 Pool {billiardsStats.todayPool.eight} + 9 Pool{" "}
-                            {billiardsStats.todayPool.nine})
+                            (8 Pool {pool.eight} + 9 Pool {pool.nine})
                           </span>
-                        </>
-                      }
-                    />
-                    <StatCard
-                      label="آخر 7 أيام"
-                      value={
-                        <>
-                          {billiardsStats.weekAmount.toLocaleString("en-US")} د.ع{" "}
-                          <span dir="ltr" className="text-sm font-normal text-primary/50">
-                            (8 Pool {billiardsStats.weekPool.eight} + 9 Pool{" "}
-                            {billiardsStats.weekPool.nine})
-                          </span>
-                        </>
-                      }
-                    />
-                    <StatCard
-                      label="هذا الشهر"
-                      value={
-                        <>
-                          {billiardsStats.monthAmount.toLocaleString("en-US")} د.ع{" "}
-                          <span dir="ltr" className="text-sm font-normal text-primary/50">
-                            (8 Pool {billiardsStats.monthPool.eight} + 9 Pool{" "}
-                            {billiardsStats.monthPool.nine})
-                          </span>
-                        </>
-                      }
-                    />
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

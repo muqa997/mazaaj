@@ -436,7 +436,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
         {cashierHandoverPending.length > 0 && (
           <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
             <h3 className="mb-3 text-sm font-bold text-primary">
-              حسّلها الكاشير عن زبائن نزلوا مباشرة
+              حصّلها الكاشير عن زبائن نزلوا مباشرة
             </h3>
             <div className="mb-4 flex flex-col gap-2">
               {cashierHandoverPending.map((tx) => (

@@ -8,10 +8,15 @@ import {
   verifyStaffSessionToken,
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
+import {
+  computePoolAmount,
+  type BilliardsTableRow,
+  type BilliardsTicketRow,
+  type BilliardsTransactionRow,
+} from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
-export type { BilliardsTableRow, BilliardsTicketRow };
+export type { BilliardsTableRow, BilliardsTicketRow, BilliardsTransactionRow };
 
 export async function staffLogin(code: string): Promise<{ success: boolean }> {
   const expected = process.env.STAFF_ACCESS_CODE;
@@ -194,6 +199,25 @@ export async function cancelTicket(ticketId: string) {
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
   return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
+}
+
+// حالة نادرة: زبون نزل مباشرة وحاسبه الكاشير — يعرض له الكاشير نفسه (بالتفصيل) ما لا
+// يزال بحوزته بانتظار أن يستلمه موظف البلياردو فعلياً؛ يختفي تلقائياً بمجرد أن يؤكد
+// الموظف استلامه من صفحته الخاصة (لا يوجد زر تأكيد هنا، عرض فقط)
+export async function getStaffCashierHandoverPending(): Promise<BilliardsTransactionRow[]> {
+  requireStaffSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .select("*")
+    .eq("collected_by", "cashier")
+    .is("handed_over_at", null)
+    .order("paid_at", { ascending: true });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsTransactionRow[];
 }
 
 // مجموع ما حصّله الكاشير نفسه اليوم من حسابات البلياردو (بدون ما حصّله موظف البلياردو
