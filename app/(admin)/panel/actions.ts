@@ -6,10 +6,10 @@ import { ADMIN_COOKIE_NAME, createSessionToken, verifySessionToken } from "@/lib
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { PromoKey, PromoRow } from "@/lib/promos";
 import type { MenuCategory } from "@/lib/menu-data";
-import type { BilliardsTableRow, BilliardsTransactionRow } from "@/lib/billiards";
+import type { BilliardsTableRow, BilliardsTransactionRow, BilliardsNoteRow } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
-export type { BilliardsTableRow, BilliardsTransactionRow };
+export type { BilliardsTableRow, BilliardsTransactionRow, BilliardsNoteRow };
 export type { PromoKey, PromoRow };
 
 export async function login(code: string): Promise<{ success: boolean }> {
@@ -380,4 +380,33 @@ export async function getBilliardsTransactions(): Promise<BilliardsTransactionRo
     return [];
   }
   return (data ?? []) as BilliardsTransactionRow[];
+}
+
+// المدير يؤكد استلامه دخل اليوم نقداً من موظف البلياردو (تسوية جماعية بضغطة واحدة) —
+// تُسوّى كل المعاملات التي لا تزال "بحوزة الموظف" فعلياً دفعة واحدة: ما جمعه مباشرة
+// (collected_by='billiards')، أو ما استلمه من الكاشير وأكّده هو (handed_over_at غير فارغ)
+export async function settleBilliardsWithOperator() {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .update({ settled_at: new Date().toISOString() })
+    .is("settled_at", null)
+    .or("collected_by.eq.billiards,handed_over_at.not.is.null");
+  return { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null };
+}
+
+// ملاحظات/ديون موظف البلياردو — عرض فقط للمدير أسفل تبويب البلياردو بلوحة التحكم
+export async function getBilliardsNotes(): Promise<BilliardsNoteRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("billiards_notes")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsNoteRow[];
 }

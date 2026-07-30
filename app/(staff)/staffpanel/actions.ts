@@ -8,15 +8,10 @@ import {
   verifyStaffSessionToken,
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import {
-  computePoolAmount,
-  type BilliardsTableRow,
-  type BilliardsTicketRow,
-  type BilliardsTransactionRow,
-} from "@/lib/billiards";
+import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
-export type { BilliardsTableRow, BilliardsTicketRow, BilliardsTransactionRow };
+export type { BilliardsTableRow, BilliardsTicketRow };
 
 export async function staffLogin(code: string): Promise<{ success: boolean }> {
   const expected = process.env.STAFF_ACCESS_CODE;
@@ -199,47 +194,6 @@ export async function cancelTicket(ticketId: string) {
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
   return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
-}
-
-// المبالغ التي استلمها موظف البلياردو نقداً من الزبائن ولم يسلّمها للكاشير بعد — الكاشير
-// وحده من يؤكد استلام النقد الفعلي عبر confirmHandover/confirmAllHandovers بالأسفل، فلا
-// يستطيع الموظف تسوية حسابه بنفسه (فصل مسؤوليات لضمان وصول المبلغ فعلاً)
-export async function getPendingHandovers(): Promise<BilliardsTransactionRow[]> {
-  requireStaffSession();
-  if (!supabaseAdmin) return [];
-  const { data, error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .select("*")
-    .eq("collected_by", "billiards")
-    .is("handed_over_at", null)
-    .order("paid_at", { ascending: true });
-  if (error) {
-    console.error(error);
-    return [];
-  }
-  return (data ?? []) as BilliardsTransactionRow[];
-}
-
-export async function confirmHandover(transactionId: string) {
-  requireStaffSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .update({ handed_over_at: new Date().toISOString() })
-    .eq("id", transactionId)
-    .is("handed_over_at", null);
-  return { error: error ? "حدث خطأ أثناء تأكيد الاستلام" : null };
-}
-
-export async function confirmAllHandovers() {
-  requireStaffSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .update({ handed_over_at: new Date().toISOString() })
-    .eq("collected_by", "billiards")
-    .is("handed_over_at", null);
-  return { error: error ? "حدث خطأ أثناء تأكيد استلام الكل" : null };
 }
 
 // مجموع ما حصّله الكاشير نفسه اليوم من حسابات البلياردو (بدون ما حصّله موظف البلياردو

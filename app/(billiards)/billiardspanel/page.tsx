@@ -11,10 +11,12 @@ import {
   getBilliardsTables,
   setGameCount,
   updateCustomerRef,
-  collectPayment,
   endSession,
   getPendingTickets,
-  getMyPendingHandovers,
+  payTicket,
+  cancelTicket,
+  getCashierHandoverPending,
+  confirmCashierHandover,
   getBilliardsOperatorStats,
   getNotes,
   addNote,
@@ -45,10 +47,12 @@ export default async function BilliardsPage() {
       getTables={getBilliardsTables}
       setGameCount={setGameCount}
       updateCustomerRef={updateCustomerRef}
-      collectPayment={collectPayment}
       endSession={endSession}
       getPendingTickets={getPendingTickets}
-      getMyPendingHandovers={getMyPendingHandovers}
+      payTicket={payTicket}
+      cancelTicket={cancelTicket}
+      getCashierHandoverPending={getCashierHandoverPending}
+      confirmCashierHandover={confirmCashierHandover}
       getStats={getBilliardsOperatorStats}
       getNotes={getNotes}
       addNote={addNote}

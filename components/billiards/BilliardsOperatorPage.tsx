@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Minus, Send, Trash2, Wallet } from "lucide-react";
+import { LogOut, Plus, Minus, Send, Trash2, Wallet, X, HandCoins } from "lucide-react";
 import {
   computePoolAmount,
   type BilliardsTableRow,
@@ -35,10 +35,12 @@ type BilliardsOperatorPageProps = {
   getTables: () => Promise<BilliardsTableRow[]>;
   setGameCount: (tableNumber: number, pool: PoolType, count: number) => Promise<{ error: string | null }>;
   updateCustomerRef: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
-  collectPayment: (tableNumber: number) => Promise<{ error: string | null }>;
   endSession: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
-  getMyPendingHandovers: () => Promise<BilliardsTransactionRow[]>;
+  payTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  getCashierHandoverPending: () => Promise<BilliardsTransactionRow[]>;
+  confirmCashierHandover: () => Promise<{ error: string | null }>;
   getStats: () => Promise<OperatorStats>;
   getNotes: () => Promise<BilliardsNoteRow[]>;
   addNote: (text: string) => Promise<{ error: string | null }>;
@@ -82,11 +84,13 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const router = useRouter();
   const [tables, setTables] = useState<BilliardsTableRow[]>([]);
   const [pendingTickets, setPendingTickets] = useState<BilliardsTicketRow[]>([]);
-  const [pendingHandovers, setPendingHandovers] = useState<BilliardsTransactionRow[]>([]);
+  const [cashierHandoverPending, setCashierHandoverPending] = useState<BilliardsTransactionRow[]>([]);
   const [stats, setStats] = useState<OperatorStats>(EMPTY_STATS);
   const [notes, setNotes] = useState<BilliardsNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyTable, setBusyTable] = useState<number | null>(null);
+  const [busyTicket, setBusyTicket] = useState<string | null>(null);
+  const [busyCashierHandover, setBusyCashierHandover] = useState(false);
   const [customerRefs, setCustomerRefs] = useState<Record<number, string>>({});
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
@@ -95,10 +99,10 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const load = async () => {
-    const [t, tickets, handovers, s, n] = await Promise.all([
+    const [t, tickets, cashierPending, s, n] = await Promise.all([
       props.getTables(),
       props.getPendingTickets(),
-      props.getMyPendingHandovers(),
+      props.getCashierHandoverPending(),
       props.getStats(),
       props.getNotes(),
     ]);
@@ -128,7 +132,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       return next;
     });
     setPendingTickets(tickets);
-    setPendingHandovers(handovers);
+    setCashierHandoverPending(cashierPending);
     setStats(s);
     setNotes(n);
     setLoading(false);
@@ -185,20 +189,39 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     await props.updateCustomerRef(tableNumber, customerRefs[tableNumber] ?? "");
   };
 
-  // المسار الأساسي: الموظف يستلم الدفع نقداً من الزبون مباشرة ويؤكد ذلك — يبقى المبلغ
-  // "بحوزته" بالنظام (قائمة "بحوزتي الآن" أسفل الصفحة) حتى يُسلِّمه للكاشير لاحقاً
-  const handleCollectPayment = async (tableNumber: number) => {
-    setBusyTable(tableNumber);
-    await props.collectPayment(tableNumber);
-    await load();
-    setBusyTable(null);
-  };
-
   const handleEndSession = async (tableNumber: number) => {
     setBusyTable(tableNumber);
     await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
     await load();
     setBusyTable(null);
+  };
+
+  const handlePayTicket = async (ticketId: string) => {
+    setBusyTicket(ticketId);
+    await props.payTicket(ticketId);
+    await load();
+    setBusyTicket(null);
+  };
+
+  const handleCancelTicket = async (ticketId: string) => {
+    setBusyTicket(ticketId);
+    await props.cancelTicket(ticketId);
+    await load();
+    setBusyTicket(null);
+  };
+
+  // حالة نادرة: زبون نزل مباشرة وحاسبه الكاشير — الموظف يستلم المبلغ منه فعلياً
+  // (نقداً) ثم يؤكد ذلك بضغطة واحدة تُسوّي كل ما هو بحوزة الكاشير دفعة واحدة
+  const handleConfirmCashierHandover = async () => {
+    const total = cashierHandoverPending.reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const confirmed = window.confirm(
+      `تأكيد استلامك ${total.toLocaleString("en-US")} د.ع نقداً من الكاشير؟`
+    );
+    if (!confirmed) return;
+    setBusyCashierHandover(true);
+    await props.confirmCashierHandover();
+    await load();
+    setBusyCashierHandover(false);
   };
 
   const handleAddNote = async () => {
@@ -319,7 +342,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                     </div>
                   </div>
 
-                  <div className="relative z-10 flex flex-col gap-2.5 border-t border-white/20 pt-4">
+                  <div className="relative z-10 flex items-center gap-2 border-t border-white/20 pt-4">
                     <input
                       type="text"
                       value={customerRefs[table.table_number] ?? ""}
@@ -336,26 +359,15 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                       placeholder="اسم الزبون أو رقم طاولة الجلوس"
                       className="w-full min-w-0 flex-1 rounded-full bg-white/15 px-3.5 py-2 text-xs text-white placeholder:text-white/50 outline-none"
                     />
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={isBusy || !isActive}
-                        onClick={() => handleCollectPayment(table.table_number)}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-green-500 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-                      >
-                        <Wallet size={16} />
-                        استلمت الدفع
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isBusy || !isActive}
-                        onClick={() => handleEndSession(table.table_number)}
-                        className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/50 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
-                      >
-                        <Send size={14} />
-                        إنهاء الجلسة بتذكرة
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={isBusy || !isActive}
+                      onClick={() => handleEndSession(table.table_number)}
+                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/50 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                    >
+                      <Send size={14} />
+                      إنهاء الجلسة
+                    </button>
                   </div>
                 </div>
               );
@@ -369,48 +381,65 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
             <p className="text-sm text-primary/50">لا توجد فواتير معلّقة حالياً</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {pendingTickets.map((ticket) => (
-                <div
-                  key={ticket.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
-                >
-                  <span className="font-semibold text-primary">
-                    {ticket.customer_ref || "بدون اسم"}
-                  </span>
-                  <span className="text-primary/50">
-                    {new Date(ticket.created_at).toLocaleString("ar")}
-                  </span>
-                  <span dir="ltr" className="text-xs text-primary/50">
-                    {ticket.games_count > 0 && `8 Pool: ${ticket.games_count}`}
-                    {ticket.games_count > 0 && ticket.games_count_9ball > 0 && " · "}
-                    {ticket.games_count_9ball > 0 && `9 Pool: ${ticket.games_count_9ball}`}
-                  </span>
-                  <span className="font-bold text-primary">
-                    {Number(ticket.amount).toLocaleString("en-US")} د.ع
-                  </span>
-                </div>
-              ))}
+              {pendingTickets.map((ticket) => {
+                const isTicketBusy = busyTicket === ticket.id;
+                return (
+                  <div
+                    key={ticket.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2.5 text-sm last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-primary">
+                        {ticket.customer_ref || "بدون اسم"} — طاولة {ticket.table_number}
+                        <span className="ms-1 font-normal text-primary/40">
+                          ({new Date(ticket.created_at).toLocaleString("ar")})
+                        </span>
+                      </p>
+                      <p className="text-primary/70">
+                        <span dir="ltr" className="text-xs">
+                          {ticket.games_count > 0 && `8 Pool: ${ticket.games_count}`}
+                          {ticket.games_count > 0 && ticket.games_count_9ball > 0 && " · "}
+                          {ticket.games_count_9ball > 0 && `9 Pool: ${ticket.games_count_9ball}`}
+                        </span>{" "}
+                        <span className="font-bold text-primary">
+                          {Number(ticket.amount).toLocaleString("en-US")} د.ع
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isTicketBusy}
+                        onClick={() => handleCancelTicket(ticket.id)}
+                        aria-label="إلغاء التذكرة"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5 text-primary/50 disabled:opacity-40"
+                      >
+                        <X size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isTicketBusy}
+                        onClick={() => handlePayTicket(ticket.id)}
+                        className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1.5 text-green-700 disabled:opacity-40"
+                      >
+                        <Wallet size={13} />
+                        <span className="text-[11px] font-bold">دفع</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
-        <div className="mt-6 rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-primary">بحوزتي الآن (بانتظار التسليم للكاشير)</h3>
-            {pendingHandovers.length > 0 && (
-              <span className="text-sm font-extrabold text-green-600">
-                {pendingHandovers
-                  .reduce((sum, tx) => sum + Number(tx.amount), 0)
-                  .toLocaleString("en-US")}{" "}
-                د.ع
-              </span>
-            )}
-          </div>
-          {pendingHandovers.length === 0 ? (
-            <p className="text-sm text-primary/50">لا يوجد مبلغ بحوزتك حالياً</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {pendingHandovers.map((tx) => (
+        {cashierHandoverPending.length > 0 && (
+          <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+            <h3 className="mb-3 text-sm font-bold text-primary">
+              حسّلها الكاشير عن زبائن نزلوا مباشرة
+            </h3>
+            <div className="mb-4 flex flex-col gap-2">
+              {cashierHandoverPending.map((tx) => (
                 <div
                   key={tx.id}
                   className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
@@ -427,8 +456,21 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                 </div>
               ))}
             </div>
-          )}
-        </div>
+            <button
+              type="button"
+              disabled={busyCashierHandover}
+              onClick={handleConfirmCashierHandover}
+              className="flex w-full items-center justify-center gap-1.5 rounded-full bg-amber-500 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+            >
+              <HandCoins size={16} />
+              استلمت{" "}
+              {cashierHandoverPending
+                .reduce((sum, tx) => sum + Number(tx.amount), 0)
+                .toLocaleString("en-US")}{" "}
+              د.ع من الكاشير
+            </button>
+          </div>
+        )}
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
           <h3 className="mb-3 text-sm font-bold text-primary">إحصائيات الكيمات</h3>

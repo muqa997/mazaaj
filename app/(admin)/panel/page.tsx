@@ -28,6 +28,8 @@ import {
   uploadPromoImage,
   getBilliardsTables,
   getBilliardsTransactions,
+  settleBilliardsWithOperator,
+  getBilliardsNotes,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
@@ -70,6 +72,8 @@ export default async function AdminPage() {
       uploadPromoImage={uploadPromoImage}
       getBilliardsTables={getBilliardsTables}
       getBilliardsTransactions={getBilliardsTransactions}
+      settleBilliardsWithOperator={settleBilliardsWithOperator}
+      getBilliardsNotes={getBilliardsNotes}
     />
   );
 }

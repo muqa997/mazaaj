@@ -43,6 +43,7 @@ import type {
   PromoRow,
   BilliardsTableRow,
   BilliardsTransactionRow,
+  BilliardsNoteRow,
 } from "@/app/(admin)/panel/actions";
 
 type Tab =
@@ -88,6 +89,8 @@ type DashboardProps = {
   uploadPromoImage: (key: PromoKey, formData: FormData) => Promise<{ error: string | null }>;
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
   getBilliardsTransactions: () => Promise<BilliardsTransactionRow[]>;
+  settleBilliardsWithOperator: () => Promise<{ error: string | null }>;
+  getBilliardsNotes: () => Promise<BilliardsNoteRow[]>;
 };
 
 const PROMO_LABELS: Record<PromoKey, { title: string; cta: string }> = {
@@ -250,10 +253,16 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return { label: String(day), amount };
   });
 
-  // ما استلمه موظف البلياردو نقداً من الزبائن ولم يسلّمه للكاشير بعد — رصيد "بحوزته"
-  // اللحظي، يعطي المدير مؤشراً مباشراً على مدى انتظام الموظف بالتسليم اليومي
-  const outstandingTx = transactions.filter(
-    (t) => t.collected_by === "billiards" && !t.handed_over_at
+  // ما هو "بحوزة موظف البلياردو" فعلاً الآن ولم يُسوَّ مع المدير بعد — إما جمعه هو
+  // مباشرة، أو استلمه من الكاشير وأكّد ذلك (handed_over_at). هذا هو رصيد المطالبة
+  // اليومية: المدير يقرأ هذا الرقم ويطالب الموظف به مباشرة نهاية اليوم
+  const withOperatorTx = transactions.filter(
+    (t) => !t.settled_at && (t.collected_by === "billiards" || !!t.handed_over_at)
+  );
+  // حالة نادرة: مبلغ لا يزال بحوزة الكاشير (زبون نزل مباشرة) ولم يستلمه الموظف بعد —
+  // مؤشر ثانوي صغير يذكّر المدير بمتابعته
+  const withCashierTx = transactions.filter(
+    (t) => t.collected_by === "cashier" && !t.handed_over_at
   );
 
   return {
@@ -266,8 +275,10 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     perTable,
     weekDays,
     monthDays,
-    outstandingWithOperatorAmount: sumBy(outstandingTx, "amount"),
-    outstandingWithOperatorCount: outstandingTx.length,
+    withOperatorAmount: sumBy(withOperatorTx, "amount"),
+    withOperatorCount: withOperatorTx.length,
+    withCashierAmount: sumBy(withCashierTx, "amount"),
+    withCashierCount: withCashierTx.length,
   };
 }
 
@@ -295,7 +306,9 @@ export default function Dashboard(props: DashboardProps) {
   const [promos, setPromos] = useState<PromoRow[]>([]);
   const [billiardsTables, setBilliardsTables] = useState<BilliardsTableRow[]>([]);
   const [billiardsTransactions, setBilliardsTransactions] = useState<BilliardsTransactionRow[]>([]);
+  const [billiardsNotes, setBilliardsNotes] = useState<BilliardsNoteRow[]>([]);
   const [showFullBilliardsLog, setShowFullBilliardsLog] = useState(false);
+  const [settlingBilliards, setSettlingBilliards] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [announcementDrafts, setAnnouncementDrafts] = useState<
@@ -326,7 +339,7 @@ export default function Dashboard(props: DashboardProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [o, c, a, j, s, an, pr, bt, btx] = await Promise.all([
+      const [o, c, a, j, s, an, pr, bt, btx, bn] = await Promise.all([
         props.getOrders(),
         props.getCoupons(),
         props.getApplicants(),
@@ -336,6 +349,7 @@ export default function Dashboard(props: DashboardProps) {
         props.getHomePromos(),
         props.getBilliardsTables(),
         props.getBilliardsTransactions(),
+        props.getBilliardsNotes(),
       ]);
       setOrders(o ?? []);
       setCoupons(c ?? []);
@@ -355,6 +369,7 @@ export default function Dashboard(props: DashboardProps) {
       });
       setBilliardsTables(bt ?? []);
       setBilliardsTransactions(btx ?? []);
+      setBilliardsNotes(bn ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -371,6 +386,19 @@ export default function Dashboard(props: DashboardProps) {
   const handleLogout = async () => {
     await props.logoutAction();
     router.refresh();
+  };
+
+  // المدير يؤكد استلامه دخل اليوم نقداً من موظف البلياردو — تسوية جماعية لكل ما هو
+  // "بحوزة الموظف" فعلاً الآن، بضغطة واحدة، بعد أن يعرض له الرقم الدقيق من النظام
+  const handleSettleBilliards = async () => {
+    const confirmed = window.confirm(
+      `تأكيد استلامك ${billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع نقداً من موظف البلياردو؟`
+    );
+    if (!confirmed) return;
+    setSettlingBilliards(true);
+    await props.settleBilliardsWithOperator();
+    await loadAll();
+    setSettlingBilliards(false);
   };
 
   const stats = useMemo(() => computeStats(orders), [orders]);
@@ -761,22 +789,27 @@ export default function Dashboard(props: DashboardProps) {
 
                 <div
                   className={`flex items-center justify-between rounded-2xl border p-4 ${
-                    billiardsStats.outstandingWithOperatorAmount > 0
+                    billiardsStats.withOperatorAmount > 0
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-primary/10 bg-background"
                   }`}
                 >
                   <div>
                     <p className="mb-1 text-xs text-primary/50">
-                      بحوزة موظف البلياردو الآن (لم يُسلَّم بعد)
+                      بحوزة موظف البلياردو الآن (لم تُسلَّم للمدير بعد)
                     </p>
                     <p className="text-lg font-extrabold text-primary sm:text-xl">
-                      {billiardsStats.outstandingWithOperatorAmount.toLocaleString("en-US")} د.ع
+                      {billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع
                     </p>
+                    {billiardsStats.withCashierAmount > 0 && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                        + {billiardsStats.withCashierAmount.toLocaleString("en-US")} د.ع لا تزال بحوزة الكاشير
+                      </p>
+                    )}
                   </div>
-                  {billiardsStats.outstandingWithOperatorCount > 0 && (
+                  {billiardsStats.withOperatorCount > 0 && (
                     <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
-                      {billiardsStats.outstandingWithOperatorCount} معاملة
+                      {billiardsStats.withOperatorCount} معاملة
                     </span>
                   )}
                 </div>
@@ -1177,24 +1210,41 @@ export default function Dashboard(props: DashboardProps) {
             {tab === "billiards" && (
               <div className="flex flex-col gap-6">
                 <div
-                  className={`flex items-center justify-between rounded-2xl border p-4 ${
-                    billiardsStats.outstandingWithOperatorAmount > 0
+                  className={`rounded-2xl border p-4 ${
+                    billiardsStats.withOperatorAmount > 0
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-primary/10 bg-background"
                   }`}
                 >
-                  <div>
-                    <p className="mb-1 text-xs text-primary/50">
-                      بحوزة موظف البلياردو الآن (لم يُسلَّم بعد)
-                    </p>
-                    <p className="text-lg font-extrabold text-primary sm:text-xl">
-                      {billiardsStats.outstandingWithOperatorAmount.toLocaleString("en-US")} د.ع
-                    </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="mb-1 text-xs text-primary/50">
+                        بحوزة موظف البلياردو الآن (لم تُسلَّم للمدير بعد)
+                      </p>
+                      <p className="text-lg font-extrabold text-primary sm:text-xl">
+                        {billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع
+                      </p>
+                      {billiardsStats.withCashierAmount > 0 && (
+                        <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                          + {billiardsStats.withCashierAmount.toLocaleString("en-US")} د.ع لا تزال بحوزة الكاشير (بانتظار استلام الموظف)
+                        </p>
+                      )}
+                    </div>
+                    {billiardsStats.withOperatorCount > 0 && (
+                      <span className="shrink-0 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
+                        {billiardsStats.withOperatorCount} معاملة
+                      </span>
+                    )}
                   </div>
-                  {billiardsStats.outstandingWithOperatorCount > 0 && (
-                    <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
-                      {billiardsStats.outstandingWithOperatorCount} معاملة
-                    </span>
+                  {billiardsStats.withOperatorAmount > 0 && (
+                    <button
+                      type="button"
+                      disabled={settlingBilliards}
+                      onClick={handleSettleBilliards}
+                      className="mt-3 w-full rounded-full bg-amber-500 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                    >
+                      استلمت من موظف البلياردو
+                    </button>
                   )}
                 </div>
 
@@ -1325,13 +1375,23 @@ export default function Dashboard(props: DashboardProps) {
                               </>
                             )}
                             وقت الاستلام: {new Date(t.paid_at).toLocaleString("ar")}
-                            {t.collected_by === "billiards" && (
+                            {t.collected_by === "cashier" && (
                               <>
                                 <br />
                                 {t.handed_over_at ? (
-                                  <>سُلِّم للكاشير: {new Date(t.handed_over_at).toLocaleString("ar")}</>
+                                  <>استلمه الموظف من الكاشير: {new Date(t.handed_over_at).toLocaleString("ar")}</>
                                 ) : (
-                                  <span className="font-semibold text-amber-700">لم يُسلَّم للكاشير بعد</span>
+                                  <span className="font-semibold text-amber-700">لم يستلمه الموظف من الكاشير بعد</span>
+                                )}
+                              </>
+                            )}
+                            {(t.collected_by === "billiards" || t.handed_over_at) && (
+                              <>
+                                <br />
+                                {t.settled_at ? (
+                                  <>تمت التسوية مع المدير: {new Date(t.settled_at).toLocaleString("ar")}</>
+                                ) : (
+                                  <span className="font-semibold text-amber-700">لم تُسوَّ مع المدير بعد</span>
                                 )}
                               </>
                             )}
@@ -1424,6 +1484,29 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-3 text-sm font-bold text-primary">
+                    ملاحظات موظف البلياردو
+                  </h3>
+                  {billiardsNotes.length === 0 ? (
+                    <p className="text-sm text-primary/50">لا توجد ملاحظات</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {billiardsNotes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="flex items-center justify-between gap-2 rounded-xl bg-primary/5 px-3 py-2.5 text-sm"
+                        >
+                          <span className="min-w-0 flex-1 text-primary">{note.text}</span>
+                          <span className="shrink-0 text-xs text-primary/40">
+                            {new Date(note.created_at).toLocaleString("ar")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -105,50 +105,11 @@ export async function updateCustomerRef(tableNumber: number, customerRef: string
   return { error: error ? "حدث خطأ أثناء الحفظ" : null };
 }
 
-// المسار الأساسي: موظف البلياردو يستلم الدفع نقداً من الزبون مباشرة بالطابق الأول —
-// يُنشئ معاملة مكتملة فوراً (collected_by='billiards', handed_over_at=null) وتُصفَّر
-// الطاولة. يبقى المبلغ "بحوزة الموظف" في النظام حتى يُسلِّمه نقداً للكاشير لاحقاً
-// ويؤكد الكاشير استلامه — فيتكوّن سجل زمني كامل: استلم الموظف ← سلّم للكاشير
-export async function collectPayment(tableNumber: number) {
-  requireBilliardsSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { data, error: fetchError } = await supabaseAdmin
-    .from("billiards_tables")
-    .select("games_count, games_count_9ball, customer_ref")
-    .eq("table_number", tableNumber)
-    .single();
-  if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
-  if (data.games_count === 0 && data.games_count_9ball === 0) return { error: null };
-
-  const now = new Date().toISOString();
-  const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
-    table_number: tableNumber,
-    games_count: data.games_count,
-    games_count_9ball: data.games_count_9ball,
-    amount: computePoolAmount(data.games_count, data.games_count_9ball),
-    collected_by: "billiards",
-    customer_ref: data.customer_ref,
-    session_ended_at: now,
-    paid_at: now,
-    handed_over_at: null,
-  });
-  if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
-
-  const { error } = await supabaseAdmin
-    .from("billiards_tables")
-    .update({
-      games_count: 0,
-      games_count_9ball: 0,
-      customer_ref: null,
-      updated_at: now,
-    })
-    .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء التصفير" : null };
-}
-
-// مسار بديل (لحالات "سأدفع بالأسفل"): يفصل كيمات الطاولة الحالية (٨ بول و٩ بول معاً)
-// عن عداد الطاولة الحي في "تذكرة" مستقلة بانتظار الدفع عند الكاشير — وتُصفَّر الطاولة
-// فوراً لتصبح جاهزة لزبون جديد بدون انتظار الدفع
+// إنهاء الجلسة: يفصل كيمات الطاولة الحالية (٨ بول و٩ بول معاً) عن عداد الطاولة الحي
+// في "تذكرة" مستقلة بانتظار الدفع — وتُصفَّر الطاولة فوراً لتصبح جاهزة لزبون جديد
+// بدون انتظار الدفع. المسار الوحيد لإنهاء الجلسة سواء دفع الزبون فوراً أو تأخر —
+// فالموظف يدفع التذكرة بنفسه من قائمة "الفواتير المعلّقة" (payTicket بالأسفل) في
+// الحالتين معاً
 export async function endSession(tableNumber: number, customerRef: string) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
@@ -181,8 +142,8 @@ export async function endSession(tableNumber: number, customerRef: string) {
   return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }
 
-// التذاكر المعلّقة التي أرسلها موظف البلياردو ولم يدفعها الكاشير بعد — يعرضها موظف
-// البلياردو كمرجع لمعرفة ما هو بانتظار الدفع فعلاً
+// التذاكر المعلّقة التي أنشأها الموظف بإنهاء الجلسة ولم يدفعها بعد — يدفعها بنفسه
+// من هذه القائمة عبر payTicket فوراً أو لاحقاً
 export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
   requireBilliardsSession();
   if (!supabaseAdmin) return [];
@@ -197,15 +158,50 @@ export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
   return (data ?? []) as BilliardsTicketRow[];
 }
 
-// المبالغ التي استلمها الموظف نقداً ولم يسلّمها للكاشير بعد — يعرضها له كمرجع لمعرفة
-// كم بحوزته حالياً قبل أن يسلّمه
-export async function getMyPendingHandovers(): Promise<BilliardsTransactionRow[]> {
+// الموظف يدفع فاتورة معلّقة بنفسه (سواء دفعها الزبون فوراً بعد إنهاء الجلسة أو تأخر
+// بالدفع) — يسجّل معاملة collected_by='billiards' ويحذف التذكرة
+export async function payTicket(ticketId: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { data: ticket, error: fetchError } = await supabaseAdmin
+    .from("billiards_tickets")
+    .select("*")
+    .eq("id", ticketId)
+    .single();
+  if (fetchError || !ticket) return { error: "تعذّر إيجاد التذكرة" };
+
+  const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
+    table_number: ticket.table_number,
+    games_count: ticket.games_count,
+    games_count_9ball: ticket.games_count_9ball,
+    amount: ticket.amount,
+    collected_by: "billiards",
+    customer_ref: ticket.customer_ref,
+    session_ended_at: ticket.created_at,
+  });
+  if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
+
+  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
+  return { error: error ? "حدث خطأ أثناء إزالة التذكرة" : null };
+}
+
+// إلغاء تذكرة معلّقة بالغلط (خطأ برقم الطاولة أو إرسال مكرر) — تُحذف بدون تسجيل أي دفعة
+export async function cancelTicket(ticketId: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
+  return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
+}
+
+// حالة نادرة: زبون نزل مباشرة وحاسبه الكاشير بدون علم الموظف — المبلغ يبقى بحوزة
+// الكاشير حتى يستلمه الموظف منه فعلياً ويؤكد ذلك بزر واحد (confirmCashierHandover)
+export async function getCashierHandoverPending(): Promise<BilliardsTransactionRow[]> {
   requireBilliardsSession();
   if (!supabaseAdmin) return [];
   const { data, error } = await supabaseAdmin
     .from("billiards_transactions")
     .select("*")
-    .eq("collected_by", "billiards")
+    .eq("collected_by", "cashier")
     .is("handed_over_at", null)
     .order("paid_at", { ascending: true });
   if (error) {
@@ -213,6 +209,19 @@ export async function getMyPendingHandovers(): Promise<BilliardsTransactionRow[]
     return [];
   }
   return (data ?? []) as BilliardsTransactionRow[];
+}
+
+// الموظف يؤكد استلامه دفعة واحدة كل ما جمعه الكاشير من الزبائن الذين نزلوا مباشرة —
+// تأكيد جماعي بضغطة واحدة (لا حاجة لتأكيد كل معاملة على حدة بما أنها حالة نادرة)
+export async function confirmCashierHandover() {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .update({ handed_over_at: new Date().toISOString() })
+    .eq("collected_by", "cashier")
+    .is("handed_over_at", null);
+  return { error: error ? "حدث خطأ أثناء تأكيد الاستلام" : null };
 }
 
 type PoolCounts = { eight: number; nine: number };
