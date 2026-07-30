@@ -20,6 +20,7 @@ type OperatorStats = {
   week: PoolCounts;
   month: PoolCounts;
   perTable: { table_number: number; eight: number; nine: number }[];
+  todayIncomeAmount: number;
 };
 
 const EMPTY_STATS: OperatorStats = {
@@ -27,6 +28,7 @@ const EMPTY_STATS: OperatorStats = {
   week: { eight: 0, nine: 0 },
   month: { eight: 0, nine: 0 },
   perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
+  todayIncomeAmount: 0,
 };
 
 type BilliardsOperatorPageProps = {
@@ -98,13 +100,14 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   // مؤقتات تجميع الضغطات السريعة (debounce) لكل طاولة+قسم — مفتاحها "رقم الطاولة:القسم"
   const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const load = async () => {
-    const [t, tickets, cashierPending, s, n] = await Promise.all([
+  // البيانات الأساسية (الطاولات/الفواتير/تسليم الكاشير) — نُحدّثها فور أي إجراء من
+  // الموظف بلا انتظار الإحصائيات الأثقل (getStats يمسح 35 يوماً من المعاملات)، حتى
+  // يشعر بالاستجابة الفورية عند إنهاء الجلسة أو دفع/إلغاء فاتورة
+  const loadCore = async () => {
+    const [t, tickets, cashierPending] = await Promise.all([
       props.getTables(),
       props.getPendingTickets(),
       props.getCashierHandoverPending(),
-      props.getStats(),
-      props.getNotes(),
     ]);
     // لا نستبدل عداد طاولة+قسم لا يزال بانتظار مزامنة مؤجَّلة (debounce) — لتجنّب أن
     // يُصفِّر الاستطلاع الدوري القيمة المحلية قبل وصول التحديث الفعلي للخادم
@@ -133,9 +136,13 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     });
     setPendingTickets(tickets);
     setCashierHandoverPending(cashierPending);
+    setLoading(false);
+  };
+
+  const load = async () => {
+    const [, s, n] = await Promise.all([loadCore(), props.getStats(), props.getNotes()]);
     setStats(s);
     setNotes(n);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -189,24 +196,26 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     await props.updateCustomerRef(tableNumber, customerRefs[tableNumber] ?? "");
   };
 
+  // نستخدم loadCore (بلا إحصائيات) بعد إجراءات الفواتير حتى تظهر النتيجة فوراً —
+  // الإحصائيات (بما فيها دخل اليوم) تلحق خلال أقصى 3 ثوانٍ عبر الاستطلاع الدوري
   const handleEndSession = async (tableNumber: number) => {
     setBusyTable(tableNumber);
     await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
-    await load();
+    await loadCore();
     setBusyTable(null);
   };
 
   const handlePayTicket = async (ticketId: string) => {
     setBusyTicket(ticketId);
     await props.payTicket(ticketId);
-    await load();
+    await loadCore();
     setBusyTicket(null);
   };
 
   const handleCancelTicket = async (ticketId: string) => {
     setBusyTicket(ticketId);
     await props.cancelTicket(ticketId);
-    await load();
+    await loadCore();
     setBusyTicket(null);
   };
 
@@ -220,7 +229,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     if (!confirmed) return;
     setBusyCashierHandover(true);
     await props.confirmCashierHandover();
-    await load();
+    await loadCore();
     setBusyCashierHandover(false);
   };
 
@@ -431,6 +440,37 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
               })}
             </div>
           )}
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
+          <h3 className="mb-3 text-sm font-bold text-primary">الدخل الذي تحصّل عليه</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-primary/60">دخلي اليوم</p>
+              <p className="text-base font-extrabold text-primary">
+                {stats.todayIncomeAmount.toLocaleString("en-US")} د.ع
+              </p>
+            </div>
+            <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-primary/60">عند الكاشير</p>
+              <p className="text-base font-extrabold text-primary">
+                {cashierHandoverPending
+                  .reduce((sum, tx) => sum + Number(tx.amount), 0)
+                  .toLocaleString("en-US")}{" "}
+                د.ع
+              </p>
+            </div>
+            <div className="rounded-xl bg-green-500/10 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-green-700">المجموع</p>
+              <p className="text-base font-extrabold text-green-700">
+                {(
+                  stats.todayIncomeAmount +
+                  cashierHandoverPending.reduce((sum, tx) => sum + Number(tx.amount), 0)
+                ).toLocaleString("en-US")}{" "}
+                د.ع
+              </p>
+            </div>
+          </div>
         </div>
 
         {cashierHandoverPending.length > 0 && (

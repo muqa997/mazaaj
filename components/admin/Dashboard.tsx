@@ -57,6 +57,19 @@ type Tab =
   | "jobs"
   | "suggestions";
 
+const TAB_VALUES: Tab[] = [
+  "overview",
+  "orders",
+  "coupons",
+  "announcements",
+  "promos",
+  "billiards",
+  "applicants",
+  "jobs",
+  "suggestions",
+];
+const TAB_STORAGE_KEY = "mazaaj-admin-tab";
+
 type DashboardProps = {
   logoutAction: () => Promise<void>;
   refreshSessionAction: () => Promise<void>;
@@ -200,6 +213,23 @@ function computeStats(orders: OrderRow[]) {
   };
 }
 
+const ARABIC_ORDINAL_MONTHS = [
+  "الأول",
+  "الثاني",
+  "الثالث",
+  "الرابع",
+  "الخامس",
+  "السادس",
+  "السابع",
+  "الثامن",
+  "التاسع",
+  "العاشر",
+  "الحادي عشر",
+  "الثاني عشر",
+];
+
+const formatDayMonth = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+
 function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   const now = new Date();
 
@@ -272,6 +302,9 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     weekAmount: sumBy(weekTx, "amount"),
     monthPool: sumPool(monthTx),
     monthAmount: sumBy(monthTx, "amount"),
+    todayLabel: formatDayMonth(now),
+    weekLabel: `${formatDayMonth(last7DaysStart)} - ${formatDayMonth(now)}`,
+    monthLabel: `الشهر ${ARABIC_ORDINAL_MONTHS[now.getMonth()]}`,
     perTable,
     weekDays,
     monthDays,
@@ -294,7 +327,13 @@ function BilliardsActiveDot() {
 
 export default function Dashboard(props: DashboardProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("overview");
+  // يبقى المدير على نفس التبويب بعد تحديث الصفحة (F5) — يُقرأ من localStorage عند
+  // فتح الصفحة، ويُحفظ في كل مرة يتغيّر التبويب
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "overview";
+    const stored = window.localStorage.getItem(TAB_STORAGE_KEY);
+    return TAB_VALUES.includes(stored as Tab) ? (stored as Tab) : "overview";
+  });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -382,6 +421,10 @@ export default function Dashboard(props: DashboardProps) {
     props.refreshSessionAction();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(TAB_STORAGE_KEY, tab);
+  }, [tab]);
 
   const handleLogout = async () => {
     await props.logoutAction();
@@ -1296,44 +1339,24 @@ export default function Dashboard(props: DashboardProps) {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {(
                       [
-                        ["اليوم", billiardsStats.todayAmount, billiardsStats.todayPool],
-                        ["آخر 7 أيام", billiardsStats.weekAmount, billiardsStats.weekPool],
-                        ["هذا الشهر", billiardsStats.monthAmount, billiardsStats.monthPool],
+                        ["اليوم", billiardsStats.todayLabel, billiardsStats.todayAmount, billiardsStats.todayPool],
+                        ["آخر 7 أيام", billiardsStats.weekLabel, billiardsStats.weekAmount, billiardsStats.weekPool],
+                        ["هذا الشهر", billiardsStats.monthLabel, billiardsStats.monthAmount, billiardsStats.monthPool],
                       ] as const
-                    ).map(([label, amount, pool]) => (
+                    ).map(([label, dateLabel, amount, pool]) => (
                       <div
                         key={label}
                         className="rounded-2xl border border-accent/25 bg-accent/10 p-4"
                       >
-                        <p className="mb-1 text-xs text-primary/50">{label}</p>
+                        <p className="mb-1 text-xs text-primary/50">
+                          {label} <span dir="ltr">({dateLabel})</span>
+                        </p>
                         <p className="text-lg font-extrabold text-primary sm:text-xl">
                           {amount.toLocaleString("en-US")} د.ع{" "}
                           <span dir="ltr" className="text-sm font-normal text-primary/50">
                             (8 Pool {pool.eight} + 9 Pool {pool.nine})
                           </span>
                         </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-primary/10 bg-background p-5">
-                  <h3 className="mb-4 text-sm font-bold text-primary">
-                    أداء الطاولات (هذا الشهر)
-                  </h3>
-                  <div className="flex flex-col gap-2">
-                    {billiardsStats.perTable.map((t) => (
-                      <div
-                        key={t.table_number}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <span className="text-primary/70">طاولة {t.table_number}</span>
-                        <span dir="ltr" className="text-primary/70">
-                          8 Pool {t.pool.eight} · 9 Pool {t.pool.nine}
-                        </span>
-                        <span className="font-bold text-primary">
-                          {t.amount.toLocaleString("en-US")} د.ع
-                        </span>
                       </div>
                     ))}
                   </div>
@@ -1415,6 +1438,28 @@ export default function Dashboard(props: DashboardProps) {
                       ))}
                     </div>
                   )}
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-4 text-sm font-bold text-primary">
+                    أداء الطاولات (هذا الشهر)
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {billiardsStats.perTable.map((t) => (
+                      <div
+                        key={t.table_number}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-primary/70">طاولة {t.table_number}</span>
+                        <span dir="ltr" className="text-primary/70">
+                          8 Pool {t.pool.eight} · 9 Pool {t.pool.nine}
+                        </span>
+                        <span className="font-bold text-primary">
+                          {t.amount.toLocaleString("en-US")} د.ع
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">

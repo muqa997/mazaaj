@@ -235,6 +235,7 @@ export async function getBilliardsOperatorStats(): Promise<{
   week: PoolCounts;
   month: PoolCounts;
   perTable: { table_number: number; eight: number; nine: number }[];
+  todayIncomeAmount: number;
 }> {
   requireBilliardsSession();
   const empty = {
@@ -242,6 +243,7 @@ export async function getBilliardsOperatorStats(): Promise<{
     week: { eight: 0, nine: 0 },
     month: { eight: 0, nine: 0 },
     perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
+    todayIncomeAmount: 0,
   };
   if (!supabaseAdmin) return empty;
 
@@ -263,7 +265,7 @@ export async function getBilliardsOperatorStats(): Promise<{
       .gte("created_at", startOfDay.toISOString()),
     supabaseAdmin
       .from("billiards_transactions")
-      .select("table_number, games_count, games_count_9ball, paid_at")
+      .select("table_number, games_count, games_count_9ball, paid_at, collected_by, amount")
       .gte("paid_at", fetchSince.toISOString()),
   ]);
 
@@ -294,11 +296,18 @@ export async function getBilliardsOperatorStats(): Promise<{
     return { table_number: n, eight: tableTx.eight, nine: tableTx.nine };
   });
 
+  // الدخل الذي حصّله الموظف بنفسه اليوم (استلمه فعلياً من الزبون عبر دفع فاتورة) —
+  // يستثني ما حصّله الكاشير حتى لو استلمه الموظف منه لاحقاً، فذاك يظهر منفصلاً بالواجهة
+  const todayIncomeAmount = todayTx
+    .filter((t) => t.collected_by === "billiards")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
   return {
     today: { eight: liveEight + ticketsEight + todayPaid.eight, nine: liveNine + ticketsNine + todayPaid.nine },
     week: { eight: weekPaid.eight, nine: weekPaid.nine },
     month: { eight: monthPaid.eight, nine: monthPaid.nine },
     perTable,
+    todayIncomeAmount,
   };
 }
 
