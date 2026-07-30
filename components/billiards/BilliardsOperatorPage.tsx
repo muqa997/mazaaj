@@ -99,21 +99,28 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const focusedTableRef = useRef<number | null>(null);
   // مؤقتات تجميع الضغطات السريعة (debounce) لكل طاولة+قسم — مفتاحها "رقم الطاولة:القسم"
   const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  // يمنع الاستطلاع الدوري من الاستعلام بينما إجراء (إنهاء جلسة/دفع/إلغاء/ملاحظة) قيد
-  // التنفيذ — بدون هذا، قد يصل رد الاستطلاع الدوري ببيانات قديمة (قبل اكتمال الإجراء)
-  // فيُرجع التحديث التفاؤلي إلى حالته السابقة مؤقتاً (تبدو الطاولة "ترجع تفتح" من جديد)
-  // إلى أن يكتمل الإجراء فعلياً — وهو بالضبط سبب الشعور بالتأخر رغم التحديث الفوري
+  // يمنع الاستطلاع الدوري من بدء طلب جديد بينما إجراء قيد التنفيذ (تقليل طلبات لا داعي لها)
   const actionInFlightRef = useRef(false);
+  // ترقيم تسلسلي لطلبات loadCore/loadNotes: عند وصول رد أي طلب، نتجاهله إن لم يعد هو
+  // آخر طلب صادر. هذا يحل مشكلة أخطر من مجرد "الاستطلاع الدوري يبدأ أثناء إجراء": لو
+  // كان استطلاع دوري قد بدأ فعلياً *قبل* الضغط على الزر (طلبه بالطريق فعلاً)، فسيصل
+  // رده بعد التحديث التفاؤلي حاملاً بيانات قديمة (بدون الفاتورة/الملاحظة الجديدة)
+  // فيمحوها من الواجهة مؤقتاً، إلى أن يصل رد صحيح لاحقاً — وهذا ما كان يسبب ظهور
+  // العنصر ثم اختفاءه ثم عودته
+  const loadCoreSeqRef = useRef(0);
+  const loadNotesSeqRef = useRef(0);
 
   // البيانات الأساسية (الطاولات/الفواتير/تسليم الكاشير) — نُحدّثها فور أي إجراء من
   // الموظف بلا انتظار الإحصائيات الأثقل (getStats يمسح 35 يوماً من المعاملات)، حتى
   // يشعر بالاستجابة الفورية عند إنهاء الجلسة أو دفع/إلغاء فاتورة
   const loadCore = async () => {
+    const seq = ++loadCoreSeqRef.current;
     const [t, tickets, cashierPending] = await Promise.all([
       props.getTables(),
       props.getPendingTickets(),
       props.getCashierHandoverPending(),
     ]);
+    if (seq !== loadCoreSeqRef.current) return; // رد قديم لطلب سابق — تجاهله
     // لا نستبدل عداد طاولة+قسم لا يزال بانتظار مزامنة مؤجَّلة (debounce) — لتجنّب أن
     // يُصفِّر الاستطلاع الدوري القيمة المحلية قبل وصول التحديث الفعلي للخادم
     setTables((prevTables) =>
@@ -145,7 +152,9 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   };
 
   const loadNotes = async () => {
+    const seq = ++loadNotesSeqRef.current;
     const n = await props.getNotes();
+    if (seq !== loadNotesSeqRef.current) return; // رد قديم لطلب سابق — تجاهله
     setNotes(n);
   };
 
