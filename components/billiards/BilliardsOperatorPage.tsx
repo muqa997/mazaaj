@@ -99,76 +99,85 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const focusedTableRef = useRef<number | null>(null);
   // مؤقتات تجميع الضغطات السريعة (debounce) لكل طاولة+قسم — مفتاحها "رقم الطاولة:القسم"
   const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  // يمنع الاستطلاع الدوري من بدء طلب جديد بينما إجراء قيد التنفيذ (تقليل طلبات لا داعي لها)
-  const actionInFlightRef = useRef(false);
-  // ترقيم تسلسلي لطلبات loadCore/loadNotes: عند وصول رد أي طلب، نتجاهله إن لم يعد هو
-  // آخر طلب صادر. هذا يحل مشكلة أخطر من مجرد "الاستطلاع الدوري يبدأ أثناء إجراء": لو
-  // كان استطلاع دوري قد بدأ فعلياً *قبل* الضغط على الزر (طلبه بالطريق فعلاً)، فسيصل
-  // رده بعد التحديث التفاؤلي حاملاً بيانات قديمة (بدون الفاتورة/الملاحظة الجديدة)
-  // فيمحوها من الواجهة مؤقتاً، إلى أن يصل رد صحيح لاحقاً — وهذا ما كان يسبب ظهور
-  // العنصر ثم اختفاءه ثم عودته
-  const loadCoreSeqRef = useRef(0);
-  const loadNotesSeqRef = useRef(0);
+  // طابور "نداء واحد بالتنفيذ + نداء واحد لاحق مضمون": يمنع تداخل طلبين لنفس الدالة (فلا
+  // يصل رد بترتيب خاطئ فيمحو تحديثاً أحدث)، لكنه لا يُسقط أي نداء وصل أثناء التنفيذ —
+  // بل يضمن نداءً جديداً فور انتهاء الحالي، فتبقى البيانات صحيحة دائماً مهما تأخر الخادم
+  function makeCoalescedLoader<T>(fetcher: () => Promise<T>, apply: (result: T) => void) {
+    let inFlight = false;
+    let pendingAgain = false;
+    return async () => {
+      if (inFlight) {
+        pendingAgain = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        do {
+          pendingAgain = false;
+          const result = await fetcher();
+          apply(result);
+        } while (pendingAgain);
+      } finally {
+        inFlight = false;
+      }
+    };
+  }
 
   // البيانات الأساسية (الطاولات/الفواتير/تسليم الكاشير) — نُحدّثها فور أي إجراء من
   // الموظف بلا انتظار الإحصائيات الأثقل (getStats يمسح 35 يوماً من المعاملات)، حتى
   // يشعر بالاستجابة الفورية عند إنهاء الجلسة أو دفع/إلغاء فاتورة
-  const loadCore = async () => {
-    const seq = ++loadCoreSeqRef.current;
-    const [t, tickets, cashierPending] = await Promise.all([
-      props.getTables(),
-      props.getPendingTickets(),
-      props.getCashierHandoverPending(),
-    ]);
-    if (seq !== loadCoreSeqRef.current) return; // رد قديم لطلب سابق — تجاهله
-    // لا نستبدل عداد طاولة+قسم لا يزال بانتظار مزامنة مؤجَّلة (debounce) — لتجنّب أن
-    // يُصفِّر الاستطلاع الدوري القيمة المحلية قبل وصول التحديث الفعلي للخادم
-    setTables((prevTables) =>
-      t.map((freshTable) => {
-        const prevTable = prevTables.find((p) => p.table_number === freshTable.table_number);
-        if (!prevTable) return freshTable;
-        const eightPending = pendingSyncRef.current[`${freshTable.table_number}:eight`];
-        const ninePending = pendingSyncRef.current[`${freshTable.table_number}:nine`];
-        return {
-          ...freshTable,
-          games_count: eightPending ? prevTable.games_count : freshTable.games_count,
-          games_count_9ball: ninePending ? prevTable.games_count_9ball : freshTable.games_count_9ball,
-        };
-      })
-    );
-    // لا نستبدل قيمة الحقل أثناء كتابة الموظف فيه حالياً (تجنّباً لمسحه بمزامنة الاستطلاع)
-    setCustomerRefs((prev) => {
-      const next = { ...prev };
-      for (const table of t) {
-        if (focusedTableRef.current !== table.table_number) {
-          next[table.table_number] = table.customer_ref ?? "";
-        }
+  const loadCoreRef = useRef(
+    makeCoalescedLoader(
+      () =>
+        Promise.all([props.getTables(), props.getPendingTickets(), props.getCashierHandoverPending()]),
+      ([t, tickets, cashierPending]) => {
+        // لا نستبدل عداد طاولة+قسم لا يزال بانتظار مزامنة مؤجَّلة (debounce) — لتجنّب أن
+        // يُصفِّر الاستطلاع الدوري القيمة المحلية قبل وصول التحديث الفعلي للخادم
+        setTables((prevTables) =>
+          t.map((freshTable) => {
+            const prevTable = prevTables.find((p) => p.table_number === freshTable.table_number);
+            if (!prevTable) return freshTable;
+            const eightPending = pendingSyncRef.current[`${freshTable.table_number}:eight`];
+            const ninePending = pendingSyncRef.current[`${freshTable.table_number}:nine`];
+            return {
+              ...freshTable,
+              games_count: eightPending ? prevTable.games_count : freshTable.games_count,
+              games_count_9ball: ninePending ? prevTable.games_count_9ball : freshTable.games_count_9ball,
+            };
+          })
+        );
+        // لا نستبدل قيمة الحقل أثناء كتابة الموظف فيه حالياً (تجنّباً لمسحه بمزامنة الاستطلاع)
+        setCustomerRefs((prev) => {
+          const next = { ...prev };
+          for (const table of t) {
+            if (focusedTableRef.current !== table.table_number) {
+              next[table.table_number] = table.customer_ref ?? "";
+            }
+          }
+          return next;
+        });
+        setPendingTickets(tickets);
+        setCashierHandoverPending(cashierPending);
+        setLoading(false);
       }
-      return next;
-    });
-    setPendingTickets(tickets);
-    setCashierHandoverPending(cashierPending);
-    setLoading(false);
-  };
+    )
+  );
+  const loadCore = () => loadCoreRef.current();
 
-  const loadNotes = async () => {
-    const seq = ++loadNotesSeqRef.current;
-    const n = await props.getNotes();
-    if (seq !== loadNotesSeqRef.current) return; // رد قديم لطلب سابق — تجاهله
-    setNotes(n);
-  };
+  const loadNotesRef = useRef(makeCoalescedLoader(() => props.getNotes(), setNotes));
+  const loadNotes = () => loadNotesRef.current();
+
+  const loadStatsRef = useRef(makeCoalescedLoader(() => props.getStats(), setStats));
+  const loadStats = () => loadStatsRef.current();
 
   const load = async () => {
-    const [, s] = await Promise.all([loadCore(), props.getStats(), loadNotes()]);
-    setStats(s);
+    await Promise.all([loadCore(), loadStats(), loadNotes()]);
   };
 
   useEffect(() => {
     load();
     props.refreshSessionAction();
-    const interval = setInterval(() => {
-      if (!actionInFlightRef.current) load();
-    }, POLL_INTERVAL_MS);
+    const interval = setInterval(load, POLL_INTERVAL_MS);
     return () => {
       clearInterval(interval);
       Object.values(pendingSyncRef.current).forEach(clearTimeout);
@@ -222,7 +231,6 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const handleEndSession = async (tableNumber: number) => {
     const table = tables.find((t) => t.table_number === tableNumber);
     if (!table) return;
-    actionInFlightRef.current = true;
     setBusyTable(tableNumber);
     setTables((prev) =>
       prev.map((t) =>
@@ -245,27 +253,22 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     ]);
     await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
     await loadCore();
-    actionInFlightRef.current = false;
     setBusyTable(null);
   };
 
   const handlePayTicket = async (ticketId: string) => {
-    actionInFlightRef.current = true;
     setBusyTicket(ticketId);
     setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
     await props.payTicket(ticketId);
     await loadCore();
-    actionInFlightRef.current = false;
     setBusyTicket(null);
   };
 
   const handleCancelTicket = async (ticketId: string) => {
-    actionInFlightRef.current = true;
     setBusyTicket(ticketId);
     setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
     await props.cancelTicket(ticketId);
     await loadCore();
-    actionInFlightRef.current = false;
     setBusyTicket(null);
   };
 
@@ -277,35 +280,29 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       `تأكيد استلامك ${total.toLocaleString("en-US")} د.ع نقداً من الكاشير؟`
     );
     if (!confirmed) return;
-    actionInFlightRef.current = true;
     setBusyCashierHandover(true);
     await props.confirmCashierHandover();
     await loadCore();
-    actionInFlightRef.current = false;
     setBusyCashierHandover(false);
   };
 
   const handleAddNote = async () => {
     const text = noteText.trim();
     if (!text) return;
-    actionInFlightRef.current = true;
     setNoteBusy(true);
     setNoteText("");
     // تحديث تفاؤلي فوري بمعرّف مؤقت — يُستبدل بالسجل الحقيقي بعد loadNotes بالخلفية
     setNotes((prev) => [{ id: `temp-${Date.now()}`, text, created_at: new Date().toISOString() }, ...prev]);
     await props.addNote(text);
     await loadNotes();
-    actionInFlightRef.current = false;
     setNoteBusy(false);
   };
 
   const handleDeleteNote = async (noteId: string) => {
-    actionInFlightRef.current = true;
     setNoteBusy(true);
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
     await props.deleteNote(noteId);
     await loadNotes();
-    actionInFlightRef.current = false;
     setNoteBusy(false);
   };
 
@@ -503,7 +500,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
         </div>
 
         <div className="mt-6 rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
-          <h3 className="mb-3 text-sm font-bold text-primary">الدخل الذي تحصّل عليه</h3>
+          <h3 className="mb-3 text-sm font-bold text-primary">الدخل   </h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-primary/5 px-3 py-2.5">
               <p className="mb-1 text-xs font-semibold text-primary/60">دخلي اليوم</p>
