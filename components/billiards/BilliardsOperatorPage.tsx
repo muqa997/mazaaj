@@ -11,7 +11,7 @@ import {
   type BilliardsTransactionRow,
 } from "@/lib/billiards";
 
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 1200;
 
 type PoolType = "eight" | "nine";
 type PoolCounts = { eight: number; nine: number };
@@ -99,6 +99,11 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const focusedTableRef = useRef<number | null>(null);
   // مؤقتات تجميع الضغطات السريعة (debounce) لكل طاولة+قسم — مفتاحها "رقم الطاولة:القسم"
   const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // يمنع الاستطلاع الدوري من الاستعلام بينما إجراء (إنهاء جلسة/دفع/إلغاء/ملاحظة) قيد
+  // التنفيذ — بدون هذا، قد يصل رد الاستطلاع الدوري ببيانات قديمة (قبل اكتمال الإجراء)
+  // فيُرجع التحديث التفاؤلي إلى حالته السابقة مؤقتاً (تبدو الطاولة "ترجع تفتح" من جديد)
+  // إلى أن يكتمل الإجراء فعلياً — وهو بالضبط سبب الشعور بالتأخر رغم التحديث الفوري
+  const actionInFlightRef = useRef(false);
 
   // البيانات الأساسية (الطاولات/الفواتير/تسليم الكاشير) — نُحدّثها فور أي إجراء من
   // الموظف بلا انتظار الإحصائيات الأثقل (getStats يمسح 35 يوماً من المعاملات)، حتى
@@ -152,7 +157,9 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   useEffect(() => {
     load();
     props.refreshSessionAction();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
+    const interval = setInterval(() => {
+      if (!actionInFlightRef.current) load();
+    }, POLL_INTERVAL_MS);
     return () => {
       clearInterval(interval);
       Object.values(pendingSyncRef.current).forEach(clearTimeout);
@@ -206,6 +213,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const handleEndSession = async (tableNumber: number) => {
     const table = tables.find((t) => t.table_number === tableNumber);
     if (!table) return;
+    actionInFlightRef.current = true;
     setBusyTable(tableNumber);
     setTables((prev) =>
       prev.map((t) =>
@@ -228,22 +236,27 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     ]);
     await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
     await loadCore();
+    actionInFlightRef.current = false;
     setBusyTable(null);
   };
 
   const handlePayTicket = async (ticketId: string) => {
+    actionInFlightRef.current = true;
     setBusyTicket(ticketId);
     setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
     await props.payTicket(ticketId);
     await loadCore();
+    actionInFlightRef.current = false;
     setBusyTicket(null);
   };
 
   const handleCancelTicket = async (ticketId: string) => {
+    actionInFlightRef.current = true;
     setBusyTicket(ticketId);
     setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
     await props.cancelTicket(ticketId);
     await loadCore();
+    actionInFlightRef.current = false;
     setBusyTicket(null);
   };
 
@@ -255,29 +268,35 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       `تأكيد استلامك ${total.toLocaleString("en-US")} د.ع نقداً من الكاشير؟`
     );
     if (!confirmed) return;
+    actionInFlightRef.current = true;
     setBusyCashierHandover(true);
     await props.confirmCashierHandover();
     await loadCore();
+    actionInFlightRef.current = false;
     setBusyCashierHandover(false);
   };
 
   const handleAddNote = async () => {
     const text = noteText.trim();
     if (!text) return;
+    actionInFlightRef.current = true;
     setNoteBusy(true);
     setNoteText("");
     // تحديث تفاؤلي فوري بمعرّف مؤقت — يُستبدل بالسجل الحقيقي بعد loadNotes بالخلفية
     setNotes((prev) => [{ id: `temp-${Date.now()}`, text, created_at: new Date().toISOString() }, ...prev]);
     await props.addNote(text);
     await loadNotes();
+    actionInFlightRef.current = false;
     setNoteBusy(false);
   };
 
   const handleDeleteNote = async (noteId: string) => {
+    actionInFlightRef.current = true;
     setNoteBusy(true);
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
     await props.deleteNote(noteId);
     await loadNotes();
+    actionInFlightRef.current = false;
     setNoteBusy(false);
   };
 
