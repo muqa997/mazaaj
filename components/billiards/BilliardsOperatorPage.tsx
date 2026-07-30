@@ -200,9 +200,12 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     await props.updateCustomerRef(tableNumber, customerRefs[tableNumber] ?? "");
   };
 
-  // تحديث تفاؤلي فوري (نفس أسلوب عدّادات الكيمات): تُصفَّر الطاولة بالواجهة لحظة
-  // الضغط بدل انتظار رد الخادم بالكامل، ثم loadCore بالخلفية للتأكد والمزامنة
+  // تحديث تفاؤلي فوري (نفس أسلوب عدّادات الكيمات): تُصفَّر الطاولة وتظهر الفاتورة
+  // بقائمة "الفواتير المعلّقة" بالواجهة لحظة الضغط بدل انتظار رد الخادم بالكامل —
+  // ثم loadCore بالخلفية يستبدل الفاتورة المؤقتة بالحقيقية (معرّف حقيقي) للتأكد والمزامنة
   const handleEndSession = async (tableNumber: number) => {
+    const table = tables.find((t) => t.table_number === tableNumber);
+    if (!table) return;
     setBusyTable(tableNumber);
     setTables((prev) =>
       prev.map((t) =>
@@ -211,6 +214,18 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           : t
       )
     );
+    setPendingTickets((prev) => [
+      ...prev,
+      {
+        id: `temp-${Date.now()}`,
+        table_number: tableNumber,
+        games_count: table.games_count,
+        games_count_9ball: table.games_count_9ball,
+        amount: computePoolAmount(table.games_count, table.games_count_9ball),
+        customer_ref: customerRefs[tableNumber]?.trim() || null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
     await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
     await loadCore();
     setBusyTable(null);

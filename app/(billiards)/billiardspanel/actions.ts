@@ -265,7 +265,7 @@ export async function getBilliardsOperatorStats(): Promise<{
       .gte("created_at", startOfDay.toISOString()),
     supabaseAdmin
       .from("billiards_transactions")
-      .select("table_number, games_count, games_count_9ball, paid_at, collected_by, amount")
+      .select("table_number, games_count, games_count_9ball, paid_at, collected_by, amount, handed_over_at")
       .gte("paid_at", fetchSince.toISOString()),
   ]);
 
@@ -296,16 +296,20 @@ export async function getBilliardsOperatorStats(): Promise<{
     return { table_number: n, eight: tableTx.eight, nine: tableTx.nine };
   });
 
-  // الدخل الذي حصّله الموظف بنفسه اليوم (استلمه فعلياً من الزبون عبر دفع فاتورة) —
-  // يستثني ما حصّله الكاشير حتى لو استلمه الموظف منه لاحقاً، فذاك يظهر منفصلاً بالواجهة
+  // الدخل الذي بحوزة الموظف فعلياً اليوم: ما حصّله هو مباشرة، بالإضافة لما حصّله
+  // الكاشير وأكّد الموظف استلامه منه (handed_over_at) — بمجرد التأكيد يصبح المبلغ
+  // بحوزته تماماً كأي دفعة استلمها بنفسه، فيجب أن يُحتسب هنا لا أن "يختفي" من الحسابين
   const todayIncomeAmount = todayTx
-    .filter((t) => t.collected_by === "billiards")
+    .filter((t) => t.collected_by === "billiards" || !!t.handed_over_at)
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
+  // نضيف كيمات اليوم الحية/المعلّقة (غير المدفوعة بعد) لمجموعي الأسبوع والشهر أيضاً —
+  // وإلا يظهر "الأسبوع/الشهر" أقل من "اليوم" بشكل مربك طالما توجد كيمات لم تُدفع بعد،
+  // رغم أن اليوم الحالي جزء منهما دائماً
   return {
     today: { eight: liveEight + ticketsEight + todayPaid.eight, nine: liveNine + ticketsNine + todayPaid.nine },
-    week: { eight: weekPaid.eight, nine: weekPaid.nine },
-    month: { eight: monthPaid.eight, nine: monthPaid.nine },
+    week: { eight: liveEight + ticketsEight + weekPaid.eight, nine: liveNine + ticketsNine + weekPaid.nine },
+    month: { eight: liveEight + ticketsEight + monthPaid.eight, nine: liveNine + ticketsNine + monthPaid.nine },
     perTable,
     todayIncomeAmount,
   };
