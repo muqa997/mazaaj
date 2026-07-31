@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Minus, Send, Trash2 } from "lucide-react";
+import { LogOut, Plus, Minus, Send, Trash2, X } from "lucide-react";
 import {
   computePoolAmount,
   type BilliardsTableRow,
@@ -36,6 +36,7 @@ type BilliardsOperatorPageProps = {
   updateCustomerRef: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   endSession: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
+  cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
   getStats: () => Promise<OperatorStats>;
   getNotes: () => Promise<BilliardsNoteRow[]>;
   addNote: (text: string) => Promise<{ error: string | null }>;
@@ -83,6 +84,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const [notes, setNotes] = useState<BilliardsNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyTable, setBusyTable] = useState<number | null>(null);
+  const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [customerRefs, setCustomerRefs] = useState<Record<number, string>>({});
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
@@ -246,6 +248,15 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     setBusyTable(null);
   };
 
+  // إلغاء بدون دفع — بدون سبب إلزامي (بعكس إلغاء الكاشير)، لتصحيح خطأ عرضي سريعاً
+  const handleCancelTicket = async (ticketId: string) => {
+    setBusyTicket(ticketId);
+    setPendingTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    await props.cancelTicket(ticketId);
+    await loadCore();
+    setBusyTicket(null);
+  };
+
   const handleAddNote = async () => {
     const text = noteText.trim();
     if (!text) return;
@@ -407,31 +418,43 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
             <p className="text-sm text-primary/50">لا توجد فواتير حالياً</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {pendingTickets.map((ticket) => (
-                <div
-                  key={ticket.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2.5 text-sm last:border-0"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-primary">
-                      {ticket.customer_ref || "بدون اسم"} — طاولة {ticket.table_number}
-                      <span className="ms-1 font-normal text-primary/40">
-                        ({new Date(ticket.created_at).toLocaleString("ar")})
-                      </span>
-                    </p>
-                    <p className="text-primary/70">
-                      <span dir="ltr" className="text-xs">
-                        {ticket.games_count > 0 && `8 Pool: ${ticket.games_count}`}
-                        {ticket.games_count > 0 && ticket.games_count_9ball > 0 && " · "}
-                        {ticket.games_count_9ball > 0 && `9 Pool: ${ticket.games_count_9ball}`}
-                      </span>{" "}
-                      <span className="font-bold text-primary">
-                        {Number(ticket.amount).toLocaleString("en-US")} د.ع
-                      </span>
-                    </p>
+              {pendingTickets.map((ticket) => {
+                const isTicketBusy = busyTicket === ticket.id;
+                return (
+                  <div
+                    key={ticket.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2.5 text-sm last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-primary">
+                        {ticket.customer_ref || "بدون اسم"} — طاولة {ticket.table_number}
+                        <span className="ms-1 font-normal text-primary/40">
+                          ({new Date(ticket.created_at).toLocaleString("ar")})
+                        </span>
+                      </p>
+                      <p className="text-primary/70">
+                        <span dir="ltr" className="text-xs">
+                          {ticket.games_count > 0 && `8 Pool: ${ticket.games_count}`}
+                          {ticket.games_count > 0 && ticket.games_count_9ball > 0 && " · "}
+                          {ticket.games_count_9ball > 0 && `9 Pool: ${ticket.games_count_9ball}`}
+                        </span>{" "}
+                        <span className="font-bold text-primary">
+                          {Number(ticket.amount).toLocaleString("en-US")} د.ع
+                        </span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isTicketBusy}
+                      onClick={() => handleCancelTicket(ticket.id)}
+                      aria-label="إلغاء الفاتورة"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary/50 disabled:opacity-40"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

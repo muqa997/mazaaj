@@ -13,6 +13,7 @@ import {
   updateCustomerRef,
   endSession,
   getPendingTickets,
+  cancelTicket,
   getBilliardsOperatorStats,
   getNotes,
   addNote,
@@ -45,6 +46,7 @@ export default async function BilliardsPage() {
       updateCustomerRef={updateCustomerRef}
       endSession={endSession}
       getPendingTickets={getPendingTickets}
+      cancelTicket={cancelTicket}
       getStats={getBilliardsOperatorStats}
       getNotes={getNotes}
       addNote={addNote}

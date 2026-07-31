@@ -141,8 +141,9 @@ export async function endSession(tableNumber: number, customerRef: string) {
   return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }
 
-// التذاكر التي أنشأها الموظف بإنهاء الجلسة — عرض للعلم فقط (بلا أي إجراء دفع أو
-// إلغاء من جهته)، حتى يعرف حالة ما أصدره؛ الملغاة لا تظهر هنا (تبقى مرئية للمدير فقط)
+// التذاكر التي أنشأها الموظف بإنهاء الجلسة — يدفعها الكاشير حصراً، لكن يستطيع الموظف
+// إلغاءها بنفسه (بدون دفع) لتصحيح خطأ عرضي كرقم طاولة خاطئ؛ الملغاة لا تظهر هنا
+// (تبقى مرئية للمدير فقط بسجل التدقيق)
 export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
   requireBilliardsSession();
   if (!supabaseAdmin) return [];
@@ -156,6 +157,20 @@ export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
     return [];
   }
   return (data ?? []) as BilliardsTicketRow[];
+}
+
+// إلغاء الفاتورة بدون دفع — بلا سبب إلزامي (بعكس إلغاء الكاشير)، لتصحيح خطأ عرضي
+// سريعاً كرقم طاولة خاطئ. لا تُحذف بل تُعلَّم ملغاة فتبقى مرئية للمدير بسجل التدقيق،
+// فقط بلا سبب مكتوب
+export async function cancelTicket(ticketId: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("billiards_tickets")
+    .update({ cancelled_at: new Date().toISOString() })
+    .eq("id", ticketId)
+    .is("cancelled_at", null);
+  return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
 }
 
 type PoolCounts = { eight: number; nine: number };
