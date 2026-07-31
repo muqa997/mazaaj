@@ -402,7 +402,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
         )}
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
-          <h3 className="mb-3 text-sm font-bold text-primary">الفواتير الصادرة (للعلم فقط)</h3>
+          <h3 className="mb-3 text-sm font-bold text-primary">الفواتير الصادرة</h3>
           {pendingTickets.length === 0 ? (
             <p className="text-sm text-primary/50">لا توجد فواتير حالياً</p>
           ) : (
@@ -434,9 +434,6 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
               ))}
             </div>
           )}
-          <p className="mt-3 text-xs text-primary/40">
-            حساب البلياردو يُدفع أو يُلغى حصراً من صفحة الكاشير.
-          </p>
         </div>
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">

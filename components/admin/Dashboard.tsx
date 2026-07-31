@@ -417,6 +417,18 @@ export default function Dashboard(props: DashboardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // الطاولات الحية تتحدّث دورياً بينما المدير على تبويب البلياردو فقط — بدون هذا كان
+  // لا بد من تحديث الصفحة يدوياً لرؤية أي تغيير على الطاولات النشطة
+  useEffect(() => {
+    if (tab !== "billiards") return;
+    const interval = setInterval(async () => {
+      const bt = await props.getBilliardsTables();
+      setBilliardsTables(bt ?? []);
+    }, 2000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   useEffect(() => {
     window.localStorage.setItem(TAB_STORAGE_KEY, tab);
   }, [tab]);
@@ -1277,14 +1289,18 @@ export default function Dashboard(props: DashboardProps) {
                     الحالة الحالية (غير مدفوعة بعد)
                   </h3>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    {billiardsTables.map((table) => (
+                    {billiardsTables.map((table) => {
+                      const isTableActive = table.games_count > 0 || table.games_count_9ball > 0;
+                      return (
                       <div
                         key={table.id}
-                        className="relative rounded-2xl border border-primary/10 bg-background p-4"
+                        className={`relative rounded-2xl p-4 ${
+                          isTableActive
+                            ? "border-2 border-green-500/50 bg-green-500/5"
+                            : "border border-primary/10 bg-background"
+                        }`}
                       >
-                        {(table.games_count > 0 || table.games_count_9ball > 0) && (
-                          <BilliardsActiveDot />
-                        )}
+                        {isTableActive && <BilliardsActiveDot />}
                         <p className="mb-1 text-xs text-primary/50">
                           طاولة {table.table_number}
                         </p>
@@ -1301,7 +1317,8 @@ export default function Dashboard(props: DashboardProps) {
                           8 Pool: {table.games_count} · 9 Pool: {table.games_count_9ball}
                         </p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1315,16 +1332,13 @@ export default function Dashboard(props: DashboardProps) {
                         ["هذا الشهر", billiardsStats.monthLabel, billiardsStats.monthAmount, billiardsStats.monthPool],
                       ] as const
                     ).map(([label, dateLabel, amount, pool]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-accent/25 bg-accent/10 p-4"
-                      >
-                        <p className="mb-1 text-xs text-primary/50">
+                      <div key={label} className="rounded-2xl bg-primary p-4">
+                        <p className="mb-1 text-xs text-background/60">
                           {label} <span dir="ltr">({dateLabel})</span>
                         </p>
-                        <p className="text-lg font-extrabold text-primary sm:text-xl">
+                        <p className="text-lg font-extrabold text-background sm:text-xl">
                           {amount.toLocaleString("en-US")} د.ع{" "}
-                          <span dir="ltr" className="text-sm font-normal text-primary/50">
+                          <span dir="ltr" className="text-sm font-normal text-background/60">
                             (8 Pool {pool.eight} + 9 Pool {pool.nine})
                           </span>
                         </p>
