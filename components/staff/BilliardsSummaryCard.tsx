@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Wallet, X } from "lucide-react";
-import {
-  computePoolAmount,
-  type BilliardsTableRow,
-  type BilliardsTicketRow,
-  type BilliardsTransactionRow,
-} from "@/lib/billiards";
+import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -15,9 +10,8 @@ type BilliardsSummaryCardProps = {
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
-  cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  cancelTicket: (ticketId: string, reason: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
-  getCashierHandoverPending: () => Promise<BilliardsTransactionRow[]>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
 
@@ -33,21 +27,18 @@ function ActiveDot() {
 export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [tables, setTables] = useState<BilliardsTableRow[]>([]);
   const [tickets, setTickets] = useState<BilliardsTicketRow[]>([]);
-  const [cashierHandoverPending, setCashierHandoverPending] = useState<BilliardsTransactionRow[]>([]);
   const [todayTotal, setTodayTotal] = useState({ games: 0, amount: 0 });
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
 
   const load = async () => {
-    const [t, tk, chp, total] = await Promise.all([
+    const [t, tk, total] = await Promise.all([
       props.getBilliardsTables(),
       props.getPendingTickets(),
-      props.getCashierHandoverPending(),
       props.getBilliardsTodayTotal(),
     ]);
     setTables(t);
     setTickets(tk);
-    setCashierHandoverPending(chp);
     setTodayTotal(total);
   };
 
@@ -65,9 +56,13 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
     setBusyTicket(null);
   };
 
+  // إلغاء الفاتورة يتطلب سبباً إلزامياً — يبقى مسجَّلاً كسجل تدقيق يراه المدير، لضبط
+  // عدم إلغاء فواتير حقيقية والاستيلاء على قيمتها
   const handleCancel = async (ticketId: string) => {
+    const reason = window.prompt("سبب إلغاء الفاتورة (إلزامي):");
+    if (!reason || !reason.trim()) return;
     setBusyTicket(ticketId);
-    await props.cancelTicket(ticketId);
+    await props.cancelTicket(ticketId, reason.trim());
     await load();
     setBusyTicket(null);
   };
@@ -126,42 +121,6 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
           })}
         </div>
       </div>
-
-      {cashierHandoverPending.length > 0 && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
-          <h3 className="mb-3 text-sm font-bold text-primary">
-            بانتظار استلام موظف البلياردو منك
-          </h3>
-          <div className="flex flex-col gap-2">
-            {cashierHandoverPending.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
-              >
-                <span className="font-semibold text-primary">
-                  طاولة {tx.table_number} {tx.customer_ref ? `— ${tx.customer_ref}` : ""}
-                </span>
-                <span className="text-primary/50">
-                  {new Date(tx.paid_at).toLocaleTimeString("ar", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-                <span className="font-bold text-primary">
-                  {Number(tx.amount).toLocaleString("en-US")} د.ع
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-center text-xs font-semibold text-amber-700">
-            المجموع:{" "}
-            {cashierHandoverPending
-              .reduce((sum, tx) => sum + Number(tx.amount), 0)
-              .toLocaleString("en-US")}{" "}
-            د.ع
-          </p>
-        </div>
-      )}
 
       <div className="rounded-2xl border border-primary/10 bg-background p-4">
         <h3 className="mb-3 text-sm font-bold text-primary">التذاكر المعلّقة</h3>

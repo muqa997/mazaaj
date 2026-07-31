@@ -211,11 +211,15 @@ alter table billiards_tickets enable row level security;
 -- تحسبّاً لجدول billiards_tickets منشأ سابقاً بدون عمود ٩ بول
 alter table billiards_tickets add column if not exists games_count_9ball int not null default 0;
 
+-- إلغاء الفاتورة لا يحذف السطر بل يعلّمه ملغى مع سبب إلزامي — سجل تدقيق يراه المدير
+alter table billiards_tickets add column if not exists cancelled_at timestamptz;
+alter table billiards_tickets add column if not exists cancel_reason text;
+
 -- سجل عمليات الدفع — يُستخدم لتقارير لوحة التحكم (يومي/أسبوعي/شهري لكل طاولة)
--- collected_by: من استلم الدفعة أول مرة من الزبون (الموظف عادةً، أو الكاشير في حالات
--- نادرة ينزل بها الزبون مباشرة). handed_over_at: ذو معنى فقط إن collected_by='cashier' —
--- وقت تأكيد موظف البلياردو استلامه النقد فعلياً من الكاشير. settled_at: وقت تأكيد
--- المدير استلامه دخل اليوم نقداً من الموظف من لوحة التحكم الرئيسية (تسوية يومية جماعية)
+-- collected_by: من استلم الدفعة أول مرة من الزبون (الكاشير حصراً الآن؛ القيمة
+-- 'billiards' باقية للسجلات القديمة فقط). handed_over_at: لم تعد تُستخدم لمعاملات
+-- جديدة (باقية للتوافق). settled_at: وقت تأكيد
+-- المدير استلامه دخل اليوم نقداً من الكاشير من لوحة التحكم الرئيسية (تسوية يومية جماعية)
 create table if not exists billiards_transactions (
   id uuid primary key default gen_random_uuid(),
   table_number int not null,

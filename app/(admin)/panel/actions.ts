@@ -6,10 +6,15 @@ import { ADMIN_COOKIE_NAME, createSessionToken, verifySessionToken } from "@/lib
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { PromoKey, PromoRow } from "@/lib/promos";
 import type { MenuCategory } from "@/lib/menu-data";
-import type { BilliardsTableRow, BilliardsTransactionRow, BilliardsNoteRow } from "@/lib/billiards";
+import type {
+  BilliardsTableRow,
+  BilliardsTransactionRow,
+  BilliardsNoteRow,
+  BilliardsTicketRow,
+} from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
-export type { BilliardsTableRow, BilliardsTransactionRow, BilliardsNoteRow };
+export type { BilliardsTableRow, BilliardsTransactionRow, BilliardsNoteRow, BilliardsTicketRow };
 export type { PromoKey, PromoRow };
 
 export async function login(code: string): Promise<{ success: boolean }> {
@@ -382,17 +387,15 @@ export async function getBilliardsTransactions(): Promise<BilliardsTransactionRo
   return (data ?? []) as BilliardsTransactionRow[];
 }
 
-// المدير يؤكد استلامه دخل اليوم نقداً من موظف البلياردو (تسوية جماعية بضغطة واحدة) —
-// تُسوّى كل المعاملات التي لا تزال "بحوزة الموظف" فعلياً دفعة واحدة: ما جمعه مباشرة
-// (collected_by='billiards')، أو ما استلمه من الكاشير وأكّده هو (handed_over_at غير فارغ)
-export async function settleBilliardsWithOperator() {
+// المدير يؤكد استلامه دخل اليوم نقداً من الكاشير (تسوية جماعية بضغطة واحدة) — تُسوّى
+// كل المعاملات غير المسوّاة بعد دفعة واحدة
+export async function settleBilliardsWithCashier() {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin
     .from("billiards_transactions")
     .update({ settled_at: new Date().toISOString() })
-    .is("settled_at", null)
-    .or("collected_by.eq.billiards,handed_over_at.not.is.null");
+    .is("settled_at", null);
   return { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null };
 }
 
@@ -409,4 +412,24 @@ export async function getBilliardsNotes(): Promise<BilliardsNoteRow[]> {
     return [];
   }
   return (data ?? []) as BilliardsNoteRow[];
+}
+
+// الفواتير الملغاة من الكاشير — سجل تدقيق يراجعه المدير للتأكد من عدم إلغاء فواتير
+// حقيقية والاستيلاء على قيمتها؛ يعرض السبب الذي كتبه الكاشير مع كل إلغاء
+export async function getCancelledBilliardsTickets(): Promise<BilliardsTicketRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const fetchSince = new Date();
+  fetchSince.setDate(fetchSince.getDate() - 35);
+  const { data, error } = await supabaseAdmin
+    .from("billiards_tickets")
+    .select("*")
+    .not("cancelled_at", "is", null)
+    .gte("cancelled_at", fetchSince.toISOString())
+    .order("cancelled_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as BilliardsTicketRow[];
 }

@@ -152,14 +152,15 @@ export async function payTableDirect(tableNumber: number) {
   return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }
 
-// التذاكر المعلّقة التي أرسلها موظف البلياردو (بعد إنهاء جلسة زبون) بانتظار الدفع —
-// هذا هو المكان الوحيد الذي يتم فيه تحصيل مبلغ البلياردو فعلياً
+// الفواتير الصادرة من موظف البلياردو بانتظار الدفع أو الإلغاء — الكاشير حصراً هو من
+// يدفعها أو يلغيها؛ الملغاة لا تظهر هنا (تبقى بسجل التدقيق للمدير فقط)
 export async function getStaffPendingTickets(): Promise<BilliardsTicketRow[]> {
   requireStaffSession();
   if (!supabaseAdmin) return [];
   const { data, error } = await supabaseAdmin
     .from("billiards_tickets")
     .select("*")
+    .is("cancelled_at", null)
     .order("created_at", { ascending: true });
   if (error) {
     console.error(error);
@@ -175,6 +176,7 @@ export async function payTicket(ticketId: string) {
     .from("billiards_tickets")
     .select("*")
     .eq("id", ticketId)
+    .is("cancelled_at", null)
     .single();
   if (fetchError || !ticket) return { error: "تعذّر إيجاد التذكرة" };
 
@@ -193,35 +195,23 @@ export async function payTicket(ticketId: string) {
   return { error: error ? "حدث خطأ أثناء إزالة التذكرة" : null };
 }
 
-// إلغاء تذكرة معلّقة بالغلط (خطأ برقم الطاولة أو إرسال مكرر) — تُحذف بدون تسجيل أي دفعة
-export async function cancelTicket(ticketId: string) {
+// إلغاء فاتورة بالغلط (خطأ برقم الطاولة أو إرسال مكرر) — لا تُحذف بل تُعلَّم ملغاة مع
+// سبب إلزامي، وتبقى مرئية للمدير بسجل التدقيق (لضبط عدم إلغاء فواتير حقيقية والاستيلاء
+// على قيمتها دون أثر)
+export async function cancelTicket(ticketId: string, reason: string) {
   requireStaffSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) return { error: "سبب الإلغاء مطلوب" };
+  const { error } = await supabaseAdmin
+    .from("billiards_tickets")
+    .update({ cancelled_at: new Date().toISOString(), cancel_reason: trimmedReason })
+    .eq("id", ticketId)
+    .is("cancelled_at", null);
   return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
 }
 
-// حالة نادرة: زبون نزل مباشرة وحاسبه الكاشير — يعرض له الكاشير نفسه (بالتفصيل) ما لا
-// يزال بحوزته بانتظار أن يستلمه موظف البلياردو فعلياً؛ يختفي تلقائياً بمجرد أن يؤكد
-// الموظف استلامه من صفحته الخاصة (لا يوجد زر تأكيد هنا، عرض فقط)
-export async function getStaffCashierHandoverPending(): Promise<BilliardsTransactionRow[]> {
-  requireStaffSession();
-  if (!supabaseAdmin) return [];
-  const { data, error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .select("*")
-    .eq("collected_by", "cashier")
-    .is("handed_over_at", null)
-    .order("paid_at", { ascending: true });
-  if (error) {
-    console.error(error);
-    return [];
-  }
-  return (data ?? []) as BilliardsTransactionRow[];
-}
-
-// مجموع ما حصّله الكاشير نفسه اليوم من حسابات البلياردو (بدون ما حصّله موظف البلياردو
-// مباشرة) — يظهر بصفحة الكاشير كإحصائية مستقلة عن جلسة موظف البلياردو
+// مجموع ما حصّله الكاشير نفسه اليوم من حسابات البلياردو
 export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; amount: number }> {
   requireStaffSession();
   if (!supabaseAdmin) return { games: 0, amount: 0 };

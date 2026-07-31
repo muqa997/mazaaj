@@ -44,6 +44,7 @@ import type {
   BilliardsTableRow,
   BilliardsTransactionRow,
   BilliardsNoteRow,
+  BilliardsTicketRow,
 } from "@/app/(admin)/panel/actions";
 
 type Tab =
@@ -102,8 +103,9 @@ type DashboardProps = {
   uploadPromoImage: (key: PromoKey, formData: FormData) => Promise<{ error: string | null }>;
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
   getBilliardsTransactions: () => Promise<BilliardsTransactionRow[]>;
-  settleBilliardsWithOperator: () => Promise<{ error: string | null }>;
+  settleBilliardsWithCashier: () => Promise<{ error: string | null }>;
   getBilliardsNotes: () => Promise<BilliardsNoteRow[]>;
+  getCancelledBilliardsTickets: () => Promise<BilliardsTicketRow[]>;
 };
 
 const PROMO_LABELS: Record<PromoKey, { title: string; cta: string }> = {
@@ -283,17 +285,9 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return { label: String(day), amount };
   });
 
-  // ما هو "بحوزة موظف البلياردو" فعلاً الآن ولم يُسوَّ مع المدير بعد — إما جمعه هو
-  // مباشرة، أو استلمه من الكاشير وأكّد ذلك (handed_over_at). هذا هو رصيد المطالبة
-  // اليومية: المدير يقرأ هذا الرقم ويطالب الموظف به مباشرة نهاية اليوم
-  const withOperatorTx = transactions.filter(
-    (t) => !t.settled_at && (t.collected_by === "billiards" || !!t.handed_over_at)
-  );
-  // حالة نادرة: مبلغ لا يزال بحوزة الكاشير (زبون نزل مباشرة) ولم يستلمه الموظف بعد —
-  // مؤشر ثانوي صغير يذكّر المدير بمتابعته
-  const withCashierTx = transactions.filter(
-    (t) => t.collected_by === "cashier" && !t.handed_over_at
-  );
+  // ما هو "بحوزة الكاشير" فعلاً الآن ولم يُسوَّ مع المدير بعد — رصيد المطالبة اليومية:
+  // المدير يقرأ هذا الرقم ويطالب الكاشير به مباشرة نهاية اليوم
+  const outstandingTx = transactions.filter((t) => !t.settled_at);
 
   return {
     todayPool: sumPool(todayTx),
@@ -308,10 +302,8 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     perTable,
     weekDays,
     monthDays,
-    withOperatorAmount: sumBy(withOperatorTx, "amount"),
-    withOperatorCount: withOperatorTx.length,
-    withCashierAmount: sumBy(withCashierTx, "amount"),
-    withCashierCount: withCashierTx.length,
+    outstandingAmount: sumBy(outstandingTx, "amount"),
+    outstandingCount: outstandingTx.length,
   };
 }
 
@@ -346,6 +338,7 @@ export default function Dashboard(props: DashboardProps) {
   const [billiardsTables, setBilliardsTables] = useState<BilliardsTableRow[]>([]);
   const [billiardsTransactions, setBilliardsTransactions] = useState<BilliardsTransactionRow[]>([]);
   const [billiardsNotes, setBilliardsNotes] = useState<BilliardsNoteRow[]>([]);
+  const [billiardsCancelledTickets, setBilliardsCancelledTickets] = useState<BilliardsTicketRow[]>([]);
   const [showFullBilliardsLog, setShowFullBilliardsLog] = useState(false);
   const [settlingBilliards, setSettlingBilliards] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -378,7 +371,7 @@ export default function Dashboard(props: DashboardProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [o, c, a, j, s, an, pr, bt, btx, bn] = await Promise.all([
+      const [o, c, a, j, s, an, pr, bt, btx, bn, bct] = await Promise.all([
         props.getOrders(),
         props.getCoupons(),
         props.getApplicants(),
@@ -389,6 +382,7 @@ export default function Dashboard(props: DashboardProps) {
         props.getBilliardsTables(),
         props.getBilliardsTransactions(),
         props.getBilliardsNotes(),
+        props.getCancelledBilliardsTickets(),
       ]);
       setOrders(o ?? []);
       setCoupons(c ?? []);
@@ -409,6 +403,7 @@ export default function Dashboard(props: DashboardProps) {
       setBilliardsTables(bt ?? []);
       setBilliardsTransactions(btx ?? []);
       setBilliardsNotes(bn ?? []);
+      setBilliardsCancelledTickets(bct ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -431,15 +426,15 @@ export default function Dashboard(props: DashboardProps) {
     router.refresh();
   };
 
-  // المدير يؤكد استلامه دخل اليوم نقداً من موظف البلياردو — تسوية جماعية لكل ما هو
-  // "بحوزة الموظف" فعلاً الآن، بضغطة واحدة، بعد أن يعرض له الرقم الدقيق من النظام
+  // المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — تسوية جماعية لكل ما هو "بحوزة
+  // الكاشير" فعلاً الآن، بضغطة واحدة، بعد أن يعرض له الرقم الدقيق من النظام
   const handleSettleBilliards = async () => {
     const confirmed = window.confirm(
-      `تأكيد استلامك ${billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع نقداً من موظف البلياردو؟`
+      `تأكيد استلامك ${billiardsStats.outstandingAmount.toLocaleString("en-US")} د.ع نقداً من الكاشير؟`
     );
     if (!confirmed) return;
     setSettlingBilliards(true);
-    await props.settleBilliardsWithOperator();
+    await props.settleBilliardsWithCashier();
     await loadAll();
     setSettlingBilliards(false);
   };
@@ -832,32 +827,20 @@ export default function Dashboard(props: DashboardProps) {
 
                 <div
                   className={`flex items-center justify-between rounded-2xl border p-4 ${
-                    billiardsStats.withOperatorAmount > 0
+                    billiardsStats.outstandingAmount > 0
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-primary/10 bg-background"
                   }`}
                 >
                   <div>
-                    <p className="mb-1 text-xs text-primary/50">بحوزة موظف البلياردو الآن</p>
+                    <p className="mb-1 text-xs text-primary/50">بحوزة الكاشير الآن</p>
                     <p className="text-lg font-extrabold text-primary sm:text-xl">
-                      {billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع
-                    </p>
-                    {billiardsStats.withCashierAmount > 0 && (
-                      <p className="mt-1 text-[11px] font-semibold text-amber-700">
-                        + {billiardsStats.withCashierAmount.toLocaleString("en-US")} د.ع لا تزال بحوزة الكاشير
-                      </p>
-                    )}
-                    <p className="mt-1 text-[11px] font-semibold text-primary/50">
-                      المجموع:{" "}
-                      {(billiardsStats.withOperatorAmount + billiardsStats.withCashierAmount).toLocaleString(
-                        "en-US"
-                      )}{" "}
-                      د.ع
+                      {billiardsStats.outstandingAmount.toLocaleString("en-US")} د.ع
                     </p>
                   </div>
-                  {billiardsStats.withOperatorCount > 0 && (
+                  {billiardsStats.outstandingCount > 0 && (
                     <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
-                      {billiardsStats.withOperatorCount} معاملة
+                      {billiardsStats.outstandingCount} معاملة
                     </span>
                   )}
                 </div>
@@ -1259,44 +1242,32 @@ export default function Dashboard(props: DashboardProps) {
               <div className="flex flex-col gap-6">
                 <div
                   className={`rounded-2xl border p-4 ${
-                    billiardsStats.withOperatorAmount > 0
+                    billiardsStats.outstandingAmount > 0
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-primary/10 bg-background"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <p className="mb-1 text-xs text-primary/50">بحوزة موظف البلياردو الآن</p>
+                      <p className="mb-1 text-xs text-primary/50">بحوزة الكاشير الآن</p>
                       <p className="text-lg font-extrabold text-primary sm:text-xl">
-                        {billiardsStats.withOperatorAmount.toLocaleString("en-US")} د.ع
-                      </p>
-                      {billiardsStats.withCashierAmount > 0 && (
-                        <p className="mt-1 text-[11px] font-semibold text-amber-700">
-                          + {billiardsStats.withCashierAmount.toLocaleString("en-US")} د.ع لا تزال بحوزة الكاشير (بانتظار استلام الموظف)
-                        </p>
-                      )}
-                      <p className="mt-1 text-[11px] font-semibold text-primary/50">
-                        المجموع:{" "}
-                        {(billiardsStats.withOperatorAmount + billiardsStats.withCashierAmount).toLocaleString(
-                          "en-US"
-                        )}{" "}
-                        د.ع
+                        {billiardsStats.outstandingAmount.toLocaleString("en-US")} د.ع
                       </p>
                     </div>
-                    {billiardsStats.withOperatorCount > 0 && (
+                    {billiardsStats.outstandingCount > 0 && (
                       <span className="shrink-0 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
-                        {billiardsStats.withOperatorCount} معاملة
+                        {billiardsStats.outstandingCount} معاملة
                       </span>
                     )}
                   </div>
-                  {billiardsStats.withOperatorAmount > 0 && (
+                  {billiardsStats.outstandingAmount > 0 && (
                     <button
                       type="button"
                       disabled={settlingBilliards}
                       onClick={handleSettleBilliards}
                       className="mt-3 w-full rounded-full bg-amber-500 py-2.5 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      استلمت من موظف البلياردو
+                      استلمت من الكاشير
                     </button>
                   )}
                 </div>
@@ -1392,25 +1363,11 @@ export default function Dashboard(props: DashboardProps) {
                               </>
                             )}
                             وقت الاستلام: {new Date(t.paid_at).toLocaleString("ar")}
-                            {t.collected_by === "cashier" && (
-                              <>
-                                <br />
-                                {t.handed_over_at ? (
-                                  <>استلمه الموظف من الكاشير: {new Date(t.handed_over_at).toLocaleString("ar")}</>
-                                ) : (
-                                  <span className="font-semibold text-amber-700">لم يستلمه الموظف من الكاشير بعد</span>
-                                )}
-                              </>
-                            )}
-                            {(t.collected_by === "billiards" || t.handed_over_at) && (
-                              <>
-                                <br />
-                                {t.settled_at ? (
-                                  <>تمت التسوية مع المدير: {new Date(t.settled_at).toLocaleString("ar")}</>
-                                ) : (
-                                  <span className="font-semibold text-amber-700">لم تُسوَّ مع المدير بعد</span>
-                                )}
-                              </>
+                            <br />
+                            {t.settled_at ? (
+                              <>تمت التسوية مع المدير: {new Date(t.settled_at).toLocaleString("ar")}</>
+                            ) : (
+                              <span className="font-semibold text-amber-700">لم تُسوَّ مع المدير بعد</span>
                             )}
                           </span>
                           <span className="text-primary/70">طاولة {t.table_number}</span>
@@ -1541,6 +1498,40 @@ export default function Dashboard(props: DashboardProps) {
                           <span className="min-w-0 flex-1 text-primary">{note.text}</span>
                           <span className="shrink-0 text-xs text-primary/40">
                             {new Date(note.created_at).toLocaleString("ar")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <h3 className="mb-1 text-sm font-bold text-primary">الفواتير الملغاة</h3>
+                  <p className="mb-3 text-xs text-primary/40">
+                    سجل تدقيق — راجع السبب المكتوب مع كل إلغاء
+                  </p>
+                  {billiardsCancelledTickets.length === 0 ? (
+                    <p className="text-sm text-primary/50">لا توجد فواتير ملغاة</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {billiardsCancelledTickets.map((ticket) => (
+                        <div
+                          key={ticket.id}
+                          className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold text-primary">
+                              {ticket.customer_ref || "بدون اسم"} — طاولة {ticket.table_number}
+                              <span className="ms-1 font-normal text-primary/40">
+                                ({ticket.cancelled_at && new Date(ticket.cancelled_at).toLocaleString("ar")})
+                              </span>
+                            </p>
+                            {ticket.cancel_reason && (
+                              <p className="text-xs text-primary/60">السبب: {ticket.cancel_reason}</p>
+                            )}
+                          </div>
+                          <span className="font-bold text-primary">
+                            {Number(ticket.amount).toLocaleString("en-US")} د.ع
                           </span>
                         </div>
                       ))}

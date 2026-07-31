@@ -106,10 +106,9 @@ export async function updateCustomerRef(tableNumber: number, customerRef: string
 }
 
 // إنهاء الجلسة: يفصل كيمات الطاولة الحالية (٨ بول و٩ بول معاً) عن عداد الطاولة الحي
-// في "تذكرة" مستقلة بانتظار الدفع — وتُصفَّر الطاولة فوراً لتصبح جاهزة لزبون جديد
-// بدون انتظار الدفع. المسار الوحيد لإنهاء الجلسة سواء دفع الزبون فوراً أو تأخر —
-// فالموظف يدفع التذكرة بنفسه من قائمة "الفواتير المعلّقة" (payTicket بالأسفل) في
-// الحالتين معاً
+// في "تذكرة" مستقلة بانتظار الدفع عند الكاشير حصراً — وتُصفَّر الطاولة فوراً لتصبح
+// جاهزة لزبون جديد بدون انتظار الدفع. وظيفة الموظف تقتصر على تسجيل الكيمات وإصدار
+// الفاتورة؛ لا يدفعها ولا يلغيها بنفسه — الكاشير وحده من يفعل ذلك من صفحته
 export async function endSession(tableNumber: number, customerRef: string) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
@@ -142,86 +141,21 @@ export async function endSession(tableNumber: number, customerRef: string) {
   return { error: error ? "حدث خطأ أثناء التصفير" : null };
 }
 
-// التذاكر المعلّقة التي أنشأها الموظف بإنهاء الجلسة ولم يدفعها بعد — يدفعها بنفسه
-// من هذه القائمة عبر payTicket فوراً أو لاحقاً
+// التذاكر التي أنشأها الموظف بإنهاء الجلسة — عرض للعلم فقط (بلا أي إجراء دفع أو
+// إلغاء من جهته)، حتى يعرف حالة ما أصدره؛ الملغاة لا تظهر هنا (تبقى مرئية للمدير فقط)
 export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
   requireBilliardsSession();
   if (!supabaseAdmin) return [];
   const { data, error } = await supabaseAdmin
     .from("billiards_tickets")
     .select("*")
+    .is("cancelled_at", null)
     .order("created_at", { ascending: true });
   if (error) {
     console.error(error);
     return [];
   }
   return (data ?? []) as BilliardsTicketRow[];
-}
-
-// الموظف يدفع فاتورة معلّقة بنفسه (سواء دفعها الزبون فوراً بعد إنهاء الجلسة أو تأخر
-// بالدفع) — يسجّل معاملة collected_by='billiards' ويحذف التذكرة
-export async function payTicket(ticketId: string) {
-  requireBilliardsSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { data: ticket, error: fetchError } = await supabaseAdmin
-    .from("billiards_tickets")
-    .select("*")
-    .eq("id", ticketId)
-    .single();
-  if (fetchError || !ticket) return { error: "تعذّر إيجاد التذكرة" };
-
-  const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
-    table_number: ticket.table_number,
-    games_count: ticket.games_count,
-    games_count_9ball: ticket.games_count_9ball,
-    amount: ticket.amount,
-    collected_by: "billiards",
-    customer_ref: ticket.customer_ref,
-    session_ended_at: ticket.created_at,
-  });
-  if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
-
-  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
-  return { error: error ? "حدث خطأ أثناء إزالة التذكرة" : null };
-}
-
-// إلغاء تذكرة معلّقة بالغلط (خطأ برقم الطاولة أو إرسال مكرر) — تُحذف بدون تسجيل أي دفعة
-export async function cancelTicket(ticketId: string) {
-  requireBilliardsSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
-  return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
-}
-
-// حالة نادرة: زبون نزل مباشرة وحاسبه الكاشير بدون علم الموظف — المبلغ يبقى بحوزة
-// الكاشير حتى يستلمه الموظف منه فعلياً ويؤكد ذلك بزر واحد (confirmCashierHandover)
-export async function getCashierHandoverPending(): Promise<BilliardsTransactionRow[]> {
-  requireBilliardsSession();
-  if (!supabaseAdmin) return [];
-  const { data, error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .select("*")
-    .eq("collected_by", "cashier")
-    .is("handed_over_at", null)
-    .order("paid_at", { ascending: true });
-  if (error) {
-    console.error(error);
-    return [];
-  }
-  return (data ?? []) as BilliardsTransactionRow[];
-}
-
-// الموظف يؤكد استلامه دفعة واحدة كل ما جمعه الكاشير من الزبائن الذين نزلوا مباشرة —
-// تأكيد جماعي بضغطة واحدة (لا حاجة لتأكيد كل معاملة على حدة بما أنها حالة نادرة)
-export async function confirmCashierHandover() {
-  requireBilliardsSession();
-  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { error } = await supabaseAdmin
-    .from("billiards_transactions")
-    .update({ handed_over_at: new Date().toISOString() })
-    .eq("collected_by", "cashier")
-    .is("handed_over_at", null);
-  return { error: error ? "حدث خطأ أثناء تأكيد الاستلام" : null };
 }
 
 type PoolCounts = { eight: number; nine: number };
@@ -235,7 +169,6 @@ export async function getBilliardsOperatorStats(): Promise<{
   week: PoolCounts;
   month: PoolCounts;
   perTable: { table_number: number; eight: number; nine: number }[];
-  todayIncomeAmount: number;
 }> {
   requireBilliardsSession();
   const empty = {
@@ -243,7 +176,6 @@ export async function getBilliardsOperatorStats(): Promise<{
     week: { eight: 0, nine: 0 },
     month: { eight: 0, nine: 0 },
     perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
-    todayIncomeAmount: 0,
   };
   if (!supabaseAdmin) return empty;
 
@@ -265,7 +197,7 @@ export async function getBilliardsOperatorStats(): Promise<{
       .gte("created_at", startOfDay.toISOString()),
     supabaseAdmin
       .from("billiards_transactions")
-      .select("table_number, games_count, games_count_9ball, paid_at, collected_by, amount, handed_over_at")
+      .select("table_number, games_count, games_count_9ball, paid_at")
       .gte("paid_at", fetchSince.toISOString()),
   ]);
 
@@ -296,13 +228,6 @@ export async function getBilliardsOperatorStats(): Promise<{
     return { table_number: n, eight: tableTx.eight, nine: tableTx.nine };
   });
 
-  // الدخل الذي بحوزة الموظف فعلياً اليوم: ما حصّله هو مباشرة، بالإضافة لما حصّله
-  // الكاشير وأكّد الموظف استلامه منه (handed_over_at) — بمجرد التأكيد يصبح المبلغ
-  // بحوزته تماماً كأي دفعة استلمها بنفسه، فيجب أن يُحتسب هنا لا أن "يختفي" من الحسابين
-  const todayIncomeAmount = todayTx
-    .filter((t) => t.collected_by === "billiards" || !!t.handed_over_at)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
   // نضيف كيمات اليوم الحية/المعلّقة (غير المدفوعة بعد) لمجموعي الأسبوع والشهر أيضاً —
   // وإلا يظهر "الأسبوع/الشهر" أقل من "اليوم" بشكل مربك طالما توجد كيمات لم تُدفع بعد،
   // رغم أن اليوم الحالي جزء منهما دائماً
@@ -311,7 +236,6 @@ export async function getBilliardsOperatorStats(): Promise<{
     week: { eight: liveEight + ticketsEight + weekPaid.eight, nine: liveNine + ticketsNine + weekPaid.nine },
     month: { eight: liveEight + ticketsEight + monthPaid.eight, nine: liveNine + ticketsNine + monthPaid.nine },
     perTable,
-    todayIncomeAmount,
   };
 }
 

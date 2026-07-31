@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
-import type { BilliardsTableRow, BilliardsTicketRow, BilliardsTransactionRow } from "@/lib/billiards";
+import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
 import BilliardsSummaryCard from "./BilliardsSummaryCard";
 
 type StaffOrdersPageProps = {
@@ -17,14 +17,16 @@ type StaffOrdersPageProps = {
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
-  cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
+  cancelTicket: (ticketId: string, reason: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
-  getCashierHandoverPending: () => Promise<BilliardsTransactionRow[]>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
 };
 
+type StaffTab = "billiards" | "orders";
+
 export default function StaffOrdersPage(props: StaffOrdersPageProps) {
   const router = useRouter();
+  const [tab, setTab] = useState<StaffTab>("billiards");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -64,30 +66,53 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary/10 bg-background px-4 py-3 sm:px-6">
-        <span className="font-extrabold text-primary">الطلبات</span>
-        <button
-          type="button"
-          onClick={handleLogout}
-          aria-label="تسجيل الخروج"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/5"
-        >
-          <LogOut size={18} className="text-primary" />
-        </button>
+      <header className="sticky top-0 z-40 border-b border-primary/10 bg-background px-4 py-3 sm:px-6">
+        <div className="flex items-center justify-between">
+          <span className="font-extrabold text-primary">صفحة الكاشير</span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="تسجيل الخروج"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/5"
+          >
+            <LogOut size={18} className="text-primary" />
+          </button>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTab("billiards")}
+            className={`flex-1 rounded-full py-2 text-sm font-bold ${
+              tab === "billiards" ? "bg-primary text-background" : "bg-primary/5 text-primary/60"
+            }`}
+          >
+            البلياردو
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("orders")}
+            className={`flex-1 rounded-full py-2 text-sm font-bold ${
+              tab === "orders" ? "bg-primary text-background" : "bg-primary/5 text-primary/60"
+            }`}
+          >
+            الطلبات
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-        <BilliardsSummaryCard
-          getBilliardsTables={props.getBilliardsTables}
-          getPendingTickets={props.getPendingTickets}
-          payTicket={props.payTicket}
-          cancelTicket={props.cancelTicket}
-          payTableDirect={props.payTableDirect}
-          getCashierHandoverPending={props.getCashierHandoverPending}
-          getBilliardsTodayTotal={props.getBilliardsTodayTotal}
-        />
+        {tab === "billiards" && (
+          <BilliardsSummaryCard
+            getBilliardsTables={props.getBilliardsTables}
+            getPendingTickets={props.getPendingTickets}
+            payTicket={props.payTicket}
+            cancelTicket={props.cancelTicket}
+            payTableDirect={props.payTableDirect}
+            getBilliardsTodayTotal={props.getBilliardsTodayTotal}
+          />
+        )}
 
-        {loading ? (
+        {tab === "orders" && (loading ? (
           <p className="py-10 text-center text-primary/50">جاري التحميل...</p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -185,7 +210,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
               );
             })}
           </div>
-        )}
+        ))}
       </main>
     </div>
   );
