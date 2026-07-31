@@ -91,20 +91,25 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
             const isActive = table.games_count > 0 || table.games_count_9ball > 0;
             const isBusy = busyTable === table.table_number;
             return (
-              <div key={table.id} className="relative rounded-xl bg-primary/5 px-4 py-3.5">
+              <div
+                key={table.id}
+                className={`relative rounded-xl p-4 ${
+                  isActive ? "border-2 border-green-500/50 bg-green-500/5" : "bg-primary/5"
+                }`}
+              >
                 {isActive && <ActiveDot />}
-                <p className="mb-1 text-sm font-semibold text-primary/60">
+                <p className="mb-1 text-base font-bold text-primary">
                   طاولة {table.table_number}
                 </p>
                 {table.customer_ref && (
-                  <p className="mb-1 truncate text-xs font-semibold text-accent">
+                  <p className="mb-1 truncate text-sm font-bold text-accent">
                     {table.customer_ref}
                   </p>
                 )}
-                <p className="text-lg font-bold text-primary">
+                <p className="text-xl font-extrabold text-primary">
                   {amount.toLocaleString("en-US")} د.ع
                 </p>
-                <p dir="ltr" className="mb-3 text-xs text-primary/50">
+                <p dir="ltr" className="mb-3 text-xs font-semibold text-primary/70">
                   8 Pool: {table.games_count} · 9 Pool: {table.games_count_9ball}
                 </p>
                 <button
@@ -180,9 +185,9 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
             })}
           </div>
         )}
-        <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl bg-primary/5 py-4 text-center">
-          <p className="text-sm font-semibold text-primary/60">ما تم تحصيله من الكاشير</p>
-          <p className="text-2xl font-extrabold text-primary">
+        <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl bg-primary py-4 text-center">
+          <p className="text-sm font-semibold text-background/60">الدخل المحصّل</p>
+          <p className="text-2xl font-extrabold text-background">
             {todayTotal.amount.toLocaleString("en-US")} د.ع
           </p>
         </div>
