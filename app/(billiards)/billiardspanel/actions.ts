@@ -9,6 +9,8 @@ import {
 } from "@/lib/billiards-session";
 import {
   computePoolAmount,
+  getBusinessDayStart,
+  getBusinessMonthStart,
   type BilliardsTableRow,
   type BilliardsTicketRow,
   type BilliardsNoteRow,
@@ -195,12 +197,9 @@ export async function getBilliardsOperatorStats(): Promise<{
   if (!supabaseAdmin) return empty;
 
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(startOfWeek.getDate() - 6);
-  startOfWeek.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfDay = getBusinessDayStart(now);
+  const startOfWeek = new Date(startOfDay.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const startOfMonth = getBusinessMonthStart(now);
   const fetchSince = new Date(now);
   fetchSince.setDate(fetchSince.getDate() - 35);
 

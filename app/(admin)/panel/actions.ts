@@ -6,11 +6,12 @@ import { ADMIN_COOKIE_NAME, createSessionToken, verifySessionToken } from "@/lib
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { PromoKey, PromoRow } from "@/lib/promos";
 import type { MenuCategory } from "@/lib/menu-data";
-import type {
-  BilliardsTableRow,
-  BilliardsTransactionRow,
-  BilliardsNoteRow,
-  BilliardsTicketRow,
+import {
+  getBusinessDayStart,
+  type BilliardsTableRow,
+  type BilliardsTransactionRow,
+  type BilliardsNoteRow,
+  type BilliardsTicketRow,
 } from "@/lib/billiards";
 
 export type { OrderRow, OrderStatus };
@@ -387,15 +388,35 @@ export async function getBilliardsTransactions(): Promise<BilliardsTransactionRo
   return (data ?? []) as BilliardsTransactionRow[];
 }
 
-// المدير يؤكد استلامه دخل اليوم نقداً من الكاشير (تسوية جماعية بضغطة واحدة) — تُسوّى
-// كل المعاملات غير المسوّاة بعد دفعة واحدة
-export async function settleBilliardsWithCashier() {
+// المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — مقسّمة عمداً إلى دفعتين منفصلتين
+// (اليوم / المتأخر من أيام سابقة) بدل تسوية واحدة تجمعهما، لأنه إذا نسي المدير تسجيل
+// الاستلام يوماً ما، يظهر مبلغ الأمس مُختلطاً بمبلغ اليوم في رقم واحد مربك — بهذا
+// التقسيم يبقى كل يوم واضحاً على حدة رغم النسيان
+
+// تسوية دخل اليوم التجاري الحالي فقط (منذ الساعة ٦ صباحاً)
+export async function settleBilliardsToday() {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const todayStart = getBusinessDayStart();
   const { error } = await supabaseAdmin
     .from("billiards_transactions")
     .update({ settled_at: new Date().toISOString() })
-    .is("settled_at", null);
+    .is("settled_at", null)
+    .gte("paid_at", todayStart.toISOString());
+  return { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null };
+}
+
+// تسوية أي مبلغ متأخر بحوزة الكاشير من قبل بداية اليوم التجاري الحالي (نسي المدير
+// تسجيل استلامه في وقته) — منفصلة عمداً عن تسوية اليوم
+export async function settleBilliardsOverdue() {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const todayStart = getBusinessDayStart();
+  const { error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .update({ settled_at: new Date().toISOString() })
+    .is("settled_at", null)
+    .lt("paid_at", todayStart.toISOString());
   return { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null };
 }
 

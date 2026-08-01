@@ -24,7 +24,7 @@ import {
   CircleDot,
   Phone,
 } from "lucide-react";
-import { computePoolAmount } from "@/lib/billiards";
+import { computePoolAmount, getBusinessDayStart, getBusinessMonthStart } from "@/lib/billiards";
 import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
@@ -103,7 +103,8 @@ type DashboardProps = {
   uploadPromoImage: (key: PromoKey, formData: FormData) => Promise<{ error: string | null }>;
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
   getBilliardsTransactions: () => Promise<BilliardsTransactionRow[]>;
-  settleBilliardsWithCashier: () => Promise<{ error: string | null }>;
+  settleBilliardsToday: () => Promise<{ error: string | null }>;
+  settleBilliardsOverdue: () => Promise<{ error: string | null }>;
   getBilliardsNotes: () => Promise<BilliardsNoteRow[]>;
   getCancelledBilliardsTickets: () => Promise<BilliardsTicketRow[]>;
 };
@@ -234,6 +235,14 @@ const formatDayMonth = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
 
 function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   const now = new Date();
+  // اليوم التجاري يبدأ الساعة ٦ صباحاً (وليس منتصف الليل) — الكافيه يعمل أحياناً حتى
+  // الساعة ٣ فجراً، فتُحسب تلك الساعات ضمن يوم العمل السابق بدل أن تُفتح كـ"يوم جديد"
+  const todayStart = getBusinessDayStart(now);
+  const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const monthStart = getBusinessMonthStart(now);
+  // نقطة داخل اليوم التجاري الحالي (وليس "الآن" الفعلي) — لعرض تسمية التاريخ الصحيحة
+  // حتى لو كانت الساعة الفعلية بعد منتصف الليل وقبل السادسة صباحاً
+  const businessNow = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
 
   const sumBy = (rows: BilliardsTransactionRow[], key: "games_count" | "amount") =>
     rows.reduce((sum, t) => sum + Number(t[key]), 0);
@@ -243,17 +252,9 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     nine: rows.reduce((sum, t) => sum + Number(t.games_count_9ball), 0),
   });
 
-  const todayTx = transactions.filter((t) => isSameDay(new Date(t.paid_at), now));
-
-  const last7DaysStart = new Date(now);
-  last7DaysStart.setDate(last7DaysStart.getDate() - 6);
-  last7DaysStart.setHours(0, 0, 0, 0);
-  const weekTx = transactions.filter((t) => new Date(t.paid_at) >= last7DaysStart);
-
-  const monthTx = transactions.filter((t) => {
-    const d = new Date(t.paid_at);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  });
+  const todayTx = transactions.filter((t) => new Date(t.paid_at) >= todayStart);
+  const weekTx = transactions.filter((t) => new Date(t.paid_at) >= weekStart);
+  const monthTx = transactions.filter((t) => new Date(t.paid_at) >= monthStart);
 
   // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)، مقسّم ٨ بول/٩ بول
   const perTable = [1, 2, 3].map((n) => {
@@ -266,28 +267,42 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   });
 
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
-    const day = new Date(now);
-    day.setDate(day.getDate() - (6 - i));
+    const dayStart = new Date(todayStart.getTime() - (6 - i) * 24 * 60 * 60 * 1000);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
     const amount = sumBy(
-      transactions.filter((t) => isSameDay(new Date(t.paid_at), day)),
+      transactions.filter((t) => {
+        const d = new Date(t.paid_at);
+        return d >= dayStart && d < dayEnd;
+      }),
       "amount"
     );
-    return { label: day.toLocaleDateString("ar", { weekday: "short" }), amount };
+    const labelDate = new Date(dayStart.getTime() + 12 * 60 * 60 * 1000);
+    return { label: labelDate.toLocaleDateString("ar", { weekday: "short" }), amount };
   });
 
-  const daysElapsedInMonth = now.getDate();
+  const daysElapsedInMonth =
+    Math.round((todayStart.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
   const monthDays = Array.from({ length: daysElapsedInMonth }).map((_, i) => {
-    const day = i + 1;
+    const dayStart = new Date(monthStart.getTime() + i * 24 * 60 * 60 * 1000);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
     const amount = sumBy(
-      monthTx.filter((t) => new Date(t.paid_at).getDate() === day),
+      monthTx.filter((t) => {
+        const d = new Date(t.paid_at);
+        return d >= dayStart && d < dayEnd;
+      }),
       "amount"
     );
-    return { label: String(day), amount };
+    return { label: String(i + 1), amount };
   });
 
-  // ما هو "بحوزة الكاشير" فعلاً الآن ولم يُسوَّ مع المدير بعد — رصيد المطالبة اليومية:
-  // المدير يقرأ هذا الرقم ويطالب الكاشير به مباشرة نهاية اليوم
-  const outstandingTx = transactions.filter((t) => !t.settled_at);
+  // "بحوزة الكاشير" غير المسوّى — مقسّم عمداً إلى اليوم الحالي والمتأخر من أيام سابقة،
+  // بدل رقم واحد مجمّع، حتى لا يختلط دخل الأمس (لو نسي المدير تسويته) مع دخل اليوم
+  const outstandingTodayTx = transactions.filter(
+    (t) => !t.settled_at && new Date(t.paid_at) >= todayStart
+  );
+  const outstandingOverdueTx = transactions.filter(
+    (t) => !t.settled_at && new Date(t.paid_at) < todayStart
+  );
 
   return {
     todayPool: sumPool(todayTx),
@@ -296,14 +311,16 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     weekAmount: sumBy(weekTx, "amount"),
     monthPool: sumPool(monthTx),
     monthAmount: sumBy(monthTx, "amount"),
-    todayLabel: formatDayMonth(now),
-    weekLabel: `${formatDayMonth(last7DaysStart)} - ${formatDayMonth(now)}`,
-    monthLabel: `الشهر ${ARABIC_ORDINAL_MONTHS[now.getMonth()]}`,
+    todayLabel: formatDayMonth(businessNow),
+    weekLabel: `${formatDayMonth(weekStart)} - ${formatDayMonth(businessNow)}`,
+    monthLabel: `الشهر ${ARABIC_ORDINAL_MONTHS[businessNow.getMonth()]}`,
     perTable,
     weekDays,
     monthDays,
-    outstandingAmount: sumBy(outstandingTx, "amount"),
-    outstandingCount: outstandingTx.length,
+    outstandingTodayAmount: sumBy(outstandingTodayTx, "amount"),
+    outstandingTodayCount: outstandingTodayTx.length,
+    outstandingOverdueAmount: sumBy(outstandingOverdueTx, "amount"),
+    outstandingOverdueCount: outstandingOverdueTx.length,
   };
 }
 
@@ -340,7 +357,9 @@ export default function Dashboard(props: DashboardProps) {
   const [billiardsNotes, setBilliardsNotes] = useState<BilliardsNoteRow[]>([]);
   const [billiardsCancelledTickets, setBilliardsCancelledTickets] = useState<BilliardsTicketRow[]>([]);
   const [showFullBilliardsLog, setShowFullBilliardsLog] = useState(false);
-  const [settlingBilliards, setSettlingBilliards] = useState(false);
+  const [billiardsLogDisplayCount, setBilliardsLogDisplayCount] = useState(10);
+  const [settlingBilliardsToday, setSettlingBilliardsToday] = useState(false);
+  const [settlingBilliardsOverdue, setSettlingBilliardsOverdue] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [announcementDrafts, setAnnouncementDrafts] = useState<
@@ -433,22 +452,40 @@ export default function Dashboard(props: DashboardProps) {
     window.localStorage.setItem(TAB_STORAGE_KEY, tab);
   }, [tab]);
 
+  // إعادة الصفحة الأولى من السجل عند تبديل نطاق التاريخ (٧ أيام ↔ الأقدم)
+  useEffect(() => {
+    setBilliardsLogDisplayCount(10);
+  }, [showFullBilliardsLog]);
+
   const handleLogout = async () => {
     await props.logoutAction();
     router.refresh();
   };
 
-  // المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — تسوية جماعية لكل ما هو "بحوزة
-  // الكاشير" فعلاً الآن، بضغطة واحدة، بعد أن يعرض له الرقم الدقيق من النظام
-  const handleSettleBilliards = async () => {
+  // المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — منفصلة عمداً عن تسوية المتأخر
+  // (بطاقة/زر مستقلان) حتى لا يختلط دخل الأمس المنسي بدخل اليوم في رقم واحد مربك
+  const handleSettleToday = async () => {
     const confirmed = window.confirm(
-      `تأكيد استلامك ${billiardsStats.outstandingAmount.toLocaleString("en-US")} د.ع نقداً من الكاشير؟`
+      `تأكيد استلامك ${billiardsStats.outstandingTodayAmount.toLocaleString("en-US")} د.ع نقداً من الكاشير (دخل اليوم)؟`
     );
     if (!confirmed) return;
-    setSettlingBilliards(true);
-    await props.settleBilliardsWithCashier();
+    setSettlingBilliardsToday(true);
+    await props.settleBilliardsToday();
     await loadAll();
-    setSettlingBilliards(false);
+    setSettlingBilliardsToday(false);
+  };
+
+  // في حال نسي المدير الضغط على تسوية اليوم في وقتها — يبقى ظاهراً كبطاقة منفصلة
+  // إلى أن يُسوّى، بمعزل عن دخل اليوم الحالي
+  const handleSettleOverdue = async () => {
+    const confirmed = window.confirm(
+      `تأكيد استلامك ${billiardsStats.outstandingOverdueAmount.toLocaleString("en-US")} د.ع نقداً من الكاشير (متأخر من أيام سابقة)؟`
+    );
+    if (!confirmed) return;
+    setSettlingBilliardsOverdue(true);
+    await props.settleBilliardsOverdue();
+    await loadAll();
+    setSettlingBilliardsOverdue(false);
   };
 
   const stats = useMemo(() => computeStats(orders), [orders]);
@@ -469,6 +506,13 @@ export default function Dashboard(props: DashboardProps) {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return billiardsTransactions.filter((t) => new Date(t.paid_at) >= sevenDaysAgo);
   }, [billiardsTransactions, showFullBilliardsLog]);
+
+  // السجل قد يطول ويملأ الصفحة — نعرض 10 عمليات فقط في البداية، مع زر "عرض المزيد"
+  // يكشف 10 إضافية في كل ضغطة بدل عرضها كلها دفعة واحدة
+  const displayedBilliardsTransactions = useMemo(
+    () => visibleBilliardsTransactions.slice(0, billiardsLogDisplayCount),
+    [visibleBilliardsTransactions, billiardsLogDisplayCount]
+  );
 
   const changeOrderStatus = async (id: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
@@ -839,7 +883,7 @@ export default function Dashboard(props: DashboardProps) {
 
                 <div
                   className={`flex items-center justify-between rounded-2xl border p-4 ${
-                    billiardsStats.outstandingAmount > 0
+                    billiardsStats.outstandingTodayAmount > 0
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-primary/10 bg-background"
                   }`}
@@ -847,15 +891,29 @@ export default function Dashboard(props: DashboardProps) {
                   <div>
                     <p className="mb-1 text-xs text-primary/50">بحوزة الكاشير الآن</p>
                     <p className="text-lg font-extrabold text-primary sm:text-xl">
-                      {billiardsStats.outstandingAmount.toLocaleString("en-US")} د.ع
+                      {billiardsStats.outstandingTodayAmount.toLocaleString("en-US")} د.ع
                     </p>
                   </div>
-                  {billiardsStats.outstandingCount > 0 && (
+                  {billiardsStats.outstandingTodayCount > 0 && (
                     <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
-                      {billiardsStats.outstandingCount} معاملة
+                      {billiardsStats.outstandingTodayCount} معاملة
                     </span>
                   )}
                 </div>
+
+                {billiardsStats.outstandingOverdueAmount > 0 && (
+                  <div className="flex items-center justify-between rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                    <div>
+                      <p className="mb-1 text-xs text-red-700">بحوزة الكاشير من الأمس (متأخر)</p>
+                      <p className="text-lg font-extrabold text-red-700 sm:text-xl">
+                        {billiardsStats.outstandingOverdueAmount.toLocaleString("en-US")} د.ع
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-700">
+                      {billiardsStats.outstandingOverdueCount} معاملة
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1254,7 +1312,7 @@ export default function Dashboard(props: DashboardProps) {
               <div className="flex flex-col gap-6">
                 <div
                   className={`rounded-2xl border p-4 ${
-                    billiardsStats.outstandingAmount > 0
+                    billiardsStats.outstandingTodayAmount > 0
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-primary/10 bg-background"
                   }`}
@@ -1263,26 +1321,50 @@ export default function Dashboard(props: DashboardProps) {
                     <div>
                       <p className="mb-1 text-xs text-primary/50">بحوزة الكاشير الآن</p>
                       <p className="text-lg font-extrabold text-primary sm:text-xl">
-                        {billiardsStats.outstandingAmount.toLocaleString("en-US")} د.ع
+                        {billiardsStats.outstandingTodayAmount.toLocaleString("en-US")} د.ع
                       </p>
                     </div>
-                    {billiardsStats.outstandingCount > 0 && (
+                    {billiardsStats.outstandingTodayCount > 0 && (
                       <span className="shrink-0 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-700">
-                        {billiardsStats.outstandingCount} معاملة
+                        {billiardsStats.outstandingTodayCount} معاملة
                       </span>
                     )}
                   </div>
-                  {billiardsStats.outstandingAmount > 0 && (
+                  {billiardsStats.outstandingTodayAmount > 0 && (
                     <button
                       type="button"
-                      disabled={settlingBilliards}
-                      onClick={handleSettleBilliards}
+                      disabled={settlingBilliardsToday}
+                      onClick={handleSettleToday}
                       className="mt-3 w-full rounded-full bg-amber-500 py-2.5 text-sm font-bold text-white disabled:opacity-40"
                     >
                       استلمت من الكاشير
                     </button>
                   )}
                 </div>
+
+                {billiardsStats.outstandingOverdueAmount > 0 && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="mb-1 text-xs text-red-700">بحوزة الكاشير من الأمس (متأخر)</p>
+                        <p className="text-lg font-extrabold text-red-700 sm:text-xl">
+                          {billiardsStats.outstandingOverdueAmount.toLocaleString("en-US")} د.ع
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-700">
+                        {billiardsStats.outstandingOverdueCount} معاملة
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={settlingBilliardsOverdue}
+                      onClick={handleSettleOverdue}
+                      className="mt-3 w-full rounded-full bg-red-500 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                    >
+                      استلمت من الكاشير (متأخر)
+                    </button>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="mb-3 text-sm font-bold text-primary">
@@ -1364,7 +1446,7 @@ export default function Dashboard(props: DashboardProps) {
                     <p className="text-sm text-primary/50">لا توجد عمليات بهذه الفترة</p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {visibleBilliardsTransactions.map((t) => (
+                      {displayedBilliardsTransactions.map((t) => (
                         <div
                           key={t.id}
                           className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
@@ -1408,6 +1490,16 @@ export default function Dashboard(props: DashboardProps) {
                         </div>
                       ))}
                     </div>
+                  )}
+                  {visibleBilliardsTransactions.length > billiardsLogDisplayCount && (
+                    <button
+                      type="button"
+                      onClick={() => setBilliardsLogDisplayCount((c) => c + 10)}
+                      className="mt-3 w-full rounded-full bg-primary/5 py-2 text-xs font-semibold text-accent"
+                    >
+                      عرض المزيد (
+                      {visibleBilliardsTransactions.length - billiardsLogDisplayCount} متبقية)
+                    </button>
                   )}
                 </div>
 

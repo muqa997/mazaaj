@@ -10,6 +10,7 @@ import {
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import {
   computePoolAmount,
+  getBusinessDayStart,
   type BilliardsTableRow,
   type BilliardsTicketRow,
   type BilliardsTransactionRow,
@@ -211,13 +212,12 @@ export async function cancelTicket(ticketId: string, reason: string) {
   return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
 }
 
-// مجموع ما حصّله الكاشير نفسه اليوم من حسابات البلياردو
+// مجموع ما حصّله الكاشير نفسه اليوم (اليوم التجاري: يبدأ ٦ صباحاً) من حسابات البلياردو
 export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; amount: number }> {
   requireStaffSession();
   if (!supabaseAdmin) return { games: 0, amount: 0 };
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getBusinessDayStart();
 
   const { data, error } = await supabaseAdmin
     .from("billiards_transactions")
@@ -236,4 +236,30 @@ export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; am
     }),
     { games: 0, amount: 0 }
   );
+}
+
+// المبلغ الذي حصّله الكاشير قبل بداية اليوم التجاري الحالي ولا يزال غير مُسوّى مع
+// المدير — تذكير للكاشير في حال نسي المدير الضغط على "استلمت من الكاشير" أمس، فيبقى
+// الرقم ظاهراً له إلى أن يُسوّيه المدير من لوحة التحكم
+export async function getStaffBilliardsOverdueTotal(): Promise<{ amount: number; count: number }> {
+  requireStaffSession();
+  if (!supabaseAdmin) return { amount: 0, count: 0 };
+
+  const startOfDay = getBusinessDayStart();
+
+  const { data, error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .select("amount")
+    .is("settled_at", null)
+    .lt("paid_at", startOfDay.toISOString());
+  if (error) {
+    console.error(error);
+    return { amount: 0, count: 0 };
+  }
+
+  const rows = data ?? [];
+  return {
+    amount: rows.reduce((sum, row) => sum + Number(row.amount), 0),
+    count: rows.length,
+  };
 }

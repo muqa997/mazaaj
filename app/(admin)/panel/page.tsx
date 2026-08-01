@@ -28,7 +28,8 @@ import {
   uploadPromoImage,
   getBilliardsTables,
   getBilliardsTransactions,
-  settleBilliardsWithCashier,
+  settleBilliardsToday,
+  settleBilliardsOverdue,
   getBilliardsNotes,
   getCancelledBilliardsTickets,
 } from "./actions";
@@ -73,7 +74,8 @@ export default async function AdminPage() {
       uploadPromoImage={uploadPromoImage}
       getBilliardsTables={getBilliardsTables}
       getBilliardsTransactions={getBilliardsTransactions}
-      settleBilliardsWithCashier={settleBilliardsWithCashier}
+      settleBilliardsToday={settleBilliardsToday}
+      settleBilliardsOverdue={settleBilliardsOverdue}
       getBilliardsNotes={getBilliardsNotes}
       getCancelledBilliardsTickets={getCancelledBilliardsTickets}
     />

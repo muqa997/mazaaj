@@ -13,6 +13,7 @@ type BilliardsSummaryCardProps = {
   cancelTicket: (ticketId: string, reason: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
+  getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number }>;
 };
 
 function ActiveDot() {
@@ -28,18 +29,21 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [tables, setTables] = useState<BilliardsTableRow[]>([]);
   const [tickets, setTickets] = useState<BilliardsTicketRow[]>([]);
   const [todayTotal, setTodayTotal] = useState({ games: 0, amount: 0 });
+  const [overdueTotal, setOverdueTotal] = useState({ amount: 0, count: 0 });
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
 
   const load = async () => {
-    const [t, tk, total] = await Promise.all([
+    const [t, tk, total, overdue] = await Promise.all([
       props.getBilliardsTables(),
       props.getPendingTickets(),
       props.getBilliardsTodayTotal(),
+      props.getBilliardsOverdueTotal(),
     ]);
     setTables(t);
     setTickets(tk);
     setTodayTotal(total);
+    setOverdueTotal(overdue);
   };
 
   useEffect(() => {
@@ -83,6 +87,17 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
 
   return (
     <div className="mb-4 flex flex-col gap-4">
+      {overdueTotal.amount > 0 && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <p className="mb-1 text-xs font-semibold text-amber-700">
+            الدخل المحصّل من الأمس — غير مسلّم للمدير
+          </p>
+          <p className="text-lg font-extrabold text-amber-700">
+            {overdueTotal.amount.toLocaleString("en-US")} د.ع
+          </p>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-primary/10 bg-background p-4">
         <h3 className="mb-3 text-sm font-bold text-primary">حساب البلياردو الحي</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

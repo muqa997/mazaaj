@@ -17,6 +17,7 @@ import {
   cancelTicket,
   payTableDirect,
   getStaffBilliardsTodayTotal,
+  getStaffBilliardsOverdueTotal,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
@@ -49,6 +50,7 @@ export default async function StaffPage() {
       cancelTicket={cancelTicket}
       payTableDirect={payTableDirect}
       getBilliardsTodayTotal={getStaffBilliardsTodayTotal}
+      getBilliardsOverdueTotal={getStaffBilliardsOverdueTotal}
     />
   );
 }
