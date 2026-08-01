@@ -18,6 +18,8 @@ type OperatorStats = {
   today: PoolCounts;
   week: PoolCounts;
   month: PoolCounts;
+  todayAmount: number;
+  yesterdayAmount: number;
   perTable: { table_number: number; eight: number; nine: number }[];
 };
 
@@ -25,6 +27,8 @@ const EMPTY_STATS: OperatorStats = {
   today: { eight: 0, nine: 0 },
   week: { eight: 0, nine: 0 },
   month: { eight: 0, nine: 0 },
+  todayAmount: 0,
+  yesterdayAmount: 0,
   perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
 };
 
@@ -482,10 +486,25 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
               </div>
             ))}
           </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-primary/60">الدخل المحصّل اليوم</p>
+              <p className="text-sm font-extrabold text-primary">
+                {stats.todayAmount.toLocaleString("en-US")} د.ع
+              </p>
+            </div>
+            <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-primary/60">الدخل المحصّل أمس</p>
+              <p className="text-sm font-extrabold text-primary">
+                {stats.yesterdayAmount.toLocaleString("en-US")} د.ع
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
-          <h3 className="mb-4 text-sm font-bold text-primary">أداء الطاولات (هذا الشهر — عدد الكيمات)</h3>
+          <h3 className="mb-4 text-sm font-bold text-primary">أداء الطاولات (الشهر الماضي — عدد الكيمات)</h3>
           <div className="flex h-32 items-end justify-between gap-4">
             {stats.perTable.map((t) => (
               <div key={t.table_number} className="flex flex-1 flex-col items-center gap-2">

@@ -185,6 +185,8 @@ export async function getBilliardsOperatorStats(): Promise<{
   today: PoolCounts;
   week: PoolCounts;
   month: PoolCounts;
+  todayAmount: number;
+  yesterdayAmount: number;
   perTable: { table_number: number; eight: number; nine: number }[];
 }> {
   requireBilliardsSession();
@@ -192,16 +194,21 @@ export async function getBilliardsOperatorStats(): Promise<{
     today: { eight: 0, nine: 0 },
     week: { eight: 0, nine: 0 },
     month: { eight: 0, nine: 0 },
+    todayAmount: 0,
+    yesterdayAmount: 0,
     perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
   };
   if (!supabaseAdmin) return empty;
 
   const now = new Date();
   const startOfDay = getBusinessDayStart(now);
+  const startOfYesterday = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000);
   const startOfWeek = new Date(startOfDay.getTime() - 6 * 24 * 60 * 60 * 1000);
   const startOfMonth = getBusinessMonthStart(now);
-  const fetchSince = new Date(now);
-  fetchSince.setDate(fetchSince.getDate() - 35);
+  // أداء الطاولات يعرض الشهر الماضي المكتمل (وليس الشهر الحالي الجاري)، فنحتاج جلب
+  // بيانات تسبق بداية الشهر الحالي أيضاً
+  const startOfLastMonth = getBusinessMonthStart(new Date(startOfMonth.getTime() - 1));
+  const fetchSince = new Date(Math.min(startOfWeek.getTime(), startOfLastMonth.getTime()));
 
   const [tablesRes, ticketsRes, txRes] = await Promise.all([
     supabaseAdmin.from("billiards_tables").select("games_count, games_count_9ball"),
@@ -211,7 +218,7 @@ export async function getBilliardsOperatorStats(): Promise<{
       .gte("created_at", startOfDay.toISOString()),
     supabaseAdmin
       .from("billiards_transactions")
-      .select("table_number, games_count, games_count_9ball, paid_at")
+      .select("table_number, games_count, games_count_9ball, amount, paid_at")
       .gte("paid_at", fetchSince.toISOString()),
   ]);
 
@@ -228,17 +235,26 @@ export async function getBilliardsOperatorStats(): Promise<{
     eight: rows.reduce((s, t) => s + t.games_count, 0),
     nine: rows.reduce((s, t) => s + t.games_count_9ball, 0),
   });
+  const sumAmount = (rows: typeof transactions) => rows.reduce((s, t) => s + Number(t.amount), 0);
 
   const todayTx = transactions.filter((t) => new Date(t.paid_at) >= startOfDay);
+  const yesterdayTx = transactions.filter((t) => {
+    const d = new Date(t.paid_at);
+    return d >= startOfYesterday && d < startOfDay;
+  });
   const weekTx = transactions.filter((t) => new Date(t.paid_at) >= startOfWeek);
   const monthTx = transactions.filter((t) => new Date(t.paid_at) >= startOfMonth);
+  const lastMonthTx = transactions.filter((t) => {
+    const d = new Date(t.paid_at);
+    return d >= startOfLastMonth && d < startOfMonth;
+  });
 
   const todayPaid = sumTx(todayTx);
   const weekPaid = sumTx(weekTx);
   const monthPaid = sumTx(monthTx);
 
   const perTable = [1, 2, 3].map((n) => {
-    const tableTx = sumTx(monthTx.filter((t) => t.table_number === n));
+    const tableTx = sumTx(lastMonthTx.filter((t) => t.table_number === n));
     return { table_number: n, eight: tableTx.eight, nine: tableTx.nine };
   });
 
@@ -249,6 +265,8 @@ export async function getBilliardsOperatorStats(): Promise<{
     today: { eight: liveEight + ticketsEight + todayPaid.eight, nine: liveNine + ticketsNine + todayPaid.nine },
     week: { eight: liveEight + ticketsEight + weekPaid.eight, nine: liveNine + ticketsNine + weekPaid.nine },
     month: { eight: liveEight + ticketsEight + monthPaid.eight, nine: liveNine + ticketsNine + monthPaid.nine },
+    todayAmount: sumAmount(todayTx),
+    yesterdayAmount: sumAmount(yesterdayTx),
     perTable,
   };
 }

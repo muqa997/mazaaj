@@ -514,6 +514,22 @@ export default function Dashboard(props: DashboardProps) {
     [visibleBilliardsTransactions, billiardsLogDisplayCount]
   );
 
+  // نُلوّن كل يوم عمل بخلفية تختلف عن اليوم الذي يليه (تناوب فاتح/غامق شبيه بتلوين
+  // صفوف إكسل بالتناوب)، حتى تتميّز عمليات كل يوم عن اليوم السابق والتالي له بنظرة
+  // واحدة. السجل مرتّب تنازلياً (الأحدث أولاً) فتكون معاملات نفس اليوم متتالية دائماً
+  const billiardsLogRows = useMemo(() => {
+    let lastDayKey: number | null = null;
+    let shaded = false;
+    return displayedBilliardsTransactions.map((t) => {
+      const dayKey = getBusinessDayStart(new Date(t.paid_at)).getTime();
+      if (dayKey !== lastDayKey) {
+        shaded = !shaded;
+        lastDayKey = dayKey;
+      }
+      return { t, shaded };
+    });
+  }, [displayedBilliardsTransactions]);
+
   const changeOrderStatus = async (id: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
     await props.updateOrderStatus(id, status);
@@ -1446,10 +1462,12 @@ export default function Dashboard(props: DashboardProps) {
                     <p className="text-sm text-primary/50">لا توجد عمليات بهذه الفترة</p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {displayedBilliardsTransactions.map((t) => (
+                      {billiardsLogRows.map(({ t, shaded }) => (
                         <div
                           key={t.id}
-                          className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/5 pb-2 text-sm last:border-0"
+                          className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border-b border-primary/5 px-2 py-2 text-sm last:border-0 ${
+                            shaded ? "bg-primary/5" : "bg-transparent"
+                          }`}
                         >
                           <span className="text-primary/50">
                             {t.session_ended_at && (
