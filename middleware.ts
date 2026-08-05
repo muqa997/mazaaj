@@ -18,6 +18,10 @@ const STAFF_INTERNAL_PATH = "/staffpanel";
 // نفس المبدأ لصفحة موظف البلياردو — منفصلة تماماً عن لوحة التحكم وصفحة العاملين
 const BILLIARDS_INTERNAL_PATH = "/billiardspanel";
 
+// صفحة الـ QR على الطاولات — مسار عام معروف (وليس سرياً) يُطبع مباشرة، فلا تمرّ
+// بمنطق next-intl (لا تحتاج بادئة لغة، عربي فقط دائماً)
+const QR_PATH = "/qrmazaaj";
+
 // يتحقق من المسار السري سواء كُتب مباشرة (/xxxxx) أو مع بادئة لغة (/ar/xxxxx، /en/xxxxx) —
 // لأن المستخدم قد يكتب الرابط وهو أصلاً على صفحة بلغة معينة فتُضاف بادئتها تلقائياً
 function matchesSecretRoute(pathname: string, secretRoute: string) {
@@ -75,6 +79,11 @@ export default function middleware(request: NextRequest) {
     requestHeaders.delete(STAFF_GATE_HEADER);
     requestHeaders.delete(BILLIARDS_GATE_HEADER);
     return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
+  // صفحة QR الطاولات عامة ومباشرة (لا مسار سري ولا بادئة لغة next-intl)
+  if (pathname === QR_PATH || pathname.startsWith(`${QR_PATH}/`)) {
+    return NextResponse.next();
   }
 
   return intlMiddleware(request);

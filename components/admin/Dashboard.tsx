@@ -122,6 +122,7 @@ const SUGGESTION_TYPE_LABELS: Record<string, string> = {
   inquiry: "استفسار",
   compliment: "إشادة",
   other: "أخرى",
+  qrFeedback: "ملاحظة من صفحة QR (بعد تقييم سلبي)",
 };
 
 const EMPTY_JOB_FORM: JobOpeningInput = {

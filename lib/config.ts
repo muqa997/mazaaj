@@ -23,3 +23,10 @@ export const MAP_EMBED_URL = `https://www.google.com/maps?q=${MAP_LAT},${MAP_LNG
 // رابط صفحة المكان الفعلية على خرائط جوجل (بعد إضافته كنشاط تجاري مسجّل) — تجربة
 // أفضل لزر "احصل على الاتجاهات" من رابط بحث مبني على الإحداثيات فقط
 export const MAP_DIRECTIONS_URL = "https://maps.app.goo.gl/T3zZufkZaBNdpFNi8";
+
+// بيانات صفحة QR (/qrmazaaj) — تُطبع وتُعرض للزبائن مباشرة، فليست معلومات سرية
+export const WIFI_SSID = "كوفي مزاج";
+export const WIFI_PASSWORD = "11111111";
+// رابط تقييم جوجل المباشر — الأسئلة الإضافية (المبلغ المصروف، إلخ) يتحكم بها جوجل نفسه
+// حسب نوع النشاط التجاري ولا يمكن تعديلها أو حذفها من جهتنا عبر الرابط
+export const GOOGLE_REVIEW_URL = "https://g.page/r/CZI1kN-yeFTrEAE/review";
