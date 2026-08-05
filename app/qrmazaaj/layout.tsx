@@ -16,8 +16,20 @@ export const metadata: Metadata = {
 
 export default function QrMazaajLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={cairo.variable}>
-      <body className="min-h-screen bg-background text-primary antialiased">{children}</body>
+    // هذه الصفحة بلا مبدّل وضع داكن/فاتح — نفرض لوحة الألوان الداكنة دائماً (بدل الاعتماد
+    // على الوضع الافتراضي الفاتح) لأن الخلفية المتدرجة الغامقة تصميم مقصود ثابت لهذه
+    // الصفحة تحديداً، وليس تفضيلاً يبدّله الزائر
+    <html lang="ar" dir="rtl" className={`${cairo.variable} dark`}>
+      <body
+        className="min-h-screen text-primary antialiased"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 25% -10%, rgba(214, 178, 122, 0.18), transparent 45%), linear-gradient(180deg, #241811 0%, #150e0a 60%, #0f0906 100%)",
+          backgroundAttachment: "fixed",
+        }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

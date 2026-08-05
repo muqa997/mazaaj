@@ -25,14 +25,14 @@ export default function WifiCard({ ssid, password, qrDataUrl }: WifiCardProps) {
   };
 
   return (
-    <div className="flex flex-col rounded-3xl border border-accent/25 bg-accent/10 p-4">
+    <div className="flex flex-col rounded-3xl border border-accent/25 bg-accent/10 p-5 backdrop-blur-xl shadow-glass-lg">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex flex-col items-center gap-2 text-center"
+        className="flex flex-col items-center gap-2.5 text-center"
       >
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/20">
-          <Wifi size={20} className="text-accent" />
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20">
+          <Wifi size={22} className="text-accent" />
         </span>
         <span className="text-sm font-extrabold text-primary">واي فاي مجاني</span>
         <span className="text-[11px] text-primary/50">أزوّدك برمز المرور</span>
@@ -40,12 +40,12 @@ export default function WifiCard({ ssid, password, qrDataUrl }: WifiCardProps) {
 
       {open && (
         <div className="mt-4 flex flex-col items-center gap-3 border-t border-accent/20 pt-4">
-          <div className="w-full rounded-xl bg-background px-3 py-2 text-center">
+          <div className="w-full rounded-xl bg-black/20 px-3 py-2 text-center">
             <p className="text-[11px] text-primary/50">اسم الشبكة</p>
             <p className="text-sm font-bold text-primary">{ssid}</p>
           </div>
 
-          <div className="w-full rounded-xl bg-background px-3 py-2 text-center">
+          <div className="w-full rounded-xl bg-black/20 px-3 py-2 text-center">
             <p className="text-[11px] text-primary/50">كلمة المرور</p>
             <p dir="ltr" className="text-sm font-bold tracking-widest text-primary">
               {password}
@@ -61,7 +61,11 @@ export default function WifiCard({ ssid, password, qrDataUrl }: WifiCardProps) {
             {copied ? "تم النسخ" : "نسخ كلمة المرور"}
           </button>
 
-          <img src={qrDataUrl} alt="رمز QR للاتصال بالواي فاي" className="h-32 w-32 rounded-xl" />
+          <img
+            src={qrDataUrl}
+            alt="رمز QR للاتصال بالواي فاي"
+            className="h-32 w-32 rounded-xl bg-white p-1.5"
+          />
           <p className="text-center text-[11px] leading-relaxed text-primary/50">
             آيفون: اضغط مطوّلاً على الرمز للاتصال مباشرة
           </p>

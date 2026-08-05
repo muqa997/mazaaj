@@ -22,7 +22,6 @@ async function buildWifiQrDataUrl() {
 }
 
 const SOCIAL_ICONS = [
-  { href: MAP_DIRECTIONS_URL, label: "الموقع", icon: MapPin },
   { href: SOCIAL_LINKS.facebook, label: "فيسبوك", icon: Facebook },
   { href: SOCIAL_LINKS.instagram, label: "انستكرام", icon: Instagram },
   { href: SOCIAL_LINKS.tiktok, label: "تيكتوك", icon: TikTokIcon },
@@ -48,32 +47,49 @@ export default async function QrMazaajPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center px-5 py-8">
-      <div className="mb-6 flex flex-col items-center gap-1 text-center">
-        <span className="text-3xl">☕</span>
+      <div className="mb-7 flex flex-col items-center gap-1.5 text-center">
+        <span className="text-4xl">☕</span>
         <h1 className="text-2xl font-extrabold text-primary">كافيه مزاج</h1>
         <p className="text-xs text-primary/50">كل شيء تحتاجه بمكان واحد</p>
       </div>
 
-      <div className="flex w-full flex-col gap-3">
+      <div className="flex w-full flex-col gap-3.5">
         <a
           href="/ar/menu"
-          className="flex items-center justify-between gap-3 rounded-3xl bg-primary px-6 py-6 text-background shadow-glass"
+          className="flex items-center justify-between gap-3 rounded-3xl border border-accent/25 bg-accent/10 px-6 py-7 backdrop-blur-xl shadow-glass-lg"
         >
           <div>
-            <p className="text-lg font-extrabold">المنيو</p>
-            <p className="text-xs text-background/70">شاهد كل الأصناف والأسعار</p>
+            <p className="text-xl font-extrabold text-primary">المنيو</p>
+            <p className="text-xs text-primary/60">شاهد كل الأصناف والأسعار</p>
           </div>
-          <UtensilsCrossed size={28} />
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20">
+            <UtensilsCrossed size={26} className="text-accent" />
+          </span>
         </a>
 
-        <div className="grid grid-cols-2 items-start gap-3">
+        <div className="grid grid-cols-2 items-start gap-3.5">
           <WifiCard ssid={WIFI_SSID} password={WIFI_PASSWORD} qrDataUrl={wifiQrDataUrl} />
           <ReviewCard reviewUrl={GOOGLE_REVIEW_URL} />
         </div>
 
-        <div className="mt-3 flex flex-col items-center gap-3">
+        <a
+          href={MAP_DIRECTIONS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-3 rounded-3xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur-xl shadow-glass-lg"
+        >
+          <div>
+            <p className="text-sm font-extrabold text-primary">موقعنا على الخرائط</p>
+            <p className="text-[11px] text-primary/50">احصل على الاتجاهات مباشرة</p>
+          </div>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10">
+            <MapPin size={20} className="text-primary" />
+          </span>
+        </a>
+
+        <div className="mt-2 flex flex-col items-center gap-3">
           <p className="text-xs font-semibold text-primary/50">تابعنا</p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             {SOCIAL_ICONS.map(({ href, label, icon: Icon }) => (
               <a
                 key={label}
@@ -81,9 +97,9 @@ export default async function QrMazaajPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={label}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/5 text-primary"
+                className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-white/10 text-primary backdrop-blur-xl shadow-glass-lg"
               >
-                <Icon size={20} />
+                <Icon size={22} />
               </a>
             ))}
           </div>

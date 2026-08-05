@@ -29,21 +29,21 @@ export default function ReviewCard({ reviewUrl }: { reviewUrl: string }) {
   };
 
   return (
-    <div className="flex flex-col rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4">
+    <div className="flex flex-col rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 backdrop-blur-xl shadow-glass-lg">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex flex-col items-center gap-2 text-center"
+        className="flex flex-col items-center gap-2.5 text-center"
       >
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-500/20">
-          <Star size={20} className="text-amber-600" />
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/20">
+          <Star size={22} className="text-amber-400" />
         </span>
         <span className="text-sm font-extrabold text-primary">قيّم تجربتك ⭐</span>
         <span className="text-[11px] text-primary/50">شاركنا رأيك بالكافيه</span>
       </button>
 
       {open && (
-        <div className="mt-4 flex flex-col gap-3 border-t border-amber-500/20 pt-4">
+        <div className="mt-4 flex flex-col gap-3 border-t border-amber-400/20 pt-4">
           {!showFeedbackForm ? (
             <>
               <p className="text-center text-xs leading-relaxed text-primary/70">
@@ -54,7 +54,7 @@ export default function ReviewCard({ reviewUrl }: { reviewUrl: string }) {
                 href={reviewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 rounded-full bg-amber-500 px-4 py-2.5 text-xs font-bold text-white"
+                className="flex items-center justify-center gap-1.5 rounded-full bg-amber-400 px-4 py-2.5 text-xs font-bold text-[#1a120e]"
               >
                 <Star size={14} />
                 إرسال تقييم إيجابي
@@ -62,7 +62,7 @@ export default function ReviewCard({ reviewUrl }: { reviewUrl: string }) {
               <button
                 type="button"
                 onClick={() => setShowFeedbackForm(true)}
-                className="flex items-center justify-center gap-1.5 rounded-full bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary"
+                className="flex items-center justify-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-xs font-bold text-primary"
               >
                 <MessageCircle size={14} />
                 عندي ملاحظة سلبية
@@ -83,7 +83,7 @@ export default function ReviewCard({ reviewUrl }: { reviewUrl: string }) {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="أخبرنا بما حدث..."
-                className="w-full resize-none rounded-xl border border-primary/15 bg-background px-3 py-2.5 text-xs text-primary outline-none focus:border-accent"
+                className="w-full resize-none rounded-xl border border-white/15 bg-black/20 px-3 py-2.5 text-xs text-primary outline-none focus:border-accent"
               />
               {status === "error" && (
                 <p className="text-[11px] text-red-500">حدث خطأ، حاول مرة أخرى</p>
