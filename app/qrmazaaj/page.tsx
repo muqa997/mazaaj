@@ -67,6 +67,11 @@ export default async function QrMazaajPage() {
           </span>
         </a>
 
+        <div className="grid grid-cols-2 items-start gap-3.5">
+          <WifiCard ssid={WIFI_SSID} password={WIFI_PASSWORD} qrDataUrl={wifiQrDataUrl} />
+          <ReviewCard reviewUrl={GOOGLE_REVIEW_URL} />
+        </div>
+
         <a
           href="/ar/order"
           className="flex items-center justify-between gap-3 rounded-3xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur-xl shadow-glass-lg"
@@ -79,11 +84,6 @@ export default async function QrMazaajPage() {
             <Globe size={20} className="text-primary" />
           </span>
         </a>
-
-        <div className="grid grid-cols-2 items-start gap-3.5">
-          <WifiCard ssid={WIFI_SSID} password={WIFI_PASSWORD} qrDataUrl={wifiQrDataUrl} />
-          <ReviewCard reviewUrl={GOOGLE_REVIEW_URL} />
-        </div>
 
         <a
           href={MAP_DIRECTIONS_URL}
