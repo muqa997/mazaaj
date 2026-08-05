@@ -36,9 +36,13 @@ export default function ReviewCard({ reviewUrl }: { reviewUrl: string }) {
         className="flex flex-col items-center gap-2.5 text-center"
       >
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/20">
-          <Star size={22} className="text-amber-400" />
+          <span className="flex items-center gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} size={9} className="fill-amber-400 text-amber-400" />
+            ))}
+          </span>
         </span>
-        <span className="text-sm font-extrabold text-primary">قيّم تجربتك ⭐</span>
+        <span className="text-sm font-extrabold text-primary">قيّم تجربتك</span>
         <span className="text-[11px] text-primary/50">شاركنا رأيك بالكافيه</span>
       </button>
 
@@ -46,9 +50,8 @@ export default function ReviewCard({ reviewUrl }: { reviewUrl: string }) {
         <div className="mt-4 flex flex-col gap-3 border-t border-amber-400/20 pt-4">
           {!showFeedbackForm ? (
             <>
-              <p className="text-center text-xs leading-relaxed text-primary/70">
-                إذا أعجبتك خدمتنا نتشرف بتقييمك ⭐ ليصلنا زبائن أكثر، وإذا واجهت أي
-                ملاحظة نحب نسمعها منك مباشرة لنحسّن خدمتنا
+              <p className="whitespace-pre-line text-center text-xs leading-relaxed text-primary/70">
+                {"إذا أعجبتك خدمتنا نتشرف ونأمل\nأن تقيّمنا لنصل لزبائن أكثر\n\nوإذا واجهت أي ملاحظة أو مشكلة\nنحب سماعها منك مباشرة\nلنحسّن خدماتنا للأفضل"}
               </p>
               <a
                 href={reviewUrl}

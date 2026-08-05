@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
-import { MapPin, Facebook, Instagram, UtensilsCrossed } from "lucide-react";
+import Image from "next/image";
+import { MapPin, Facebook, Instagram, BookOpen } from "lucide-react";
 import WifiCard from "@/components/qr/WifiCard";
 import ReviewCard from "@/components/qr/ReviewCard";
 import {
@@ -47,9 +48,8 @@ export default async function QrMazaajPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center px-5 py-8">
-      <div className="mb-7 flex flex-col items-center gap-1.5 text-center">
-        <span className="text-4xl">☕</span>
-        <h1 className="text-2xl font-extrabold text-primary">كافيه مزاج</h1>
+      <div className="mb-7 flex flex-col items-center gap-2 text-center">
+        <Image src="/mazaaj-logo-white.png" alt="كافيه مزاج" width={140} height={114} priority />
         <p className="text-xs text-primary/50">كل شيء تحتاجه بمكان واحد</p>
       </div>
 
@@ -63,7 +63,7 @@ export default async function QrMazaajPage() {
             <p className="text-xs text-primary/60">شاهد كل الأصناف والأسعار</p>
           </div>
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20">
-            <UtensilsCrossed size={26} className="text-accent" />
+            <BookOpen size={26} className="text-accent" />
           </span>
         </a>
 
@@ -88,7 +88,7 @@ export default async function QrMazaajPage() {
         </a>
 
         <div className="mt-2 flex flex-col items-center gap-3">
-          <p className="text-xs font-semibold text-primary/50">تابعنا</p>
+          <p className="text-base font-extrabold text-primary">تابعنا</p>
           <div className="flex items-center gap-3.5">
             {SOCIAL_ICONS.map(({ href, label, icon: Icon }) => (
               <a
