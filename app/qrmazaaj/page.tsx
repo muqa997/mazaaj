@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import Image from "next/image";
-import { MapPin, Facebook, Instagram, BookOpen } from "lucide-react";
+import { MapPin, Facebook, Instagram, BookOpen, Globe } from "lucide-react";
 import WifiCard from "@/components/qr/WifiCard";
 import ReviewCard from "@/components/qr/ReviewCard";
 import {
@@ -64,6 +64,19 @@ export default async function QrMazaajPage() {
           </div>
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20">
             <BookOpen size={26} className="text-accent" />
+          </span>
+        </a>
+
+        <a
+          href="/ar/order"
+          className="flex items-center justify-between gap-3 rounded-3xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur-xl shadow-glass-lg"
+        >
+          <div>
+            <p className="text-sm font-extrabold text-primary">الموقع الرسمي</p>
+            <p className="text-[11px] text-primary/50">للطلب أونلاين</p>
+          </div>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10">
+            <Globe size={20} className="text-primary" />
           </span>
         </a>
 
