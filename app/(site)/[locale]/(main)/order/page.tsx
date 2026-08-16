@@ -3,7 +3,8 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
+import { fadeUp } from "@/lib/motion";
 import { Plus, Minus, Flame, Snowflake, CakeSlice, Wind, type LucideIcon } from "lucide-react";
 import {
   menuData,
@@ -28,6 +29,13 @@ const GROUP_ICONS: Record<MenuGroupKey, LucideIcon> = {
 
 const MENU_GROUPS: { key: MenuGroupKey; icon: LucideIcon; categories: MenuCategory[] }[] =
   MENU_GROUP_CATEGORIES.map((g) => ({ ...g, icon: GROUP_ICONS[g.key] }));
+
+// تجميع دخول متتابع (staggered) لبطاقات الأصناف — تُعاد كل مرة يتغيّر القسم
+// النشط (بمفتاح key={activeCategory} على الحاوية) بدل ظهور القائمة دفعة واحدة بلا حركة
+const container: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+};
 
 function QtyControl({
   qty,
@@ -73,10 +81,14 @@ function RegularItemCard({
   return (
     <motion.div
       layout
+      variants={fadeUp}
       className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background p-4 shadow-glass"
     >
       <div>
         <p className="font-semibold text-primary">{item.name[locale]}</p>
+        {item.description && (
+          <p className="text-xs text-primary/45">{item.description[locale]}</p>
+        )}
         <p className="text-sm text-primary/50">
           {item.price.toLocaleString()} {t("currency")}
         </p>
@@ -123,10 +135,16 @@ function ShishaItemCard({
   return (
     <motion.div
       layout
+      variants={fadeUp}
       className="flex flex-col gap-3 rounded-2xl border border-primary/10 bg-background p-4 shadow-glass"
     >
       <div className="flex items-center justify-between">
-        <p className="font-semibold text-primary">{item.name[locale]}</p>
+        <div>
+          <p className="font-semibold text-primary">{item.name[locale]}</p>
+          {item.description && (
+            <p className="text-xs text-primary/45">{item.description[locale]}</p>
+          )}
+        </div>
         <p className="text-sm text-primary/50">
           {price.toLocaleString()} {t("currency")}
         </p>
@@ -215,15 +233,29 @@ function OrderMenuPageContent() {
   return (
     <div className="px-6 py-10">
       <div className="mx-auto max-w-3xl">
-        <h1 className="mb-2 text-3xl font-extrabold text-primary">{t("title")}</h1>
+        <motion.h1
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-2 text-3xl font-extrabold text-primary"
+        >
+          {t("title")}
+        </motion.h1>
         <p className="mb-8 text-sm text-primary/50">{t("subtitle")}</p>
 
-        <div className="mb-8 grid grid-cols-2 gap-3">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="mb-8 grid grid-cols-2 gap-3"
+        >
           {MENU_GROUPS.map(({ key, icon: Icon }) => (
-            <button
+            <motion.button
               key={key}
+              variants={fadeUp}
               type="button"
               onClick={() => selectGroup(key)}
+              whileTap={{ scale: 0.95 }}
               className={`flex h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 transition-colors ${
                 activeGroupKey === key
                   ? "border-primary bg-primary text-background"
@@ -238,16 +270,17 @@ function OrderMenuPageContent() {
               <span className="text-center text-xs font-semibold leading-tight">
                 {tGroups(key)}
               </span>
-            </button>
+            </motion.button>
           ))}
-        </div>
+        </motion.div>
 
         <div className="mb-8 grid grid-flow-col grid-rows-2 gap-2 overflow-x-auto pb-2 [grid-auto-columns:max-content]">
           {activeGroup.categories.map((category) => (
-            <button
+            <motion.button
               key={category}
               type="button"
               onClick={() => setActiveCategory(category)}
+              whileTap={{ scale: 0.94 }}
               className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
                 activeCategory === category
                   ? "bg-primary text-background"
@@ -255,11 +288,17 @@ function OrderMenuPageContent() {
               }`}
             >
               {t(`categories.${category}`)}
-            </button>
+            </motion.button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <motion.div
+          key={activeCategory}
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+        >
           {visibleItems.map((item) =>
             item.category === "shisha" ? (
               <ShishaItemCard key={item.id} item={item} locale={locale} />
@@ -267,7 +306,7 @@ function OrderMenuPageContent() {
               <RegularItemCard key={item.id} item={item} locale={locale} />
             )
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -312,4 +312,6 @@ export const menuData: MenuItem[] = [
   // النكهات الطبيعية: أصناف مستقلة بسعر واحد لكل منها
   { id: "sh11", category: "shisha", name: { ar: "اناناس طبيعي", en: "Natural Pineapple" }, basePrices: { natural: 15000 }, description: { ar: "أركيلة بمعسّل طبيعي بنكهة الأناناس", en: "Natural molasses shisha, pineapple flavor" } },
   { id: "sh12", category: "shisha", name: { ar: "جريب فروت طبيعي", en: "Natural Grapefruit" }, basePrices: { natural: 12000 }, description: { ar: "أركيلة بمعسّل طبيعي بنكهة الجريب فروت", en: "Natural molasses shisha, grapefruit flavor" } },
+  // عنب: بابلي فقط، بنفس سعر البابلي المشترك
+  { id: "sh13", category: "shisha", name: { ar: "عنب", en: "Grape" }, basePrices: { bubble: SHISHA_BASE_PRICES.bubble }, description: { ar: "أركيلة منعشة بنكهة العنب", en: "Refreshing grape-flavored shisha" } },
 ];
