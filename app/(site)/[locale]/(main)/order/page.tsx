@@ -37,6 +37,18 @@ const container: Variants = {
   show: { transition: { staggerChildren: 0.05 } },
 };
 
+// لوحة ألوان صفحة الطلب فقط (تيراكوتا/زيتوني/فحمي فوق الخلفية الكريمية الحالية،
+// "الاتجاه الأول" المعتمد) — لا تُستخدم بأي صفحة أخرى بالموقع. تسقط تلقائياً
+// لألوان الموقع الأصلية بالوضع الداكن (dark:) لأن هذه الدرجات غامقة ولا تتباين
+// مع خلفية الوضع الداكن الغامقة أصلاً
+const ORDER_ACTIVE_FILL = "bg-[#8D321F] text-[#FAF7F2] dark:bg-primary dark:text-background";
+const ORDER_BORDER = "border-[#3A4027]/30 dark:border-primary/10";
+const ORDER_HEADING = "text-[#2B2D31] dark:text-primary";
+const ORDER_MUTED = "text-[#2B2D31]/55 dark:text-primary/45";
+const ORDER_PRICE = "text-[#8D321F] dark:text-primary/50";
+const ORDER_SELECTED_OLIVE = "bg-[#3A4027] text-[#FAF7F2] dark:bg-primary dark:text-background";
+const ORDER_UNSELECTED = "border-[#3A4027]/30 text-[#2B2D31]/65 dark:border-transparent dark:bg-primary/5 dark:text-primary/60";
+
 function QtyControl({
   qty,
   onDecrease,
@@ -82,14 +94,12 @@ function RegularItemCard({
     <motion.div
       layout
       variants={fadeUp}
-      className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background p-4 shadow-glass"
+      className={`flex items-center justify-between rounded-2xl border bg-background p-4 shadow-glass ${ORDER_BORDER}`}
     >
       <div>
-        <p className="font-semibold text-primary">{item.name[locale]}</p>
-        {item.description && (
-          <p className="text-xs text-primary/45">{item.description[locale]}</p>
-        )}
-        <p className="text-sm text-primary/50">
+        <p className={`font-semibold ${ORDER_HEADING}`}>{item.name[locale]}</p>
+        {item.description && <p className={`text-xs ${ORDER_MUTED}`}>{item.description[locale]}</p>}
+        <p className={`text-sm font-bold ${ORDER_PRICE}`}>
           {item.price.toLocaleString()} {t("currency")}
         </p>
       </div>
@@ -106,7 +116,7 @@ function RegularItemCard({
           onClick={() =>
             addItem({ id: item.id, name: item.name[locale], price: item.price })
           }
-          className="rounded-full bg-accent/15 px-4 py-2 text-xs font-semibold text-primary active:scale-95"
+          className={`rounded-full px-4 py-2 text-xs font-semibold active:scale-95 ${ORDER_ACTIVE_FILL}`}
         >
           {t("addToCart")}
         </button>
@@ -136,16 +146,14 @@ function ShishaItemCard({
     <motion.div
       layout
       variants={fadeUp}
-      className="flex flex-col gap-3 rounded-2xl border border-primary/10 bg-background p-4 shadow-glass"
+      className={`flex flex-col gap-3 rounded-2xl border bg-background p-4 shadow-glass ${ORDER_BORDER}`}
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-semibold text-primary">{item.name[locale]}</p>
-          {item.description && (
-            <p className="text-xs text-primary/45">{item.description[locale]}</p>
-          )}
+          <p className={`font-semibold ${ORDER_HEADING}`}>{item.name[locale]}</p>
+          {item.description && <p className={`text-xs ${ORDER_MUTED}`}>{item.description[locale]}</p>}
         </div>
-        <p className="text-sm text-primary/50">
+        <p className={`text-sm font-bold ${ORDER_PRICE}`}>
           {price.toLocaleString()} {t("currency")}
         </p>
       </div>
@@ -156,10 +164,8 @@ function ShishaItemCard({
             key={base}
             type="button"
             onClick={() => setSelectedBase(base)}
-            className={`flex-1 rounded-full px-2 py-2 text-xs font-semibold transition-colors ${
-              selectedBase === base
-                ? "bg-primary text-background"
-                : "bg-primary/5 text-primary/60"
+            className={`flex-1 rounded-full border px-2 py-2 text-xs font-semibold transition-colors ${
+              selectedBase === base ? ORDER_SELECTED_OLIVE : ORDER_UNSELECTED
             }`}
           >
             {tBase(base)}
@@ -185,7 +191,7 @@ function ShishaItemCard({
               price,
             })
           }
-          className="rounded-full bg-accent/15 px-4 py-2 text-xs font-semibold text-primary active:scale-95"
+          className={`rounded-full px-4 py-2 text-xs font-semibold active:scale-95 ${ORDER_ACTIVE_FILL}`}
         >
           {t("addToCart")}
         </button>
@@ -237,11 +243,11 @@ function OrderMenuPageContent() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="mb-2 text-3xl font-extrabold text-primary"
+          className={`mb-2 text-3xl font-extrabold ${ORDER_HEADING}`}
         >
           {t("title")}
         </motion.h1>
-        <p className="mb-8 text-sm text-primary/50">{t("subtitle")}</p>
+        <p className={`mb-8 text-sm ${ORDER_MUTED}`}>{t("subtitle")}</p>
 
         <motion.div
           variants={container}
@@ -258,14 +264,16 @@ function OrderMenuPageContent() {
               whileTap={{ scale: 0.95 }}
               className={`flex h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 transition-colors ${
                 activeGroupKey === key
-                  ? "border-primary bg-primary text-background"
-                  : "border-primary/10 bg-background text-primary"
+                  ? `${ORDER_ACTIVE_FILL} border-transparent`
+                  : `bg-background ${ORDER_BORDER} ${ORDER_HEADING}`
               }`}
             >
               <Icon
                 size={20}
                 strokeWidth={1.8}
-                className={activeGroupKey === key ? "text-background" : "text-accent"}
+                className={
+                  activeGroupKey === key ? "text-[#FAF7F2] dark:text-background" : "text-[#3A4027] dark:text-accent"
+                }
               />
               <span className="text-center text-xs font-semibold leading-tight">
                 {tGroups(key)}
@@ -281,10 +289,8 @@ function OrderMenuPageContent() {
               type="button"
               onClick={() => setActiveCategory(category)}
               whileTap={{ scale: 0.94 }}
-              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${
-                activeCategory === category
-                  ? "bg-primary text-background"
-                  : "bg-primary/5 text-primary/60"
+              className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
+                activeCategory === category ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
               }`}
             >
               {t(`categories.${category}`)}
