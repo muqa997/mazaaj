@@ -46,7 +46,6 @@ const ORDER_BORDER = "border-[#3A4027]/30 dark:border-primary/10";
 const ORDER_HEADING = "text-[#2B2D31] dark:text-primary";
 const ORDER_MUTED = "text-[#2B2D31]/55 dark:text-primary/45";
 const ORDER_PRICE = "text-[#8D321F] dark:text-primary/50";
-const ORDER_SELECTED_OLIVE = "bg-[#3A4027] text-[#FAF7F2] dark:bg-primary dark:text-background";
 const ORDER_UNSELECTED = "border-[#3A4027]/30 text-[#2B2D31]/65 dark:border-transparent dark:bg-primary/5 dark:text-primary/60";
 
 function QtyControl({
@@ -125,71 +124,51 @@ function RegularItemCard({
   );
 }
 
-function ShishaItemCard({
+// بطاقة نكهة أركيلة مرتبطة بقاعدة واحدة محددة مسبقاً (يحددها التبويب النشط:
+// خشب/بابلي/طبيعي) — بلا أزرار اختيار قاعدة داخلها، لأن القسم نفسه هو الذي يحدد
+// القاعدة الآن. نفس شكل بطاقة الصنف العادي تماماً، فقط السعر ومعرّف السلة مبنيان
+// على القاعدة الممرَّرة
+function ShishaFlavorCard({
   item,
+  base,
   locale,
 }: {
   item: Extract<MenuItem, { category: "shisha" }>;
+  base: ShishaBase;
   locale: "ar" | "en";
 }) {
   const t = useTranslations("menuPage");
   const tBase = useTranslations("shishaBase");
   const { items, addItem, updateQty } = useCart();
-  const availableBases = SHISHA_BASES.filter((base) => item.basePrices[base] !== undefined);
-  const [selectedBase, setSelectedBase] = useState<ShishaBase>(availableBases[0]);
-
-  const cartId = `${item.id}-${selectedBase}`;
+  const price = item.basePrices[base]!;
+  const cartId = `${item.id}-${base}`;
   const cartItem = items.find((i) => i.id === cartId);
-  const price = item.basePrices[selectedBase]!;
 
   return (
     <motion.div
       layout
       variants={fadeUp}
-      className={`flex flex-col gap-3 rounded-2xl border bg-background p-4 shadow-glass ${ORDER_BORDER}`}
+      className={`flex items-center justify-between rounded-2xl border bg-background p-4 shadow-glass ${ORDER_BORDER}`}
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className={`font-semibold ${ORDER_HEADING}`}>{item.name[locale]}</p>
-          {item.description && <p className={`text-xs ${ORDER_MUTED}`}>{item.description[locale]}</p>}
-        </div>
+      <div>
+        <p className={`font-semibold ${ORDER_HEADING}`}>{item.name[locale]}</p>
+        {item.description && <p className={`text-xs ${ORDER_MUTED}`}>{item.description[locale]}</p>}
         <p className={`text-sm font-bold ${ORDER_PRICE}`}>
           {price.toLocaleString()} {t("currency")}
         </p>
       </div>
 
-      <div className="flex gap-2">
-        {availableBases.map((base) => (
-          <button
-            key={base}
-            type="button"
-            onClick={() => setSelectedBase(base)}
-            className={`flex-1 rounded-full border px-2 py-2 text-xs font-semibold transition-colors ${
-              selectedBase === base ? ORDER_SELECTED_OLIVE : ORDER_UNSELECTED
-            }`}
-          >
-            {tBase(base)}
-          </button>
-        ))}
-      </div>
-
       {cartItem ? (
-        <div className="flex justify-center">
-          <QtyControl
-            qty={cartItem.qty}
-            onDecrease={() => updateQty(cartId, cartItem.qty - 1)}
-            onIncrease={() => updateQty(cartId, cartItem.qty + 1)}
-          />
-        </div>
+        <QtyControl
+          qty={cartItem.qty}
+          onDecrease={() => updateQty(cartId, cartItem.qty - 1)}
+          onIncrease={() => updateQty(cartId, cartItem.qty + 1)}
+        />
       ) : (
         <button
           type="button"
           onClick={() =>
-            addItem({
-              id: cartId,
-              name: `${item.name[locale]} (${tBase(selectedBase)})`,
-              price,
-            })
+            addItem({ id: cartId, name: `${item.name[locale]} (${tBase(base)})`, price })
           }
           className={`rounded-full px-4 py-2 text-xs font-semibold active:scale-95 ${ORDER_ACTIVE_FILL}`}
         >
@@ -214,6 +193,7 @@ function useInitialCategory(): MenuCategory | null {
 function OrderMenuPageContent() {
   const t = useTranslations("menuPage");
   const tGroups = useTranslations("menuPage.groups");
+  const tBase = useTranslations("shishaBase");
   const locale = useLocale() as "ar" | "en";
 
   const initialCategory = useInitialCategory();
@@ -227,13 +207,22 @@ function OrderMenuPageContent() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>(
     initialCategory ?? activeGroup.categories[0]
   );
+  // قسم الأراجيل يُقسَّم لتبويبات حسب القاعدة (خشب/بابلي/طبيعي) بدل التصنيفات
+  // العادية — كل نكهة تظهر تحت كل قاعدة متوفرة لها فعلياً (قد تظهر بأكثر من تبويب)
+  const [activeShishaBase, setActiveShishaBase] = useState<ShishaBase>("wood");
 
   const selectGroup = (key: MenuGroupKey) => {
     setActiveGroupKey(key);
     const group = MENU_GROUPS.find((g) => g.key === key)!;
     setActiveCategory(group.categories[0]);
+    if (key === "shisha") setActiveShishaBase("wood");
   };
 
+  const isShishaGroup = activeGroupKey === "shisha";
+  const visibleShishaItems = menuData.filter(
+    (item): item is Extract<MenuItem, { category: "shisha" }> =>
+      item.category === "shisha" && item.basePrices[activeShishaBase] !== undefined
+  );
   const visibleItems = menuData.filter((item) => item.category === activeCategory);
 
   return (
@@ -283,35 +272,51 @@ function OrderMenuPageContent() {
         </motion.div>
 
         <div className="mb-8 grid grid-flow-col grid-rows-2 gap-2 overflow-x-auto pb-2 [grid-auto-columns:max-content]">
-          {activeGroup.categories.map((category) => (
-            <motion.button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              whileTap={{ scale: 0.94 }}
-              className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
-                activeCategory === category ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
-              }`}
-            >
-              {t(`categories.${category}`)}
-            </motion.button>
-          ))}
+          {isShishaGroup
+            ? SHISHA_BASES.map((base) => (
+                <motion.button
+                  key={base}
+                  type="button"
+                  onClick={() => setActiveShishaBase(base)}
+                  whileTap={{ scale: 0.94 }}
+                  className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
+                    activeShishaBase === base ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
+                  }`}
+                >
+                  {tBase(base)}
+                </motion.button>
+              ))
+            : activeGroup.categories.map((category) => (
+                <motion.button
+                  key={category}
+                  type="button"
+                  onClick={() => setActiveCategory(category)}
+                  whileTap={{ scale: 0.94 }}
+                  className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
+                    activeCategory === category ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
+                  }`}
+                >
+                  {t(`categories.${category}`)}
+                </motion.button>
+              ))}
         </div>
 
         <motion.div
-          key={activeCategory}
+          key={isShishaGroup ? `shisha-${activeShishaBase}` : activeCategory}
           variants={container}
           initial="hidden"
           animate="show"
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
-          {visibleItems.map((item) =>
-            item.category === "shisha" ? (
-              <ShishaItemCard key={item.id} item={item} locale={locale} />
-            ) : (
-              <RegularItemCard key={item.id} item={item} locale={locale} />
-            )
-          )}
+          {isShishaGroup
+            ? visibleShishaItems.map((item) => (
+                <ShishaFlavorCard key={item.id} item={item} base={activeShishaBase} locale={locale} />
+              ))
+            : visibleItems.map((item) =>
+                item.category === "shisha" ? null : (
+                  <RegularItemCard key={item.id} item={item} locale={locale} />
+                )
+              )}
         </motion.div>
       </div>
     </div>
