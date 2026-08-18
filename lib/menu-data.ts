@@ -131,12 +131,9 @@ export const menuData: MenuItem[] = [
   { id: "cc1", category: "coffeeClassic", name: { ar: "اسبريسو سنكل", en: "Espresso Single" }, price: 2500, description: { ar: "جرعة إسبريسو مركزة ونقية", en: "Bold, concentrated espresso shot" } },
   { id: "cc2", category: "coffeeClassic", name: { ar: "اسبريسو دبل", en: "Espresso Double" }, price: 4000, description: { ar: "جرعة مضاعفة لعشاق القهوة القوية", en: "Double shot for true coffee lovers" } },
   { id: "cc3", category: "coffeeClassic", name: { ar: "الفريدو اسبريسو", en: "Affogato Espresso" }, price: 3000, description: { ar: "إسبريسو ساخن يُسكب فوق آيس كريم", en: "Hot espresso poured over ice cream" } },
-  { id: "cc4", category: "coffeeClassic", name: { ar: "افوكاتو", en: "Avocado Coffee" }, price: 3000, description: { ar: "مزيج غني بالأفوكادو والقهوة", en: "Creamy avocado blended with coffee" } },
   { id: "cc5", category: "coffeeClassic", name: { ar: "ماكياتو", en: "Macchiato" }, price: 3000, description: { ar: "إسبريسو بلمسة رغوة حليب خفيفة", en: "Espresso with a touch of milk foam" } },
-  { id: "cc6", category: "coffeeClassic", name: { ar: "دوبيو رستريسو", en: "Doppio Ristretto" }, price: 3000, description: { ar: "جرعة مركزة وقصيرة بنكهة عميقة", en: "Short, intense shot, deep flavor" } },
   { id: "cc7", category: "coffeeClassic", name: { ar: "قهوة تركية سنكل", en: "Turkish Coffee Single" }, price: 2500, description: { ar: "قهوة تركية أصيلة تُقدَّم ساخنة", en: "Authentic Turkish coffee, served hot" } },
   { id: "cc8", category: "coffeeClassic", name: { ar: "قهوة تركية دبل", en: "Turkish Coffee Double" }, price: 4000, description: { ar: "جرعة مضاعفة من القهوة التركية الأصيلة", en: "Double serving of authentic Turkish coffee" } },
-  { id: "cc9", category: "coffeeClassic", name: { ar: "قهوة شقراء (خليجية)", en: "Blonde Coffee (Khaleeji)" }, price: 2000, description: { ar: "قهوة خليجية فاتحة اللون بنكهة هيل", en: "Light Khaleeji-style coffee with cardamom" } },
 
   // مشروبات القهوة الساخنة
   { id: "ch1", category: "coffeeHot", name: { ar: "امريكانو هوت", en: "Americano Hot" }, price: 3000, description: { ar: "إسبريسو ممدد بالماء الساخن", en: "Espresso lengthened with hot water" } },
@@ -169,25 +166,25 @@ export const menuData: MenuItem[] = [
   // الفرابتشينو
   { id: "fr1", category: "frappuccino", name: { ar: "مزاج فراب", en: "Mazaaj Frappe" }, price: 5000, description: { ar: "فرابتشينو بمذاق مزاج المميز", en: "Frappe with our signature Mazaaj taste" } },
   { id: "fr2", category: "frappuccino", name: { ar: "بستاشيو فراب", en: "Pistachio Frappe" }, price: 5000, description: { ar: "فرابتشينو غني بنكهة الفستق", en: "Frappe rich with pistachio flavor" } },
-  { id: "fr3", category: "frappuccino", name: { ar: "فانيلا فراب", en: "Vanilla Frappe" }, price: 5000, description: { ar: "فرابتشينو منعش بنكهة الفانيلا", en: "Refreshing frappe with vanilla flavor" } },
   { id: "fr4", category: "frappuccino", name: { ar: "وايت فراب", en: "White Frappe" }, price: 5000, description: { ar: "فرابتشينو بالشوكولاتة البيضاء", en: "Frappe with white chocolate" } },
   { id: "fr5", category: "frappuccino", name: { ar: "دارك فراب", en: "Dark Frappe" }, price: 5000, description: { ar: "فرابتشينو بالشوكولاتة الداكنة", en: "Frappe with dark chocolate" } },
 
   // هوت شوكليت
   { id: "hc1", category: "hotChocolate", name: { ar: "هوت شوكليت كلاسيك", en: "Classic Hot Chocolate" }, price: 3000, description: { ar: "شوكولاتة ساخنة غنية وكلاسيكية", en: "Rich, classic hot chocolate" } },
-  { id: "hc2", category: "hotChocolate", name: { ar: "هوت شوكليت بالكراميل", en: "Caramel Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بلمسة كراميل", en: "Hot chocolate with a caramel touch" } },
-  { id: "hc3", category: "hotChocolate", name: { ar: "هوت شوكليت بالبندق", en: "Hazelnut Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بنكهة البندق", en: "Hot chocolate with hazelnut flavor" } },
-  { id: "hc4", category: "hotChocolate", name: { ar: "هوت شوكليت بالفراولة", en: "Strawberry Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بنكهة الفراولة", en: "Hot chocolate with strawberry flavor" } },
-  { id: "hc5", category: "hotChocolate", name: { ar: "هوت شوكليت بالجوز الهند", en: "Coconut Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بنكهة جوز الهند", en: "Hot chocolate with coconut flavor" } },
-  { id: "hc6", category: "hotChocolate", name: { ar: "هوت شوكليت بالكوكيز", en: "Cookies Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بقطع الكوكيز", en: "Hot chocolate with cookie crumbles" } },
+  { id: "hc2", category: "hotChocolate", name: { ar: "هوت شوكليت كراميل", en: "Caramel Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بلمسة كراميل", en: "Hot chocolate with a caramel touch" } },
+  { id: "hc3", category: "hotChocolate", name: { ar: "هوت شوكليت بندق", en: "Hazelnut Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بنكهة البندق", en: "Hot chocolate with hazelnut flavor" } },
+  { id: "hc4", category: "hotChocolate", name: { ar: "هوت شوكليت فراولة", en: "Strawberry Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بنكهة الفراولة", en: "Hot chocolate with strawberry flavor" } },
+  { id: "hc5", category: "hotChocolate", name: { ar: "هوت شوكليت جوز الهند", en: "Coconut Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بنكهة جوز الهند", en: "Hot chocolate with coconut flavor" } },
+  { id: "hc6", category: "hotChocolate", name: { ar: "هوت شوكليت كوكيز", en: "Cookies Hot Chocolate" }, price: 3500, description: { ar: "شوكولاتة ساخنة بقطع الكوكيز", en: "Hot chocolate with cookie crumbles" } },
+  { id: "hc7", category: "hotChocolate", name: { ar: "هوت شوكليت مزاج", en: "Mazaaj Hot Chocolate" }, price: 4000, description: { ar: "شوكولاتة ساخنة بمذاق مزاج المميز", en: "Hot chocolate with our signature Mazaaj taste" } },
 
   // آيس شوكليت
   { id: "ic1", category: "icedChocolate", name: { ar: "ايس شوكليت كلاسيك", en: "Classic Iced Chocolate" }, price: 3000, description: { ar: "شوكولاتة باردة غنية وكلاسيكية", en: "Rich, classic iced chocolate" } },
-  { id: "ic2", category: "icedChocolate", name: { ar: "ايس شوكليت بالكراميل", en: "Caramel Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بلمسة كراميل", en: "Iced chocolate with a caramel touch" } },
-  { id: "ic3", category: "icedChocolate", name: { ar: "ايس شوكليت بالبندق", en: "Hazelnut Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بنكهة البندق", en: "Iced chocolate with hazelnut flavor" } },
-  { id: "ic4", category: "icedChocolate", name: { ar: "ايس شوكليت بالفراولة", en: "Strawberry Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بنكهة الفراولة", en: "Iced chocolate with strawberry flavor" } },
-  { id: "ic5", category: "icedChocolate", name: { ar: "ايس شوكليت بالجوز الهند", en: "Coconut Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بنكهة جوز الهند", en: "Iced chocolate with coconut flavor" } },
-  { id: "ic6", category: "icedChocolate", name: { ar: "ايس شوكليت بالكوكيز", en: "Cookies Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بقطع الكوكيز", en: "Iced chocolate with cookie crumbles" } },
+  { id: "ic2", category: "icedChocolate", name: { ar: "ايس شوكليت كراميل", en: "Caramel Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بلمسة كراميل", en: "Iced chocolate with a caramel touch" } },
+  { id: "ic3", category: "icedChocolate", name: { ar: "ايس شوكليت بندق", en: "Hazelnut Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بنكهة البندق", en: "Iced chocolate with hazelnut flavor" } },
+  { id: "ic4", category: "icedChocolate", name: { ar: "ايس شوكليت فراولة", en: "Strawberry Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بنكهة الفراولة", en: "Iced chocolate with strawberry flavor" } },
+  { id: "ic5", category: "icedChocolate", name: { ar: "ايس شوكليت جوز الهند", en: "Coconut Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بنكهة جوز الهند", en: "Iced chocolate with coconut flavor" } },
+  { id: "ic6", category: "icedChocolate", name: { ar: "ايس شوكليت كوكيز", en: "Cookies Iced Chocolate" }, price: 3500, description: { ar: "شوكولاتة باردة بقطع الكوكيز", en: "Iced chocolate with cookie crumbles" } },
 
   // الميلك شيك
   { id: "ms1", category: "milkshake", name: { ar: "ميلك شيك مزاج", en: "Mazaaj Milkshake" }, price: 4500, description: { ar: "ميلك شيك بمذاق مزاج المميز", en: "Milkshake with our signature Mazaaj taste" } },
@@ -198,7 +195,6 @@ export const menuData: MenuItem[] = [
   { id: "ms6", category: "milkshake", name: { ar: "ميلك شيك اوريو", en: "Oreo Milkshake" }, price: 4500, description: { ar: "ميلك شيك كريمي بقطع الأوريو", en: "Creamy milkshake with Oreo pieces" } },
   { id: "ms7", category: "milkshake", name: { ar: "ميلك شيك كراميل", en: "Caramel Milkshake" }, price: 4500, description: { ar: "ميلك شيك غني بنكهة الكراميل", en: "Milkshake rich with caramel flavor" } },
   { id: "ms8", category: "milkshake", name: { ar: "ميلك شيك فراولة", en: "Strawberry Milkshake" }, price: 4500, description: { ar: "ميلك شيك منعش بالفراولة الطازجة", en: "Refreshing milkshake with fresh strawberry" } },
-  { id: "ms9", category: "milkshake", name: { ar: "ميلك شيك مانجو", en: "Mango Milkshake" }, price: 4500, description: { ar: "ميلك شيك استوائي بنكهة المانجو", en: "Tropical milkshake with mango flavor" } },
   { id: "ms10", category: "milkshake", name: { ar: "ميلك شيك خوخ", en: "Peach Milkshake" }, price: 4500, description: { ar: "ميلك شيك منعش بنكهة الخوخ", en: "Refreshing milkshake with peach flavor" } },
 
   // الشاي
@@ -208,7 +204,6 @@ export const menuData: MenuItem[] = [
   { id: "tea4", category: "tea", name: { ar: "شاي ليمون بالنعناع", en: "Lemon Mint Tea" }, price: 2500, description: { ar: "شاي بالليمون والنعناع المنعش", en: "Tea with lemon and refreshing mint" } },
   { id: "tea5", category: "tea", name: { ar: "شاي بالقرفة (دارسين)", en: "Cinnamon Tea" }, price: 1000, description: { ar: "شاي دافئ بنكهة القرفة", en: "Warm tea with cinnamon flavor" } },
   { id: "tea6", category: "tea", name: { ar: "شاي كرك", en: "Karak Tea" }, price: 3000, description: { ar: "شاي كرك غني بالحليب والهيل", en: "Rich Karak tea with milk and cardamom" } },
-  { id: "tea8", category: "tea", name: { ar: "سحلب", en: "Sahlab" }, price: 2500, description: { ar: "مشروب دافئ وكريمي تقليدي", en: "Warm, creamy traditional drink" } },
 
   // الموهيتو
   { id: "mj1", category: "mojito", name: { ar: "فراولة موهيتو", en: "Strawberry Mojito" }, price: 3000, description: { ar: "موهيتو منعش بنكهة الفراولة", en: "Refreshing mojito with strawberry flavor" } },
@@ -256,9 +251,6 @@ export const menuData: MenuItem[] = [
   { id: "sd1", category: "soda", name: { ar: "بيبسي", en: "Pepsi" }, price: 500, description: { ar: "مشروب غازي كلاسيكي منعش", en: "Classic, refreshing soft drink" } },
   { id: "sd2", category: "soda", name: { ar: "بيبسي دايت", en: "Pepsi Diet" }, price: 500, description: { ar: "بيبسي دايت خفيف ومنعش", en: "Light, refreshing Diet Pepsi" } },
   { id: "sd3", category: "soda", name: { ar: "سفن اب", en: "7Up" }, price: 500, description: { ar: "مشروب غازي منعش بنكهة الليمون", en: "Refreshing lemon-lime soft drink" } },
-  { id: "sd4", category: "soda", name: { ar: "سفن اب دايت", en: "7Up Diet" }, price: 500, description: { ar: "سفن أب دايت خفيف ومنعش", en: "Light, refreshing Diet 7Up" } },
-  { id: "sd5", category: "soda", name: { ar: "ميرندا", en: "Mirinda" }, price: 500, description: { ar: "مشروب غازي منعش بنكهة البرتقال", en: "Refreshing orange-flavored soft drink" } },
-  { id: "sd6", category: "soda", name: { ar: "صودا سادة", en: "Plain Soda" }, price: 1000, description: { ar: "صودا سادة منعشة وفوّارة", en: "Plain, fizzy refreshing soda" } },
   { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1000, description: { ar: "صودا منعشة بنكهة الليمون", en: "Refreshing soda with lemon flavor" } },
   { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 2000, description: { ar: "مشروب طاقة منعش", en: "Refreshing energy drink" } },
   { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 4000, description: { ar: "مشروب طاقة كلاسيكي منعش", en: "Classic, refreshing energy drink" } },
@@ -272,6 +264,7 @@ export const menuData: MenuItem[] = [
   { id: "ds6", category: "dessertsCrepe", name: { ar: "كريب مزاج", en: "Mazaaj Crepe" }, price: 6000, description: { ar: "كريب بمذاق مزاج المميز", en: "Crepe with our signature Mazaaj taste" } },
   { id: "ds7", category: "dessertsCrepe", name: { ar: "كريب فواكه", en: "Fruit Crepe" }, price: 7000, description: { ar: "كريب طازج بتشكيلة فواكه منعشة", en: "Fresh crepe with assorted fruit" } },
   { id: "ds8", category: "dessertsCrepe", name: { ar: "فوتيشيني كريب", en: "Fettuccine Crepe" }, price: 6000, description: { ar: "كريب مقطّع بأسلوب فوتيشيني المميز", en: "Crepe cut in the Fettuccine style" } },
+  { id: "ds27", category: "dessertsCrepe", name: { ar: "سبيشيل كريب", en: "Special Crepe" }, price: 6500, description: { ar: "كريب مميز بحشوة خاصة وتوليفة غنية", en: "A specialty crepe with a rich, distinctive filling" } },
 
   // الحلويات — حلى بارد
   { id: "ds9", category: "dessertsCold", name: { ar: "ليزي", en: "Lazy Cake" }, price: 3000, description: { ar: "حلى بارد غني بالشوكولاتة والبسكويت", en: "Cold dessert rich with chocolate and biscuit" } },
