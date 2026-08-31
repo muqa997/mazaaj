@@ -26,7 +26,7 @@ export const MAP_DIRECTIONS_URL = "https://maps.app.goo.gl/T3zZufkZaBNdpFNi8";
 
 // بيانات صفحة QR (/qrmazaaj) — تُطبع وتُعرض للزبائن مباشرة، فليست معلومات سرية
 export const WIFI_SSID = "كوفي مزاج";
-export const WIFI_PASSWORD = "11111111";
+export const WIFI_PASSWORD = "22222222";
 // رابط تقييم جوجل المباشر — الأسئلة الإضافية (المبلغ المصروف، إلخ) يتحكم بها جوجل نفسه
 // حسب نوع النشاط التجاري ولا يمكن تعديلها أو حذفها من جهتنا عبر الرابط
 export const GOOGLE_REVIEW_URL = "https://g.page/r/CZI1kN-yeFTrEAE/review";
