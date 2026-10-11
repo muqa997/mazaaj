@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, X } from "lucide-react";
+import { Eye, EyeOff, Wallet, X } from "lucide-react";
 import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 
 const POLL_INTERVAL_MS = 3000;
+
+type YesterdaySummary = { amount: number; count: number; unsettledCount: number };
 
 type BilliardsSummaryCardProps = {
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
@@ -14,6 +16,7 @@ type BilliardsSummaryCardProps = {
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
   getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number }>;
+  getBilliardsYesterdaySummary: () => Promise<YesterdaySummary>;
 };
 
 function ActiveDot() {
@@ -25,25 +28,85 @@ function ActiveDot() {
   );
 }
 
+// أرقام الدخل (الدخل المحصّل ودخل الأمس) مخفية افتراضياً خلف "••••" حتى لا تظهر لأي
+// شخص يقف أمام شاشة الكاشير — العين تُظهر الرقم عند الضغط، وبقية الأرقام (حساب
+// الطاولات الحي والتذاكر) تبقى ظاهرة دائماً. أيقونة العين تمثّل الإجراء التالي: عين
+// مفتوحة = اضغط للإظهار، عين مشطوبة = اضغط للإخفاء (نفس عُرف حقول كلمة المرور)
+function EyeToggle({
+  shown,
+  onToggle,
+  tone,
+}: {
+  shown: boolean;
+  onToggle: () => void;
+  tone: "dark" | "amber";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={shown ? "إخفاء المبلغ" : "إظهار المبلغ"}
+      aria-pressed={shown}
+      className={`absolute end-3 top-3 flex h-8 w-8 items-center justify-center rounded-full ${
+        tone === "dark" ? "bg-background/15 text-background" : "bg-amber-500/20 text-amber-700"
+      }`}
+    >
+      {shown ? <EyeOff size={16} /> : <Eye size={16} />}
+    </button>
+  );
+}
+
+function formatIncome(amount: number, shown: boolean) {
+  return `${shown ? amount.toLocaleString("en-US") : "•••••"} د.ع`;
+}
+
+// حالة تسوية دخل الأمس مع المدير: لا عمليات / تمت التسوية / غير مسلّم / مسلّم جزئياً
+function SettlementBadge({ summary }: { summary: YesterdaySummary }) {
+  const base = "mt-1 rounded-full px-3 py-1 text-xs font-bold";
+  if (summary.count === 0) {
+    return <span className={`${base} bg-background/15 text-background/70`}>لا توجد عمليات أمس</span>;
+  }
+  if (summary.unsettledCount === 0) {
+    return <span className={`${base} bg-green-100 text-green-800`}>تم تسليمه للمدير</span>;
+  }
+  return (
+    <span className={`${base} bg-amber-100 text-amber-800`}>
+      {summary.unsettledCount === summary.count
+        ? "غير مسلّم للمدير"
+        : `مسلّم جزئياً — ${summary.unsettledCount} من ${summary.count} غير مسلّمة`}
+    </span>
+  );
+}
+
 export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [tables, setTables] = useState<BilliardsTableRow[]>([]);
   const [tickets, setTickets] = useState<BilliardsTicketRow[]>([]);
   const [todayTotal, setTodayTotal] = useState({ games: 0, amount: 0 });
   const [overdueTotal, setOverdueTotal] = useState({ amount: 0, count: 0 });
+  const [yesterday, setYesterday] = useState<YesterdaySummary>({
+    amount: 0,
+    count: 0,
+    unsettledCount: 0,
+  });
+  const [showToday, setShowToday] = useState(false);
+  // بطاقة "من الأمس — غير مسلّم" وبطاقة "دخل الأمس" تعرضان نفس الدخل، فتتحكم بهما عين واحدة
+  const [showYesterday, setShowYesterday] = useState(false);
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
 
   const load = async () => {
-    const [t, tk, total, overdue] = await Promise.all([
+    const [t, tk, total, overdue, yesterdaySummary] = await Promise.all([
       props.getBilliardsTables(),
       props.getPendingTickets(),
       props.getBilliardsTodayTotal(),
       props.getBilliardsOverdueTotal(),
+      props.getBilliardsYesterdaySummary(),
     ]);
     setTables(t);
     setTickets(tk);
     setTodayTotal(total);
     setOverdueTotal(overdue);
+    setYesterday(yesterdaySummary);
   };
 
   useEffect(() => {
@@ -88,12 +151,17 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   return (
     <div className="mb-4 flex flex-col gap-4">
       {overdueTotal.amount > 0 && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className="relative rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 pe-14">
+          <EyeToggle
+            shown={showYesterday}
+            onToggle={() => setShowYesterday((v) => !v)}
+            tone="amber"
+          />
           <p className="mb-1 text-xs font-semibold text-amber-700">
             الدخل المحصّل من الأمس — غير مسلّم للمدير
           </p>
           <p className="text-lg font-extrabold text-amber-700">
-            {overdueTotal.amount.toLocaleString("en-US")} د.ع
+            {formatIncome(overdueTotal.amount, showYesterday)}
           </p>
         </div>
       )}
@@ -200,11 +268,24 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
             })}
           </div>
         )}
-        <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl bg-primary py-4 text-center">
+        <div className="relative mt-4 flex flex-col items-center gap-1 rounded-2xl bg-primary py-4 text-center">
+          <EyeToggle shown={showToday} onToggle={() => setShowToday((v) => !v)} tone="dark" />
           <p className="text-sm font-semibold text-background/60">الدخل المحصّل</p>
           <p className="text-2xl font-extrabold text-background">
-            {todayTotal.amount.toLocaleString("en-US")} د.ع
+            {formatIncome(todayTotal.amount, showToday)}
           </p>
+        </div>
+        <div className="relative mt-3 flex flex-col items-center gap-1 rounded-2xl bg-primary py-4 text-center">
+          <EyeToggle
+            shown={showYesterday}
+            onToggle={() => setShowYesterday((v) => !v)}
+            tone="dark"
+          />
+          <p className="text-sm font-semibold text-background/60">دخل الأمس</p>
+          <p className="text-2xl font-extrabold text-background">
+            {formatIncome(yesterday.amount, showYesterday)}
+          </p>
+          <SettlementBadge summary={yesterday} />
         </div>
       </div>
     </div>

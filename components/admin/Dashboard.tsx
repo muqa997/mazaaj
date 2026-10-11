@@ -239,6 +239,7 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   // اليوم التجاري يبدأ الساعة ٦ صباحاً (وليس منتصف الليل) — الكافيه يعمل أحياناً حتى
   // الساعة ٣ فجراً، فتُحسب تلك الساعات ضمن يوم العمل السابق بدل أن تُفتح كـ"يوم جديد"
   const todayStart = getBusinessDayStart(now);
+  const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
   const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
   const monthStart = getBusinessMonthStart(now);
   // نقطة داخل اليوم التجاري الحالي (وليس "الآن" الفعلي) — لعرض تسمية التاريخ الصحيحة
@@ -254,6 +255,10 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   });
 
   const todayTx = transactions.filter((t) => new Date(t.paid_at) >= todayStart);
+  const yesterdayTx = transactions.filter((t) => {
+    const d = new Date(t.paid_at);
+    return d >= yesterdayStart && d < todayStart;
+  });
   const weekTx = transactions.filter((t) => new Date(t.paid_at) >= weekStart);
   const monthTx = transactions.filter((t) => new Date(t.paid_at) >= monthStart);
 
@@ -308,12 +313,13 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   return {
     todayPool: sumPool(todayTx),
     todayAmount: sumBy(todayTx, "amount"),
-    weekPool: sumPool(weekTx),
+    yesterdayPool: sumPool(yesterdayTx),
+    yesterdayAmount: sumBy(yesterdayTx, "amount"),
     weekAmount: sumBy(weekTx, "amount"),
     monthPool: sumPool(monthTx),
     monthAmount: sumBy(monthTx, "amount"),
     todayLabel: formatDayMonth(businessNow),
-    weekLabel: `${formatDayMonth(weekStart)} - ${formatDayMonth(businessNow)}`,
+    yesterdayLabel: formatDayMonth(new Date(yesterdayStart.getTime() + 12 * 60 * 60 * 1000)),
     monthLabel: `الشهر ${ARABIC_ORDINAL_MONTHS[businessNow.getMonth()]}`,
     perTable,
     weekDays,
@@ -1427,7 +1433,7 @@ export default function Dashboard(props: DashboardProps) {
                     {(
                       [
                         ["اليوم", billiardsStats.todayLabel, billiardsStats.todayAmount, billiardsStats.todayPool],
-                        ["آخر 7 أيام", billiardsStats.weekLabel, billiardsStats.weekAmount, billiardsStats.weekPool],
+                        ["الأمس", billiardsStats.yesterdayLabel, billiardsStats.yesterdayAmount, billiardsStats.yesterdayPool],
                         ["هذا الشهر", billiardsStats.monthLabel, billiardsStats.monthAmount, billiardsStats.monthPool],
                       ] as const
                     ).map(([label, dateLabel, amount, pool]) => (
@@ -1569,17 +1575,28 @@ export default function Dashboard(props: DashboardProps) {
                   <h3 className="mb-4 text-sm font-bold text-primary">
                     أداء البلياردو (هذا الشهر يومياً)
                   </h3>
-                  <div className="flex items-end justify-between gap-1 h-32 overflow-x-auto">
+                  {/* رقم الدخل المحصّل لكل يوم مكتوب عمودياً فوق شمعته — 31 شمعة لا تتّسع لأرقام
+                      أفقية على الجوال، فالرقم الدائر يوفّر العرض ويبقى الرقم كاملاً (بلا اختصار) */}
+                  <div className="flex h-48 items-end justify-between gap-1 overflow-x-auto">
                     {billiardsStats.monthDays.map((day, i) => (
-                      <div key={i} className="flex min-w-[10px] flex-1 flex-col items-center gap-1">
-                        <div className="flex h-24 w-full items-end">
-                          <div
-                            className="w-full rounded-sm bg-accent/60"
-                            style={{
-                              height: `${Math.max(6, (day.amount / maxBilliardsMonthAmount) * 100)}%`,
-                            }}
-                          />
-                        </div>
+                      <div
+                        key={i}
+                        className="flex min-w-[20px] flex-1 flex-col items-center justify-end gap-1"
+                      >
+                        {day.amount > 0 && (
+                          <span
+                            dir="ltr"
+                            className="rotate-180 whitespace-nowrap text-[10px] font-semibold text-primary/70 [writing-mode:vertical-rl]"
+                          >
+                            {day.amount.toLocaleString("en-US")}
+                          </span>
+                        )}
+                        <div
+                          className="w-full rounded-sm bg-accent/60"
+                          style={{
+                            height: `${Math.max(4, (day.amount / maxBilliardsMonthAmount) * 96)}px`,
+                          }}
+                        />
                         <span className="text-[9px] text-primary/40">{day.label}</span>
                       </div>
                     ))}

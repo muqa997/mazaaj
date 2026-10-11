@@ -238,6 +238,38 @@ export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; am
   );
 }
 
+// ملخص دخل الأمس (اليوم التجاري السابق بالكامل) وحالة تسويته مع المدير — يظهر للكاشير
+// تحت "الدخل المحصّل" ليعرف هل استلم المدير مبلغ الأمس أم لا. unsettledCount > 0 يعني أن
+// هناك معاملات من الأمس لم يضغط المدير على "استلمت من الكاشير" لها بعد
+export async function getStaffBilliardsYesterdaySummary(): Promise<{
+  amount: number;
+  count: number;
+  unsettledCount: number;
+}> {
+  requireStaffSession();
+  if (!supabaseAdmin) return { amount: 0, count: 0, unsettledCount: 0 };
+
+  const startOfToday = getBusinessDayStart();
+  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+
+  const { data, error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .select("amount, settled_at")
+    .gte("paid_at", startOfYesterday.toISOString())
+    .lt("paid_at", startOfToday.toISOString());
+  if (error) {
+    console.error(error);
+    return { amount: 0, count: 0, unsettledCount: 0 };
+  }
+
+  const rows = data ?? [];
+  return {
+    amount: rows.reduce((sum, row) => sum + Number(row.amount), 0),
+    count: rows.length,
+    unsettledCount: rows.filter((row) => !row.settled_at).length,
+  };
+}
+
 // المبلغ الذي حصّله الكاشير قبل بداية اليوم التجاري الحالي ولا يزال غير مُسوّى مع
 // المدير — تذكير للكاشير في حال نسي المدير الضغط على "استلمت من الكاشير" أمس، فيبقى
 // الرقم ظاهراً له إلى أن يُسوّيه المدير من لوحة التحكم
