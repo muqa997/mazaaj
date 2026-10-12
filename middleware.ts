@@ -22,6 +22,9 @@ const BILLIARDS_INTERNAL_PATH = "/billiardspanel";
 // بمنطق next-intl (لا تحتاج بادئة لغة، عربي فقط دائماً)
 const QR_PATH = "/qrmazaaj";
 
+// صفحة بطولة الورق — نفس المبدأ: رابط قصير يُرسل للمشتركين بلا بادئة لغة
+const TOURNAMENT_PATH = "/tournament";
+
 // يتحقق من المسار السري سواء كُتب مباشرة (/xxxxx) أو مع بادئة لغة (/ar/xxxxx، /en/xxxxx) —
 // لأن المستخدم قد يكتب الرابط وهو أصلاً على صفحة بلغة معينة فتُضاف بادئتها تلقائياً
 function matchesSecretRoute(pathname: string, secretRoute: string) {
@@ -83,6 +86,11 @@ export default function middleware(request: NextRequest) {
 
   // صفحة QR الطاولات عامة ومباشرة (لا مسار سري ولا بادئة لغة next-intl)
   if (pathname === QR_PATH || pathname.startsWith(`${QR_PATH}/`)) {
+    return NextResponse.next();
+  }
+
+  // صفحة البطولة عامة ومباشرة أيضاً
+  if (pathname === TOURNAMENT_PATH || pathname.startsWith(`${TOURNAMENT_PATH}/`)) {
     return NextResponse.next();
   }
 

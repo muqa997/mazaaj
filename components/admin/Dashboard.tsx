@@ -23,12 +23,14 @@ import {
   Upload,
   CircleDot,
   Phone,
+  Trophy,
 } from "lucide-react";
 import { computePoolAmount, getBusinessDayStart, getBusinessMonthStart } from "@/lib/billiards";
 import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
+import { formatTournamentDate } from "@/lib/tournaments";
 import type {
   OrderRow,
   OrderStatus,
@@ -45,6 +47,10 @@ import type {
   BilliardsTransactionRow,
   BilliardsNoteRow,
   BilliardsTicketRow,
+  TournamentRow,
+  TournamentTeamRow,
+  TournamentInput,
+  TeamInput,
 } from "@/app/(admin)/panel/actions";
 
 type Tab =
@@ -54,6 +60,7 @@ type Tab =
   | "announcements"
   | "promos"
   | "billiards"
+  | "tournaments"
   | "applicants"
   | "jobs"
   | "suggestions";
@@ -65,6 +72,7 @@ const TAB_VALUES: Tab[] = [
   "announcements",
   "promos",
   "billiards",
+  "tournaments",
   "applicants",
   "jobs",
   "suggestions",
@@ -107,11 +115,36 @@ type DashboardProps = {
   settleBilliardsOverdue: () => Promise<{ error: string | null }>;
   getBilliardsNotes: () => Promise<BilliardsNoteRow[]>;
   getCancelledBilliardsTickets: () => Promise<BilliardsTicketRow[]>;
+  getTournaments: () => Promise<TournamentRow[]>;
+  createTournament: (input: TournamentInput) => Promise<{ error: string | null }>;
+  updateTournament: (id: string, input: TournamentInput) => Promise<{ error: string | null }>;
+  deleteTournament: (id: string) => Promise<{ error: string | null }>;
+  getTournamentTeams: () => Promise<TournamentTeamRow[]>;
+  updateTournamentTeam: (id: string, input: TeamInput) => Promise<{ error: string | null }>;
+  deleteTournamentTeam: (id: string) => Promise<{ error: string | null }>;
 };
 
 const PROMO_LABELS: Record<PromoKey, { title: string; cta: string }> = {
   trending: { title: "الرائج الآن", cta: "اطلب الآن" },
   offer: { title: "العروض", cta: "اطلب العرض" },
+};
+
+// حقل datetime-local يتعامل بالتوقيت المحلي بصيغة "YYYY-MM-DDTHH:mm" بلا منطقة زمنية،
+// فنحوّل بينه وبين ISO المخزَّن بقاعدة البيانات (المدير وجهازه على توقيت بغداد)
+const toDateTimeLocal = (iso: string) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const EMPTY_TOURNAMENT_FORM: TournamentInput = {
+  title: "بطولة ورق ٧١ خبيثة",
+  category: "71 خبيثة",
+  starts_at: "",
+  registration_closes_at: "",
+  entry_fee: 10000,
+  max_teams: null,
+  is_active: true,
 };
 
 const SUGGESTION_TYPE_LABELS: Record<string, string> = {
@@ -394,10 +427,20 @@ export default function Dashboard(props: DashboardProps) {
   const [editingCouponId, setEditingCouponId] = useState<string | null>(null);
   const [couponFormError, setCouponFormError] = useState("");
 
+  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
+  const [tournamentTeams, setTournamentTeams] = useState<TournamentTeamRow[]>([]);
+  const [tournamentForm, setTournamentForm] = useState<TournamentInput | null>(null);
+  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
+  const [tournamentFormError, setTournamentFormError] = useState("");
+  const [expandedTournamentId, setExpandedTournamentId] = useState<string | null>(null);
+  const [teamForm, setTeamForm] = useState<TeamInput | null>(null);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [teamFormError, setTeamFormError] = useState("");
+
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [o, c, a, j, s, an, pr, bt, btx, bn, bct] = await Promise.all([
+      const [o, c, a, j, s, an, pr, bt, btx, bn, bct, tr, trt] = await Promise.all([
         props.getOrders(),
         props.getCoupons(),
         props.getApplicants(),
@@ -409,6 +452,8 @@ export default function Dashboard(props: DashboardProps) {
         props.getBilliardsTransactions(),
         props.getBilliardsNotes(),
         props.getCancelledBilliardsTickets(),
+        props.getTournaments(),
+        props.getTournamentTeams(),
       ]);
       setOrders(o ?? []);
       setCoupons(c ?? []);
@@ -430,6 +475,8 @@ export default function Dashboard(props: DashboardProps) {
       setBilliardsTransactions(btx ?? []);
       setBilliardsNotes(bn ?? []);
       setBilliardsCancelledTickets(bct ?? []);
+      setTournaments(tr ?? []);
+      setTournamentTeams(trt ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -653,6 +700,117 @@ export default function Dashboard(props: DashboardProps) {
     loadAll();
   };
 
+  const startCreateTournament = () => {
+    setEditingTournamentId(null);
+    setTournamentForm(EMPTY_TOURNAMENT_FORM);
+    setTournamentFormError("");
+  };
+
+  const startEditTournament = (tournament: TournamentRow) => {
+    setEditingTournamentId(tournament.id);
+    setTournamentForm({
+      title: tournament.title,
+      category: tournament.category,
+      starts_at: toDateTimeLocal(tournament.starts_at),
+      registration_closes_at: toDateTimeLocal(tournament.registration_closes_at),
+      entry_fee: tournament.entry_fee,
+      max_teams: tournament.max_teams,
+      is_active: tournament.is_active,
+    });
+    setTournamentFormError("");
+  };
+
+  const closeTournamentForm = () => {
+    setTournamentForm(null);
+    setEditingTournamentId(null);
+    setTournamentFormError("");
+  };
+
+  const submitTournamentForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tournamentForm) return;
+
+    if (!tournamentForm.starts_at || !tournamentForm.registration_closes_at) {
+      setTournamentFormError("الرجاء تحديد موعد البطولة وموعد انتهاء التسجيل");
+      return;
+    }
+    const startsAt = new Date(tournamentForm.starts_at);
+    const closesAt = new Date(tournamentForm.registration_closes_at);
+    if (closesAt > startsAt) {
+      setTournamentFormError("انتهاء التسجيل يجب أن يكون قبل موعد البطولة أو معه");
+      return;
+    }
+
+    // الحقلان قادمان من datetime-local بالتوقيت المحلي — نحوّلهما لـ ISO قبل الحفظ
+    const payload: TournamentInput = {
+      ...tournamentForm,
+      starts_at: startsAt.toISOString(),
+      registration_closes_at: closesAt.toISOString(),
+    };
+
+    const result = editingTournamentId
+      ? await props.updateTournament(editingTournamentId, payload)
+      : await props.createTournament(payload);
+
+    if (result.error) {
+      setTournamentFormError(result.error);
+      return;
+    }
+
+    closeTournamentForm();
+    loadAll();
+  };
+
+  const removeTournament = async (tournament: TournamentRow) => {
+    const teamCount = tournamentTeams.filter((t) => t.tournament_id === tournament.id).length;
+    const confirmed = window.confirm(
+      teamCount > 0
+        ? `حذف «${tournament.title}» سيحذف معها ${teamCount} فريق مسجَّل. متأكد؟`
+        : `حذف «${tournament.title}»؟`
+    );
+    if (!confirmed) return;
+    await props.deleteTournament(tournament.id);
+    loadAll();
+  };
+
+  const startEditTeam = (team: TournamentTeamRow) => {
+    setEditingTeamId(team.id);
+    setTeamForm({
+      team_name: team.team_name,
+      player1_name: team.player1_name,
+      player2_name: team.player2_name,
+      phone: team.phone,
+    });
+    setTeamFormError("");
+  };
+
+  const closeTeamForm = () => {
+    setTeamForm(null);
+    setEditingTeamId(null);
+    setTeamFormError("");
+  };
+
+  const submitTeamForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamForm || !editingTeamId) return;
+
+    const result = await props.updateTournamentTeam(editingTeamId, teamForm);
+    if (result.error) {
+      setTeamFormError(result.error);
+      return;
+    }
+
+    closeTeamForm();
+    loadAll();
+  };
+
+  const removeTeam = async (team: TournamentTeamRow) => {
+    const confirmed = window.confirm(`حذف فريق «${team.team_name}» من البطولة؟`);
+    if (!confirmed) return;
+    await props.deleteTournamentTeam(team.id);
+    loadAll();
+  };
+
   const savePromoTarget = async (key: PromoKey) => {
     setPromoSavingKey(key);
     setPromoError((prev) => ({ ...prev, [key]: "" }));
@@ -686,6 +844,7 @@ export default function Dashboard(props: DashboardProps) {
     { key: "overview", label: "الرئيسية", icon: LayoutGrid },
     { key: "orders", label: "الطلبات", icon: ClipboardList },
     { key: "billiards", label: "البلياردو", icon: CircleDot },
+    { key: "tournaments", label: "البطولات", icon: Trophy },
     { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "coupons", label: "الكوبونات", icon: Ticket },
     { key: "announcements", label: "الإعلانات", icon: Megaphone },
@@ -1679,6 +1838,349 @@ export default function Dashboard(props: DashboardProps) {
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {tab === "tournaments" && (
+              <div>
+                <p className="mb-4 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3 text-xs text-primary/60">
+                  رابط صفحة البطولة للمشاركة:{" "}
+                  <span dir="ltr" className="font-bold text-accent">
+                    mazaajcafe.com/tournament
+                  </span>
+                  <br />
+                  تظهر بالصفحة الرئيسية وبهذا الرابط البطولة <b>المفعّلة</b> الأقرب موعداً.
+                </p>
+
+                {!tournamentForm && (
+                  <button
+                    type="button"
+                    onClick={startCreateTournament}
+                    className="mb-5 flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-background"
+                  >
+                    <Plus size={16} />
+                    إضافة بطولة
+                  </button>
+                )}
+
+                {tournamentForm && (
+                  <form
+                    onSubmit={submitTournamentForm}
+                    className="mb-6 flex flex-col gap-3 rounded-2xl border border-primary/10 bg-background p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-primary">
+                        {editingTournamentId ? "تعديل بطولة" : "بطولة جديدة"}
+                      </h3>
+                      <button type="button" onClick={closeTournamentForm}>
+                        <X size={18} className="text-primary/50" />
+                      </button>
+                    </div>
+
+                    <input
+                      required
+                      placeholder="اسم البطولة"
+                      value={tournamentForm.title}
+                      onChange={(e) =>
+                        setTournamentForm({ ...tournamentForm, title: e.target.value })
+                      }
+                      className="rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                    />
+
+                    <input
+                      required
+                      placeholder="صنف البطولة (مثلاً: 71 خبيثة)"
+                      value={tournamentForm.category}
+                      onChange={(e) =>
+                        setTournamentForm({ ...tournamentForm, category: e.target.value })
+                      }
+                      className="rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                    />
+
+                    <label className="text-xs font-semibold text-primary/60">
+                      موعد البطولة
+                      <input
+                        required
+                        type="datetime-local"
+                        value={tournamentForm.starts_at}
+                        onChange={(e) =>
+                          setTournamentForm({ ...tournamentForm, starts_at: e.target.value })
+                        }
+                        className="mt-1 w-full rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                      />
+                    </label>
+
+                    <label className="text-xs font-semibold text-primary/60">
+                      انتهاء التسجيل
+                      <input
+                        required
+                        type="datetime-local"
+                        value={tournamentForm.registration_closes_at}
+                        onChange={(e) =>
+                          setTournamentForm({
+                            ...tournamentForm,
+                            registration_closes_at: e.target.value,
+                          })
+                        }
+                        className="mt-1 w-full rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                      />
+                    </label>
+
+                    <label className="text-xs font-semibold text-primary/60">
+                      سعر الاشتراك للفريق (د.ع)
+                      <input
+                        required
+                        type="number"
+                        min={0}
+                        value={tournamentForm.entry_fee}
+                        onChange={(e) =>
+                          setTournamentForm({
+                            ...tournamentForm,
+                            entry_fee: Number(e.target.value),
+                          })
+                        }
+                        className="mt-1 w-full rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                      />
+                    </label>
+
+                    <label className="text-xs font-semibold text-primary/60">
+                      حد أقصى للفرق (اتركه فارغاً = مفتوح)
+                      <input
+                        type="number"
+                        min={1}
+                        value={tournamentForm.max_teams ?? ""}
+                        onChange={(e) =>
+                          setTournamentForm({
+                            ...tournamentForm,
+                            max_teams: e.target.value ? Number(e.target.value) : null,
+                          })
+                        }
+                        className="mt-1 w-full rounded-xl border border-primary/15 bg-background px-4 py-2.5 text-sm text-primary"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTournamentForm({
+                          ...tournamentForm,
+                          is_active: !tournamentForm.is_active,
+                        })
+                      }
+                      className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                        tournamentForm.is_active
+                          ? "bg-primary text-background"
+                          : "bg-primary/5 text-primary/60"
+                      }`}
+                    >
+                      {tournamentForm.is_active ? "مفعّلة — تظهر بالموقع" : "غير مفعّلة — مخفية"}
+                    </button>
+
+                    {tournamentFormError && (
+                      <p className="text-sm text-red-500">{tournamentFormError}</p>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-background"
+                    >
+                      {editingTournamentId ? "حفظ التعديلات" : "إضافة البطولة"}
+                    </button>
+                  </form>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {tournaments.length === 0 && (
+                    <p className="py-10 text-center text-primary/50">لا توجد بطولات بعد</p>
+                  )}
+                  {tournaments.map((tournament) => {
+                    const teams = tournamentTeams.filter(
+                      (t) => t.tournament_id === tournament.id
+                    );
+                    const isExpanded = expandedTournamentId === tournament.id;
+                    return (
+                      <div
+                        key={tournament.id}
+                        className="rounded-2xl border border-primary/10 bg-background p-4"
+                      >
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <p className="font-bold text-primary">{tournament.title}</p>
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                                  tournament.is_active
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-primary/5 text-primary/50"
+                                }`}
+                              >
+                                {tournament.is_active ? "مفعّلة" : "مخفية"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-primary/60">
+                              {tournament.category} — {formatTournamentDate(tournament.starts_at)}
+                            </p>
+                            <p className="mt-1 text-xs text-primary/50">
+                              ينتهي التسجيل:{" "}
+                              {formatTournamentDate(tournament.registration_closes_at)}
+                            </p>
+                            <p className="mt-1 text-xs text-primary/50">
+                              الاشتراك {tournament.entry_fee.toLocaleString("en-US")} د.ع
+                              {tournament.max_teams !== null &&
+                                ` — حد أقصى ${tournament.max_teams.toLocaleString("en-US")} فريق`}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditTournament(tournament)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5"
+                            >
+                              <Pencil size={14} className="text-primary/60" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeTournament(tournament)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5"
+                            >
+                              <Trash2 size={14} className="text-red-500/70" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedTournamentId(isExpanded ? null : tournament.id);
+                            closeTeamForm();
+                          }}
+                          className="flex w-full items-center justify-between rounded-xl bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary"
+                        >
+                          <span>المشتركون ({teams.length.toLocaleString("en-US")})</span>
+                          <ChevronDown
+                            size={16}
+                            className={`text-primary/50 transition-transform ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-3 flex flex-col gap-2">
+                            {teams.length === 0 && (
+                              <p className="py-4 text-center text-sm text-primary/50">
+                                لا يوجد مشتركون بعد
+                              </p>
+                            )}
+                            {teams.map((team, index) =>
+                              editingTeamId === team.id && teamForm ? (
+                                <form
+                                  key={team.id}
+                                  onSubmit={submitTeamForm}
+                                  className="flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 p-3"
+                                >
+                                  <input
+                                    required
+                                    value={teamForm.team_name}
+                                    onChange={(e) =>
+                                      setTeamForm({ ...teamForm, team_name: e.target.value })
+                                    }
+                                    placeholder="اسم الفريق"
+                                    className="rounded-lg border border-primary/15 bg-background px-3 py-2 text-sm text-primary"
+                                  />
+                                  <input
+                                    required
+                                    value={teamForm.player1_name}
+                                    onChange={(e) =>
+                                      setTeamForm({ ...teamForm, player1_name: e.target.value })
+                                    }
+                                    placeholder="اللاعب الأول"
+                                    className="rounded-lg border border-primary/15 bg-background px-3 py-2 text-sm text-primary"
+                                  />
+                                  <input
+                                    required
+                                    value={teamForm.player2_name}
+                                    onChange={(e) =>
+                                      setTeamForm({ ...teamForm, player2_name: e.target.value })
+                                    }
+                                    placeholder="اللاعب الثاني"
+                                    className="rounded-lg border border-primary/15 bg-background px-3 py-2 text-sm text-primary"
+                                  />
+                                  <input
+                                    required
+                                    dir="ltr"
+                                    value={teamForm.phone}
+                                    onChange={(e) =>
+                                      setTeamForm({ ...teamForm, phone: e.target.value })
+                                    }
+                                    placeholder="07XXXXXXXXX"
+                                    className="rounded-lg border border-primary/15 bg-background px-3 py-2 text-start text-sm text-primary"
+                                  />
+                                  {teamFormError && (
+                                    <p className="text-xs text-red-500">{teamFormError}</p>
+                                  )}
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="submit"
+                                      className="flex-1 rounded-full bg-primary py-2 text-xs font-bold text-background"
+                                    >
+                                      حفظ
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={closeTeamForm}
+                                      className="rounded-full bg-primary/5 px-4 py-2 text-xs font-bold text-primary/60"
+                                    >
+                                      إلغاء
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <div
+                                  key={team.id}
+                                  className="flex items-start justify-between gap-3 rounded-xl bg-primary/5 px-3 py-2.5"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-bold text-primary">
+                                      {index + 1}. {team.team_name}
+                                    </p>
+                                    <p className="text-xs text-primary/60">
+                                      {team.player1_name} و {team.player2_name}
+                                    </p>
+                                    <a
+                                      href={`tel:${team.phone}`}
+                                      dir="ltr"
+                                      className="mt-1 flex items-center gap-1 text-xs font-semibold text-accent"
+                                    >
+                                      <Phone size={12} />
+                                      {team.phone}
+                                    </a>
+                                  </div>
+                                  <div className="flex shrink-0 items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditTeam(team)}
+                                      className="flex h-7 w-7 items-center justify-center rounded-full bg-background"
+                                    >
+                                      <Pencil size={12} className="text-primary/60" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeTeam(team)}
+                                      className="flex h-7 w-7 items-center justify-center rounded-full bg-background"
+                                    >
+                                      <Trash2 size={12} className="text-red-500/70" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

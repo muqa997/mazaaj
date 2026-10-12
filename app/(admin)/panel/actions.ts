@@ -13,10 +13,18 @@ import {
   type BilliardsNoteRow,
   type BilliardsTicketRow,
 } from "@/lib/billiards";
+import {
+  normalizeIraqiPhone,
+  type TeamInput,
+  type TournamentInput,
+  type TournamentRow,
+  type TournamentTeamRow,
+} from "@/lib/tournaments";
 
 export type { OrderRow, OrderStatus };
 export type { BilliardsTableRow, BilliardsTransactionRow, BilliardsNoteRow, BilliardsTicketRow };
 export type { PromoKey, PromoRow };
+export type { TournamentRow, TournamentTeamRow, TournamentInput, TeamInput };
 
 export async function login(code: string): Promise<{ success: boolean }> {
   const expected = process.env.ADMIN_ACCESS_CODE;
@@ -453,4 +461,85 @@ export async function getCancelledBilliardsTickets(): Promise<BilliardsTicketRow
     return [];
   }
   return (data ?? []) as BilliardsTicketRow[];
+}
+
+// ===== بطولات الورق =====
+
+export async function getTournaments(): Promise<TournamentRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("card_tournaments")
+    .select("*")
+    .order("starts_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as TournamentRow[];
+}
+
+export async function createTournament(input: TournamentInput) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("card_tournaments").insert(input);
+  return { error: toArabicError(error) };
+}
+
+export async function updateTournament(id: string, input: TournamentInput) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("card_tournaments").update(input).eq("id", id);
+  return { error: toArabicError(error) };
+}
+
+// حذف البطولة يحذف معها فرقها المسجَّلة (ON DELETE CASCADE بقاعدة البيانات)
+export async function deleteTournament(id: string) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("card_tournaments").delete().eq("id", id);
+  return { error: toArabicError(error) };
+}
+
+export async function getTournamentTeams(): Promise<TournamentTeamRow[]> {
+  requireSession();
+  if (!supabaseAdmin) return [];
+  const { data, error } = await supabaseAdmin
+    .from("card_tournament_teams")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data ?? []) as TournamentTeamRow[];
+}
+
+export async function updateTournamentTeam(id: string, input: TeamInput) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const phone = normalizeIraqiPhone(input.phone);
+  if (!phone) return { error: "رقم الموبايل غير صحيح — اكتبه بصيغة 07XXXXXXXXX" };
+  if (!input.team_name.trim() || !input.player1_name.trim() || !input.player2_name.trim()) {
+    return { error: "الرجاء تعبئة اسم الفريق واسمي اللاعبين" };
+  }
+
+  const { error } = await supabaseAdmin
+    .from("card_tournament_teams")
+    .update({
+      team_name: input.team_name.trim(),
+      player1_name: input.player1_name.trim(),
+      player2_name: input.player2_name.trim(),
+      phone,
+    })
+    .eq("id", id);
+  return { error: toArabicError(error) };
+}
+
+export async function deleteTournamentTeam(id: string) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin.from("card_tournament_teams").delete().eq("id", id);
+  return { error: toArabicError(error) };
 }

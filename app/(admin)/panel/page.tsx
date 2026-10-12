@@ -32,6 +32,13 @@ import {
   settleBilliardsOverdue,
   getBilliardsNotes,
   getCancelledBilliardsTickets,
+  getTournaments,
+  createTournament,
+  updateTournament,
+  deleteTournament,
+  getTournamentTeams,
+  updateTournamentTeam,
+  deleteTournamentTeam,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
@@ -78,6 +85,13 @@ export default async function AdminPage() {
       settleBilliardsOverdue={settleBilliardsOverdue}
       getBilliardsNotes={getBilliardsNotes}
       getCancelledBilliardsTickets={getCancelledBilliardsTickets}
+      getTournaments={getTournaments}
+      createTournament={createTournament}
+      updateTournament={updateTournament}
+      deleteTournament={deleteTournament}
+      getTournamentTeams={getTournamentTeams}
+      updateTournamentTeam={updateTournamentTeam}
+      deleteTournamentTeam={deleteTournamentTeam}
     />
   );
 }
