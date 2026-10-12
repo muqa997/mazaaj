@@ -9,6 +9,7 @@ import {
   type BilliardsTicketRow,
   type BilliardsNoteRow,
 } from "@/lib/billiards";
+import PullToRefresh from "./PullToRefresh";
 
 const POLL_INTERVAL_MS = 1200;
 
@@ -284,7 +285,8 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const maxTablePool = Math.max(1, ...stats.perTable.flatMap((t) => [t.eight, t.nine]));
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <PullToRefresh onRefresh={load}>
+      <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary/10 bg-background px-4 py-3 sm:px-6">
         <span className="font-extrabold text-primary">صالة البلياردو</span>
         <button
@@ -594,6 +596,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
