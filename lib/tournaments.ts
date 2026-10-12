@@ -14,10 +14,10 @@ export type TournamentRow = {
   created_at: string;
 };
 
+// لا يوجد "اسم فريق" — الفريق يُعرَّف باسمي لاعبيه فقط
 export type TournamentTeamRow = {
   id: string;
   tournament_id: string;
-  team_name: string;
   player1_name: string;
   player2_name: string;
   phone: string;
@@ -35,11 +35,13 @@ export type TournamentInput = {
 };
 
 export type TeamInput = {
-  team_name: string;
   player1_name: string;
   player2_name: string;
   phone: string;
 };
+
+export const teamLabel = (team: { player1_name: string; player2_name: string }) =>
+  `${team.player1_name} و ${team.player2_name}`;
 
 // قوانين اللعبة كما أملاها صاحب الكافيه — تظهر أسفل صفحة البطولة للمشتركين
 export const TOURNAMENT_RULES: { title: string; items: string[] }[] = [

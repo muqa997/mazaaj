@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { Cairo } from "next/font/google";
+import { Tajawal } from "next/font/google";
 import "../globals.css";
 
-const cairo = Cairo({
+// خط مختلف عن بقية الموقع عمداً: «تجوال» هندسي حديث وأوزانه تصل 900، فيعطي عناوين
+// عريضة قوية بأسلوب مينمال — وعائلة واحدة فقط لتبقى الصفحة خفيفة على الجوال
+const tajawal = Tajawal({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-cairo",
+  weight: ["400", "500", "700", "800", "900"],
+  variable: "--font-tajawal",
   display: "swap",
 });
 
@@ -18,8 +20,13 @@ export const metadata: Metadata = {
 // مسارات اللغة لأنها موجّهة لزبائن محليين بالعربية فقط، فلا تحتاج نسخة إنجليزية
 export default function TournamentLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={cairo.variable}>
-      <body className="min-h-screen bg-background text-primary antialiased">{children}</body>
+    <html lang="ar" dir="rtl" className={tajawal.variable}>
+      <body
+        className="min-h-screen bg-background text-primary antialiased"
+        style={{ fontFamily: "var(--font-tajawal), sans-serif" }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

@@ -506,7 +506,7 @@ export async function getTournamentTeams(): Promise<TournamentTeamRow[]> {
   if (!supabaseAdmin) return [];
   const { data, error } = await supabaseAdmin
     .from("card_tournament_teams")
-    .select("*")
+    .select("id, tournament_id, player1_name, player2_name, phone, created_at")
     .order("created_at", { ascending: true });
   if (error) {
     console.error(error);
@@ -521,14 +521,13 @@ export async function updateTournamentTeam(id: string, input: TeamInput) {
 
   const phone = normalizeIraqiPhone(input.phone);
   if (!phone) return { error: "رقم الموبايل غير صحيح — اكتبه بصيغة 07XXXXXXXXX" };
-  if (!input.team_name.trim() || !input.player1_name.trim() || !input.player2_name.trim()) {
-    return { error: "الرجاء تعبئة اسم الفريق واسمي اللاعبين" };
+  if (!input.player1_name.trim() || !input.player2_name.trim()) {
+    return { error: "الرجاء كتابة اسمي اللاعبين" };
   }
 
   const { error } = await supabaseAdmin
     .from("card_tournament_teams")
     .update({
-      team_name: input.team_name.trim(),
       player1_name: input.player1_name.trim(),
       player2_name: input.player2_name.trim(),
       phone,

@@ -11,12 +11,11 @@ export async function registerTeam(
 ): Promise<{ error: string | null }> {
   if (!supabaseAdmin) return { error: "التسجيل غير متاح حالياً، حاول لاحقاً" };
 
-  const teamName = input.team_name.trim();
   const player1 = input.player1_name.trim();
   const player2 = input.player2_name.trim();
 
-  if (!teamName || !player1 || !player2) {
-    return { error: "الرجاء تعبئة اسم الفريق واسمي اللاعبين" };
+  if (!player1 || !player2) {
+    return { error: "الرجاء كتابة اسمي اللاعبين" };
   }
 
   const phone = normalizeIraqiPhone(input.phone);
@@ -57,7 +56,6 @@ export async function registerTeam(
 
   const { error } = await supabaseAdmin.from("card_tournament_teams").insert({
     tournament_id: tournamentId,
-    team_name: teamName,
     player1_name: player1,
     player2_name: player2,
     phone,

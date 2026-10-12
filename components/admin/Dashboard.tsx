@@ -30,7 +30,7 @@ import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-o
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
-import { formatTournamentDate } from "@/lib/tournaments";
+import { formatTournamentDate, teamLabel } from "@/lib/tournaments";
 import type {
   OrderRow,
   OrderStatus,
@@ -776,7 +776,6 @@ export default function Dashboard(props: DashboardProps) {
   const startEditTeam = (team: TournamentTeamRow) => {
     setEditingTeamId(team.id);
     setTeamForm({
-      team_name: team.team_name,
       player1_name: team.player1_name,
       player2_name: team.player2_name,
       phone: team.phone,
@@ -805,7 +804,7 @@ export default function Dashboard(props: DashboardProps) {
   };
 
   const removeTeam = async (team: TournamentTeamRow) => {
-    const confirmed = window.confirm(`حذف فريق «${team.team_name}» من البطولة؟`);
+    const confirmed = window.confirm(`حذف فريق «${teamLabel(team)}» من البطولة؟`);
     if (!confirmed) return;
     await props.deleteTournamentTeam(team.id);
     loadAll();
@@ -2082,15 +2081,6 @@ export default function Dashboard(props: DashboardProps) {
                                 >
                                   <input
                                     required
-                                    value={teamForm.team_name}
-                                    onChange={(e) =>
-                                      setTeamForm({ ...teamForm, team_name: e.target.value })
-                                    }
-                                    placeholder="اسم الفريق"
-                                    className="rounded-lg border border-primary/15 bg-background px-3 py-2 text-sm text-primary"
-                                  />
-                                  <input
-                                    required
                                     value={teamForm.player1_name}
                                     onChange={(e) =>
                                       setTeamForm({ ...teamForm, player1_name: e.target.value })
@@ -2143,10 +2133,7 @@ export default function Dashboard(props: DashboardProps) {
                                 >
                                   <div className="min-w-0">
                                     <p className="text-sm font-bold text-primary">
-                                      {index + 1}. {team.team_name}
-                                    </p>
-                                    <p className="text-xs text-primary/60">
-                                      {team.player1_name} و {team.player2_name}
+                                      {index + 1}. {teamLabel(team)}
                                     </p>
                                     <a
                                       href={`tel:${team.phone}`}
