@@ -112,27 +112,38 @@ export async function updateCustomerRef(tableNumber: number, customerRef: string
 // إنهاء الجلسة: يفصل كيمات الطاولة الحالية (٨ بول و٩ بول معاً) عن عداد الطاولة الحي
 // في "تذكرة" مستقلة بانتظار الدفع عند الكاشير حصراً — وتُصفَّر الطاولة فوراً لتصبح
 // جاهزة لزبون جديد بدون انتظار الدفع. وظيفة الموظف تقتصر على تسجيل الكيمات وإصدار
-// الفاتورة؛ لا يدفعها ولا يلغيها بنفسه — الكاشير وحده من يفعل ذلك من صفحته
-export async function endSession(tableNumber: number, customerRef: string) {
+// الفاتورة؛ لا يدفعها ولا يلغيها بنفسه — الكاشير وحده من يفعل ذلك من صفحته.
+//
+// الكيمات تأتي **من الشاشة** لا من قراءة جديدة للطاولة: الشاشة هي ما رآه الموظف وبنى
+// عليه قراره. القراءة من قاعدة البيانات هنا كانت سبب ضياع فواتير حقيقية — لو ضغط
+// الموظف "إنهاء" قبل أن تصل آخر كتابة للعدّاد، كان الخادم يقرأ صفراً ويخرج بصمت بلا
+// فاتورة، ثم تصل الكتابة المتأخرة فتُرجع الكيمات للطاولة وكأن شيئاً لم يكن
+export async function endSession(
+  tableNumber: number,
+  customerRef: string,
+  counts: { eight: number; nine: number }
+) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
-  const { data, error: fetchError } = await supabaseAdmin
-    .from("billiards_tables")
-    .select("games_count, games_count_9ball")
-    .eq("table_number", tableNumber)
-    .single();
-  if (fetchError || !data) return { error: "تعذّر إيجاد الطاولة" };
-  if (data.games_count === 0 && data.games_count_9ball === 0) return { error: null };
+
+  const eight = Math.max(0, Math.floor(counts.eight));
+  const nine = Math.max(0, Math.floor(counts.nine));
+  // خطأ صريح بدل نجاح صامت: الموظف لازم يشوف أن لا فاتورة صدرت
+  if (eight === 0 && nine === 0) return { error: "لا توجد كيمات لإنهاء الجلسة" };
 
   const { error: ticketError } = await supabaseAdmin.from("billiards_tickets").insert({
     table_number: tableNumber,
-    games_count: data.games_count,
-    games_count_9ball: data.games_count_9ball,
-    amount: computePoolAmount(data.games_count, data.games_count_9ball),
+    games_count: eight,
+    games_count_9ball: nine,
+    amount: computePoolAmount(eight, nine),
     customer_ref: customerRef.trim() || null,
   });
-  if (ticketError) return { error: "حدث خطأ أثناء إنشاء التذكرة" };
+  if (ticketError) {
+    console.error(ticketError);
+    return { error: "حدث خطأ أثناء إنشاء الفاتورة — لم تُصفَّر الطاولة" };
+  }
 
+  // التصفير بعد نجاح الفاتورة حصراً، فلا تضيع كيمات بلا فاتورة مقابلها
   const { error } = await supabaseAdmin
     .from("billiards_tables")
     .update({
@@ -142,7 +153,10 @@ export async function endSession(tableNumber: number, customerRef: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("table_number", tableNumber);
-  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء التصفير" : null });
+  if (error) console.error(error);
+  return signalOnSuccess("billiards", {
+    error: error ? "صدرت الفاتورة لكن تعذّر تصفير الطاولة — صفّرها يدوياً" : null,
+  });
 }
 
 // التذاكر التي أنشأها الموظف بإنهاء الجلسة — يدفعها الكاشير حصراً، لكن يستطيع الموظف

@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
-import { useSyncSignal } from "@/lib/use-sync-signal";
-import { useNewOrderAlert } from "@/lib/use-new-order-alert";
+import { LogOut, Trash2, MessageSquare, ChevronDown, RefreshCw } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
@@ -38,9 +36,12 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  // دالة تحديث بطاقة البلياردو، تُسجّلها البطاقة عند أول عرض
+  const reloadBilliardsRef = useRef<(() => Promise<void>) | null>(null);
 
-  // showSpinner=false للتحديثات التلقائية: بدونها تومض القائمة "جاري التحميل" كل مرة
-  // تصل إشارة، فتبدو الصفحة مضطربة ويفقد الكاشير مكانه بالقائمة
+  // showSpinner=false عند التحديث اليدوي: بدونها تومض القائمة "جاري التحميل" في كل
+  // ضغطة، فتبدو الصفحة مضطربة ويفقد الكاشير مكانه بالقائمة
   const loadOrders = useCallback(
     async (showSpinner = false) => {
       if (showSpinner) setLoading(true);
@@ -63,12 +64,16 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // تحديث لحظي فور وصول إشارة "تغيّرت الطلبات" (طلب جديد من الموقع، أو تغيير من
-  // لوحة التحكم)، مع مؤقّت احتياطي بطيء لو انقطع الاتصال
-  useSyncSignal("orders", loadOrders);
-
-  const orderIds = useMemo(() => orders.map((o) => o.id), [orders]);
-  useNewOrderAlert(orderIds);
+  // لا تحديث تلقائي ولا استطلاع دوري — الكاشير يحدّث بالزر الكبير أدناه. زر واحد
+  // يحدّث التبويبين معاً، فلا يفوته شيء لمجرد أنه كان على التبويب الآخر
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadOrders(), reloadBilliardsRef.current?.()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleLogout = async () => {
     await props.logoutAction();
@@ -125,8 +130,21 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+        <button
+          type="button"
+          onClick={handleManualRefresh}
+          disabled={refreshing}
+          className="mb-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-lg font-extrabold text-background shadow-glass active:scale-[0.98] disabled:opacity-60"
+        >
+          <RefreshCw size={22} className={refreshing ? "animate-spin" : ""} />
+          {refreshing ? "جاري التحديث..." : "تحديث الصفحة"}
+        </button>
+
         {tab === "billiards" && (
           <BilliardsSummaryCard
+            registerReload={(reload) => {
+              reloadBilliardsRef.current = reload;
+            }}
             getBilliardsTables={props.getBilliardsTables}
             getPendingTickets={props.getPendingTickets}
             payTicket={props.payTicket}

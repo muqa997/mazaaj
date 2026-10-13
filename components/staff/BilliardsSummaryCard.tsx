@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Wallet, X } from "lucide-react";
 import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
-import { useSyncSignal } from "@/lib/use-sync-signal";
 
 type YesterdaySummary = { amount: number; count: number; unsettledCount: number };
 
@@ -16,6 +15,8 @@ type BilliardsSummaryCardProps = {
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
   getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number }>;
   getBilliardsYesterdaySummary: () => Promise<YesterdaySummary>;
+  // تُسلّم دالة التحديث لصفحة الكاشير ليشغّلها زر "تحديث" الكبير — لا تحديث تلقائي
+  registerReload?: (reload: () => Promise<void>) => void;
 };
 
 function ActiveDot() {
@@ -109,14 +110,17 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const registerReload = props.registerReload;
+  const registeredRef = useRef(false);
+
   useEffect(() => {
     load();
+    if (!registeredRef.current) {
+      registeredRef.current = true;
+      registerReload?.(load);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // تحديث لحظي فور أي تغيير بالبلياردو (موظف البلياردو زاد كيماً أو أنهى جلسة،
-  // أو المدير سوّى الحساب) بدل انتظار دورة كاملة
-  useSyncSignal("billiards", load);
 
   const handlePay = async (ticketId: string) => {
     setBusyTicket(ticketId);

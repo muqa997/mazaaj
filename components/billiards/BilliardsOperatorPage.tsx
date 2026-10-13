@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Minus, Send, Trash2, X } from "lucide-react";
+import { LogOut, Plus, Minus, Send, Trash2, X, RefreshCw } from "lucide-react";
 import {
   computePoolAmount,
   type BilliardsTableRow,
@@ -10,7 +10,6 @@ import {
   type BilliardsNoteRow,
 } from "@/lib/billiards";
 import PullToRefresh from "./PullToRefresh";
-import { useSyncSignal } from "@/lib/use-sync-signal";
 
 type PoolType = "eight" | "nine";
 type PoolCounts = { eight: number; nine: number };
@@ -38,7 +37,11 @@ type BilliardsOperatorPageProps = {
   getTables: () => Promise<BilliardsTableRow[]>;
   setGameCount: (tableNumber: number, pool: PoolType, count: number) => Promise<{ error: string | null }>;
   updateCustomerRef: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
-  endSession: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
+  endSession: (
+    tableNumber: number,
+    customerRef: string,
+    counts: { eight: number; nine: number }
+  ) => Promise<{ error: string | null }>;
   getPendingTickets: () => Promise<BilliardsTicketRow[]>;
   cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
   getStats: () => Promise<OperatorStats>;
@@ -92,12 +95,14 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const [customerRefs, setCustomerRefs] = useState<Record<number, string>>({});
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const focusedTableRef = useRef<number | null>(null);
   // كاتب متسلسل لكل عدّاد (طاولة+قسم): كتابة واحدة بالتنفيذ، وآخر قيمة مطلوبة بالانتظار.
   // أول ضغطة تُرسل فوراً (بلا تأخير)، والضغطات السريعة بعدها تُدمج بكتابة واحدة لاحقة،
   // ولأن الكتابات متسلسلة لا يمكن أن تصل قيمة قديمة بعد حديثة فتُفسد العدّاد
   const counterWritersRef = useRef<
-    Record<string, { inFlight: boolean; queued: number | null }>
+    Record<string, { queued: number | null; running: Promise<void> | null }>
   >({});
   // طابور "نداء واحد بالتنفيذ + نداء واحد لاحق مضمون": يمنع تداخل طلبين لنفس الدالة (فلا
   // يصل رد بترتيب خاطئ فيمحو تحديثاً أحدث)، لكنه لا يُسقط أي نداء وصل أثناء التنفيذ —
@@ -138,7 +143,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
             if (!prevTable) return freshTable;
             const isPending = (pool: PoolType) => {
               const writer = counterWritersRef.current[`${freshTable.table_number}:${pool}`];
-              return !!writer && (writer.inFlight || writer.queued !== null);
+              return !!writer && (writer.running !== null || writer.queued !== null);
             };
             const eightPending = isPending("eight");
             const ninePending = isPending("nine");
@@ -182,10 +187,6 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // تحديث لحظي فور وصول إشارة "تغيّر البلياردو" من أي جهاز (الكاشير، لوحة التحكم،
-  // أو جهاز آخر يفتح نفس الصفحة)، مع استطلاع احتياطي بطيء لو انقطع اتصال الإشارات
-  useSyncSignal("billiards", load);
-
   const handleLogout = async () => {
     await props.logoutAction();
     router.refresh();
@@ -211,12 +212,11 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
 
     const key = `${tableNumber}:${pool}`;
     const writers = counterWritersRef.current;
-    const writer = (writers[key] = writers[key] ?? { inFlight: false, queued: null });
+    const writer = (writers[key] = writers[key] ?? { queued: null, running: null });
     writer.queued = nextCount;
-    if (writer.inFlight) return;
+    if (writer.running) return;
 
-    writer.inFlight = true;
-    void (async () => {
+    writer.running = (async () => {
       try {
         // يبقى العدّاد "معلّقاً" حتى تنتهي آخر كتابة، فلا يستبدل أي تحديث قادم من
         // الخادم الرقمَ المحلي بقيمة قديمة ما دامت كتابتنا لا تزال بالطريق
@@ -226,9 +226,17 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           await props.setGameCount(tableNumber, pool, value);
         }
       } finally {
-        writer.inFlight = false;
+        writer.running = null;
       }
     })();
+  };
+
+  // ينتظر وصول كل كتابات عدّادات هذه الطاولة للخادم. يُستدعى قبل إنهاء الجلسة: بدونه
+  // قد تصل كتابة متأخرة بعد تصفير الطاولة فتُرجع الكيمات وكأن الجلسة لم تنتهِ
+  const flushCounters = async (tableNumber: number) => {
+    for (const pool of ["eight", "nine"] as const) {
+      await counterWritersRef.current[`${tableNumber}:${pool}`]?.running;
+    }
   };
 
   const handleCustomerRefBlur = async (tableNumber: number) => {
@@ -236,13 +244,28 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     await props.updateCustomerRef(tableNumber, customerRefs[tableNumber] ?? "");
   };
 
-  // تحديث تفاؤلي فوري (نفس أسلوب عدّادات الكيمات): تُصفَّر الطاولة وتظهر الفاتورة
-  // بقائمة "الفواتير المعلّقة" بالواجهة لحظة الضغط بدل انتظار رد الخادم بالكامل —
-  // ثم loadCore بالخلفية يستبدل الفاتورة المؤقتة بالحقيقية (معرّف حقيقي) للتأكد والمزامنة
+  // إنهاء الجلسة بلا ضياع: ننتظر أولاً وصول كل كتابات العدّادات للخادم، ثم نرسل
+  // الكيمات **كما هي على الشاشة** (هي ما رآه الموظف). إن فشل الخادم نتراجع عن التحديث
+  // التفاؤلي ونُظهر السبب — بدل أن تومض الفاتورة ثم تختفي بصمت كما كان يحصل
   const handleEndSession = async (tableNumber: number) => {
     const table = tables.find((t) => t.table_number === tableNumber);
     if (!table) return;
+
     setBusyTable(tableNumber);
+    setErrorMsg(null);
+    await flushCounters(tableNumber);
+
+    const eight = table.games_count;
+    const nine = table.games_count_9ball;
+    if (eight === 0 && nine === 0) {
+      setErrorMsg("لا توجد كيمات لإنهاء الجلسة");
+      setBusyTable(null);
+      return;
+    }
+
+    const customerRef = customerRefs[tableNumber]?.trim() || null;
+    const tempId = `temp-${Date.now()}`;
+
     setTables((prev) =>
       prev.map((t) =>
         t.table_number === tableNumber
@@ -253,20 +276,45 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     setPendingTickets((prev) => [
       ...prev,
       {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         table_number: tableNumber,
-        games_count: table.games_count,
-        games_count_9ball: table.games_count_9ball,
-        amount: computePoolAmount(table.games_count, table.games_count_9ball),
-        customer_ref: customerRefs[tableNumber]?.trim() || null,
+        games_count: eight,
+        games_count_9ball: nine,
+        amount: computePoolAmount(eight, nine),
+        customer_ref: customerRef,
         created_at: new Date().toISOString(),
         cancelled_at: null,
         cancel_reason: null,
       },
     ]);
-    await props.endSession(tableNumber, customerRefs[tableNumber] ?? "");
-    await loadCore();
+
+    const { error } = await props.endSession(tableNumber, customerRef ?? "", { eight, nine });
+
+    if (error) {
+      // تراجع كامل: ترجع الكيمات للطاولة وتختفي الفاتورة المؤقتة، ويظهر السبب
+      setTables((prev) =>
+        prev.map((t) =>
+          t.table_number === tableNumber
+            ? { ...t, games_count: eight, games_count_9ball: nine, customer_ref: customerRef }
+            : t
+        )
+      );
+      setPendingTickets((prev) => prev.filter((t) => t.id !== tempId));
+      setErrorMsg(error);
+    } else {
+      await loadCore();
+    }
     setBusyTable(null);
+  };
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    setErrorMsg(null);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // إلغاء بدون دفع — بدون سبب إلزامي (بعكس إلغاء الكاشير)، لتصحيح خطأ عرضي سريعاً
@@ -316,6 +364,31 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-28 sm:px-6">
+        {/* التحديث يدوي بالكامل (بالسحب للأسفل أو بهذا الزر) — لا استطلاع تلقائي */}
+        <button
+          type="button"
+          onClick={handleManualRefresh}
+          disabled={refreshing}
+          className="mb-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-lg font-extrabold text-background shadow-glass active:scale-[0.98] disabled:opacity-60"
+        >
+          <RefreshCw size={22} className={refreshing ? "animate-spin" : ""} />
+          {refreshing ? "جاري التحديث..." : "تحديث الصفحة"}
+        </button>
+
+        {errorMsg && (
+          <div className="mb-5 flex items-start justify-between gap-3 rounded-2xl border border-red-300 bg-red-50 px-4 py-3">
+            <p className="text-sm font-bold text-red-700">{errorMsg}</p>
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              aria-label="إخفاء التنبيه"
+              className="shrink-0 text-red-700"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <p className="py-10 text-center text-primary/50">جاري التحميل...</p>
         ) : (
