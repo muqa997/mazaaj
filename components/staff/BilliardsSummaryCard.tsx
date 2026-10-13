@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Eye, EyeOff, Wallet, X } from "lucide-react";
 import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
-
-const POLL_INTERVAL_MS = 3000;
+import { useSyncSignal } from "@/lib/use-sync-signal";
 
 type YesterdaySummary = { amount: number; count: number; unsettledCount: number };
 
@@ -94,7 +93,7 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [t, tk, total, overdue, yesterdaySummary] = await Promise.all([
       props.getBilliardsTables(),
       props.getPendingTickets(),
@@ -107,14 +106,17 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
     setTodayTotal(total);
     setOverdueTotal(overdue);
     setYesterday(yesterdaySummary);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // تحديث لحظي فور أي تغيير بالبلياردو (موظف البلياردو زاد كيماً أو أنهى جلسة،
+  // أو المدير سوّى الحساب) بدل انتظار دورة كاملة
+  useSyncSignal("billiards", load);
 
   const handlePay = async (ticketId: string) => {
     setBusyTicket(ticketId);

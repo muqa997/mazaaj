@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
+import { useSyncSignal } from "@/lib/use-sync-signal";
+import { useNewOrderAlert } from "@/lib/use-new-order-alert";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
@@ -37,23 +39,36 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-  const loadOrders = async () => {
-    setLoading(true);
-    try {
-      const o = await props.getOrders();
-      setOrders(o ?? []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // showSpinner=false للتحديثات التلقائية: بدونها تومض القائمة "جاري التحميل" كل مرة
+  // تصل إشارة، فتبدو الصفحة مضطربة ويفقد الكاشير مكانه بالقائمة
+  const loadOrders = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
+      try {
+        const o = await props.getOrders();
+        setOrders(o ?? []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (showSpinner) setLoading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(true);
     props.refreshSessionAction();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // تحديث لحظي فور وصول إشارة "تغيّرت الطلبات" (طلب جديد من الموقع، أو تغيير من
+  // لوحة التحكم)، مع مؤقّت احتياطي بطيء لو انقطع الاتصال
+  useSyncSignal("orders", loadOrders);
+
+  const orderIds = useMemo(() => orders.map((o) => o.id), [orders]);
+  useNewOrderAlert(orderIds);
 
   const handleLogout = async () => {
     await props.logoutAction();
@@ -69,6 +84,9 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
     await props.deleteOrder(id);
     loadOrders();
   };
+
+  // ترتيب الطلبات ثابت (الأحدث أولاً) ويأتي جاهزاً من الخادم، فلا تتبعثر البطاقات
+  // ولا تقفز أماكنها عند كل تحديث لحظي
 
   return (
     <div className="min-h-screen bg-background">

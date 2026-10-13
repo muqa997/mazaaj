@@ -2,6 +2,7 @@
 
 import { resend } from "@/lib/resend";
 import { DELIVERY_FEE } from "@/lib/config";
+import { sendSyncSignal } from "@/lib/sync-signal-server";
 
 const NOTIFY_EMAIL = process.env.ORDER_NOTIFY_EMAIL || "info@mazaajcafe.com";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
@@ -65,4 +66,10 @@ export async function notifyNewOrder(order: OrderNotificationInput) {
   } catch (err) {
     console.error("Failed to send order notification email:", err);
   }
+}
+
+// يستدعيها المتصفح بعد حفظ الطلب بقاعدة البيانات، فتظهر الطلبية فوراً عند الكاشير
+// بلا انتظار دورة تحديث. إشارة فارغة بلا أي بيانات (القناة يصلها المفتاح العام)
+export async function signalNewOrder() {
+  await sendSyncSignal("orders");
 }

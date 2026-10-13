@@ -6,7 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart-context";
 import { WHATSAPP_NUMBER, DELIVERY_FEE } from "@/lib/config";
 import { supabase } from "@/lib/supabase";
-import { notifyNewOrder } from "./actions";
+import { notifyNewOrder, signalNewOrder } from "./actions";
 
 const PHONE_PATTERN = /^(07\d{9}|7\d{9})$/;
 
@@ -77,7 +77,12 @@ export default function CheckoutPage() {
           delivery_fee: DELIVERY_FEE,
         })
         .then(({ error }) => {
-          if (error) console.error("Failed to save order to Supabase:", error);
+          if (error) {
+            console.error("Failed to save order to Supabase:", error);
+            return;
+          }
+          // ننبّه صفحة الكاشير فوراً بالطلب الجديد (إشارة فارغة بلا بيانات)
+          signalNewOrder().catch((e) => console.error("Order signal failed:", e));
         });
     }
 

@@ -13,6 +13,7 @@ import {
   type BilliardsNoteRow,
   type BilliardsTicketRow,
 } from "@/lib/billiards";
+import { signalOnSuccess } from "@/lib/sync-signal-server";
 import {
   normalizeIraqiPhone,
   type TeamInput,
@@ -103,14 +104,14 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("orders").update({ status }).eq("id", id);
-  return { error: toArabicError(error) };
+  return signalOnSuccess("orders", { error: toArabicError(error) });
 }
 
 export async function deleteOrder(id: string) {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("orders").delete().eq("id", id);
-  return { error: toArabicError(error) };
+  return signalOnSuccess("orders", { error: toArabicError(error) });
 }
 
 export type ApplicantRow = {
@@ -411,7 +412,7 @@ export async function settleBilliardsToday() {
     .update({ settled_at: new Date().toISOString() })
     .is("settled_at", null)
     .gte("paid_at", todayStart.toISOString());
-  return { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null });
 }
 
 // تسوية أي مبلغ متأخر بحوزة الكاشير من قبل بداية اليوم التجاري الحالي (نسي المدير
@@ -425,7 +426,7 @@ export async function settleBilliardsOverdue() {
     .update({ settled_at: new Date().toISOString() })
     .is("settled_at", null)
     .lt("paid_at", todayStart.toISOString());
-  return { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null });
 }
 
 // ملاحظات/ديون موظف البلياردو — عرض فقط للمدير أسفل تبويب البلياردو بلوحة التحكم

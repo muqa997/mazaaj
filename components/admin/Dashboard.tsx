@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -31,6 +31,7 @@ import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import { formatTournamentDate, teamLabel } from "@/lib/tournaments";
+import { useSyncSignal } from "@/lib/use-sync-signal";
 import type {
   OrderRow,
   OrderStatus,
@@ -437,8 +438,9 @@ export default function Dashboard(props: DashboardProps) {
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [teamFormError, setTeamFormError] = useState("");
 
-  const loadAll = async () => {
-    setLoading(true);
+  // showSpinner=false للتحديثات اللحظية: بدونها تومض اللوحة كاملةً عند كل إشارة
+  const loadAll = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const [o, c, a, j, s, an, pr, bt, btx, bn, bct, tr, trt] = await Promise.all([
         props.getOrders(),
@@ -480,27 +482,50 @@ export default function Dashboard(props: DashboardProps) {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadAll();
+    loadAll(true);
     props.refreshSessionAction();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // الطاولات الحية تتحدّث دورياً بينما المدير على تبويب البلياردو فقط — بدون هذا كان
-  // لا بد من تحديث الصفحة يدوياً لرؤية أي تغيير على الطاولات النشطة
-  useEffect(() => {
-    if (tab !== "billiards") return;
-    const interval = setInterval(async () => {
-      const bt = await props.getBilliardsTables();
+  // تحديث لحظي لكل بيانات البلياردو فور أي تغيير من أي جهاز (الكاشير، صفحة
+  // البلياردو، أو مدير آخر): الطاولات والحركات والملاحظات والفواتير الملغاة معاً —
+  // بدون هذا كانت الأرقام في اللوحة تتأخر أو تتناقض مع ما يراه الكاشير
+  const refreshBilliards = useCallback(async () => {
+    try {
+      const [bt, btx, bn, bct] = await Promise.all([
+        props.getBilliardsTables(),
+        props.getBilliardsTransactions(),
+        props.getBilliardsNotes(),
+        props.getCancelledBilliardsTickets(),
+      ]);
       setBilliardsTables(bt ?? []);
-    }, 2000);
-    return () => clearInterval(interval);
+      setBilliardsTransactions(btx ?? []);
+      setBilliardsNotes(bn ?? []);
+      setBilliardsCancelledTickets(bct ?? []);
+    } catch (err) {
+      console.error(err);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, []);
+
+  const refreshOrders = useCallback(async () => {
+    try {
+      const o = await props.getOrders();
+      setOrders(o ?? []);
+    } catch (err) {
+      console.error(err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useSyncSignal("billiards", refreshBilliards);
+  useSyncSignal("orders", refreshOrders);
+
 
   useEffect(() => {
     window.localStorage.setItem(TAB_STORAGE_KEY, tab);

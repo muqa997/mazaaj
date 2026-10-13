@@ -17,6 +17,8 @@ import {
   type BilliardsTransactionRow,
 } from "@/lib/billiards";
 
+import { signalOnSuccess } from "@/lib/sync-signal-server";
+
 export type { BilliardsTableRow, BilliardsTicketRow, BilliardsNoteRow, BilliardsTransactionRow };
 
 export type PoolType = "eight" | "nine";
@@ -93,7 +95,7 @@ export async function setGameCount(tableNumber: number, pool: PoolType, count: n
     .from("billiards_tables")
     .update({ ...update, updated_at: new Date().toISOString() })
     .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء الحفظ" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء الحفظ" : null });
 }
 
 // يُحفظ اسم/رقم طاولة الزبون فور الكتابة (وليس فقط عند إنهاء الجلسة) ليظهر حياً عند الكاشير
@@ -104,7 +106,7 @@ export async function updateCustomerRef(tableNumber: number, customerRef: string
     .from("billiards_tables")
     .update({ customer_ref: customerRef.trim() || null })
     .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء الحفظ" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء الحفظ" : null });
 }
 
 // إنهاء الجلسة: يفصل كيمات الطاولة الحالية (٨ بول و٩ بول معاً) عن عداد الطاولة الحي
@@ -140,7 +142,7 @@ export async function endSession(tableNumber: number, customerRef: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء التصفير" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء التصفير" : null });
 }
 
 // التذاكر التي أنشأها الموظف بإنهاء الجلسة — يدفعها الكاشير حصراً، لكن يستطيع الموظف
@@ -172,7 +174,7 @@ export async function cancelTicket(ticketId: string) {
     .update({ cancelled_at: new Date().toISOString() })
     .eq("id", ticketId)
     .is("cancelled_at", null);
-  return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null });
 }
 
 type PoolCounts = { eight: number; nine: number };
@@ -291,12 +293,12 @@ export async function addNote(text: string) {
   const trimmed = text.trim();
   if (!trimmed) return { error: null };
   const { error } = await supabaseAdmin.from("billiards_notes").insert({ text: trimmed });
-  return { error: error ? "حدث خطأ أثناء إضافة الملاحظة" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء إضافة الملاحظة" : null });
 }
 
 export async function deleteNote(noteId: string) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("billiards_notes").delete().eq("id", noteId);
-  return { error: error ? "حدث خطأ أثناء حذف الملاحظة" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء حذف الملاحظة" : null });
 }

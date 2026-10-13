@@ -10,8 +10,7 @@ import {
   type BilliardsNoteRow,
 } from "@/lib/billiards";
 import PullToRefresh from "./PullToRefresh";
-
-const POLL_INTERVAL_MS = 1200;
+import { useSyncSignal } from "@/lib/use-sync-signal";
 
 type PoolType = "eight" | "nine";
 type PoolCounts = { eight: number; nine: number };
@@ -94,8 +93,12 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const focusedTableRef = useRef<number | null>(null);
-  // مؤقتات تجميع الضغطات السريعة (debounce) لكل طاولة+قسم — مفتاحها "رقم الطاولة:القسم"
-  const pendingSyncRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // كاتب متسلسل لكل عدّاد (طاولة+قسم): كتابة واحدة بالتنفيذ، وآخر قيمة مطلوبة بالانتظار.
+  // أول ضغطة تُرسل فوراً (بلا تأخير)، والضغطات السريعة بعدها تُدمج بكتابة واحدة لاحقة،
+  // ولأن الكتابات متسلسلة لا يمكن أن تصل قيمة قديمة بعد حديثة فتُفسد العدّاد
+  const counterWritersRef = useRef<
+    Record<string, { inFlight: boolean; queued: number | null }>
+  >({});
   // طابور "نداء واحد بالتنفيذ + نداء واحد لاحق مضمون": يمنع تداخل طلبين لنفس الدالة (فلا
   // يصل رد بترتيب خاطئ فيمحو تحديثاً أحدث)، لكنه لا يُسقط أي نداء وصل أثناء التنفيذ —
   // بل يضمن نداءً جديداً فور انتهاء الحالي، فتبقى البيانات صحيحة دائماً مهما تأخر الخادم
@@ -133,8 +136,12 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           t.map((freshTable) => {
             const prevTable = prevTables.find((p) => p.table_number === freshTable.table_number);
             if (!prevTable) return freshTable;
-            const eightPending = pendingSyncRef.current[`${freshTable.table_number}:eight`];
-            const ninePending = pendingSyncRef.current[`${freshTable.table_number}:nine`];
+            const isPending = (pool: PoolType) => {
+              const writer = counterWritersRef.current[`${freshTable.table_number}:${pool}`];
+              return !!writer && (writer.inFlight || writer.queued !== null);
+            };
+            const eightPending = isPending("eight");
+            const ninePending = isPending("nine");
             return {
               ...freshTable,
               games_count: eightPending ? prevTable.games_count : freshTable.games_count,
@@ -172,24 +179,22 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   useEffect(() => {
     load();
     props.refreshSessionAction();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => {
-      clearInterval(interval);
-      Object.values(pendingSyncRef.current).forEach(clearTimeout);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // تحديث لحظي فور وصول إشارة "تغيّر البلياردو" من أي جهاز (الكاشير، لوحة التحكم،
+  // أو جهاز آخر يفتح نفس الصفحة)، مع استطلاع احتياطي بطيء لو انقطع اتصال الإشارات
+  useSyncSignal("billiards", load);
 
   const handleLogout = async () => {
     await props.logoutAction();
     router.refresh();
   };
 
-  // تحديث تفاؤلي فوري للعداد المحلي عند كل ضغطة (بلا أي تأخير محسوس)، لكن الإرسال
-  // الفعلي للخادم يُجمَّع (debounce ~900ms): كل ضغطات المستخدم السريعة المتتالية على
-  // نفس العداد تُلغي المؤقّت السابق وتُعيد جدولته، فلا يُرسَل للخادم إلا القيمة
-  // النهائية مرة واحدة — هذا يمنع تعارض عدة طلبات "اقرأ ثم زِد بواحد" المتزامنة التي
-  // كانت تُفقِد بعض الضغطات وتُظهر رقماً خاطئاً عند الضغط السريع
+  // تحديث تفاؤلي فوري للعداد المحلي عند كل ضغطة، والإرسال للخادم يبدأ **فوراً**
+  // بلا تأخير. لكل عدّاد كاتب واحد متسلسل: إن كانت هناك كتابة جارية نحتفظ بآخر قيمة
+  // فقط لتُرسَل بعدها مباشرة — فتُدمَج الضغطات السريعة بطلب واحد لاحق، ويستحيل أن
+  // تصل قيمة قديمة بعد حديثة فتُفسد العدّاد
   const adjustGame = (tableNumber: number, pool: PoolType, delta: 1 | -1) => {
     let nextCount = 0;
     setTables((prev) =>
@@ -205,14 +210,25 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     );
 
     const key = `${tableNumber}:${pool}`;
-    if (pendingSyncRef.current[key]) clearTimeout(pendingSyncRef.current[key]);
-    pendingSyncRef.current[key] = setTimeout(async () => {
-      // نُبقي المفتاح "معلّقاً" طوال مدة الطلب نفسه (وليس فقط قبل إرساله) — وإلا فقد
-      // يصل استطلاع الخادم الدوري بينما الطلب لا يزال بالطريق ويُرجع القيمة القديمة
-      // مؤقتاً قبل أن يستقر الرقم الصحيح، مما يبدو كتأخّر أو ارتداد بصري في العداد
-      await props.setGameCount(tableNumber, pool, nextCount);
-      delete pendingSyncRef.current[key];
-    }, 900);
+    const writers = counterWritersRef.current;
+    const writer = (writers[key] = writers[key] ?? { inFlight: false, queued: null });
+    writer.queued = nextCount;
+    if (writer.inFlight) return;
+
+    writer.inFlight = true;
+    void (async () => {
+      try {
+        // يبقى العدّاد "معلّقاً" حتى تنتهي آخر كتابة، فلا يستبدل أي تحديث قادم من
+        // الخادم الرقمَ المحلي بقيمة قديمة ما دامت كتابتنا لا تزال بالطريق
+        while (writer.queued !== null) {
+          const value = writer.queued;
+          writer.queued = null;
+          await props.setGameCount(tableNumber, pool, value);
+        }
+      } finally {
+        writer.inFlight = false;
+      }
+    })();
   };
 
   const handleCustomerRefBlur = async (tableNumber: number) => {

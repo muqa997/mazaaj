@@ -16,6 +16,8 @@ import {
   type BilliardsTransactionRow,
 } from "@/lib/billiards";
 
+import { signalOnSuccess } from "@/lib/sync-signal-server";
+
 export type { OrderRow, OrderStatus };
 export type { BilliardsTableRow, BilliardsTicketRow, BilliardsTransactionRow };
 
@@ -91,14 +93,14 @@ export async function updateStaffOrderStatus(id: string, status: OrderStatus) {
   requireStaffSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("orders").update({ status }).eq("id", id);
-  return { error: toArabicError(error) };
+  return signalOnSuccess("orders", { error: toArabicError(error) });
 }
 
 export async function deleteStaffOrder(id: string) {
   requireStaffSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("orders").delete().eq("id", id);
-  return { error: toArabicError(error) };
+  return signalOnSuccess("orders", { error: toArabicError(error) });
 }
 
 // يعرض حساب طاولات البلياردو الحي للكاشير — بما فيها اسم/رقم الزبون الحي إن كتبه
@@ -150,7 +152,7 @@ export async function payTableDirect(tableNumber: number) {
       updated_at: new Date().toISOString(),
     })
     .eq("table_number", tableNumber);
-  return { error: error ? "حدث خطأ أثناء التصفير" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء التصفير" : null });
 }
 
 // الفواتير الصادرة من موظف البلياردو بانتظار الدفع أو الإلغاء — الكاشير حصراً هو من
@@ -193,7 +195,7 @@ export async function payTicket(ticketId: string) {
   if (txError) return { error: "حدث خطأ أثناء تسجيل الدفعة" };
 
   const { error } = await supabaseAdmin.from("billiards_tickets").delete().eq("id", ticketId);
-  return { error: error ? "حدث خطأ أثناء إزالة التذكرة" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء إزالة التذكرة" : null });
 }
 
 // إلغاء فاتورة بالغلط (خطأ برقم الطاولة أو إرسال مكرر) — لا تُحذف بل تُعلَّم ملغاة مع
@@ -209,7 +211,7 @@ export async function cancelTicket(ticketId: string, reason: string) {
     .update({ cancelled_at: new Date().toISOString(), cancel_reason: trimmedReason })
     .eq("id", ticketId)
     .is("cancelled_at", null);
-  return { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null };
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء إلغاء التذكرة" : null });
 }
 
 // مجموع ما حصّله الكاشير نفسه اليوم (اليوم التجاري: يبدأ ٦ صباحاً) من حسابات البلياردو
