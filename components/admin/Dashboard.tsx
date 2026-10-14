@@ -30,7 +30,12 @@ import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-o
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
-import { formatTournamentDate, pickLiveTournament, teamLabel } from "@/lib/tournaments";
+import {
+  findDuplicateTournaments,
+  formatTournamentDate,
+  listLiveTournaments,
+  teamLabel,
+} from "@/lib/tournaments";
 import { useSyncSignal } from "@/lib/use-sync-signal";
 import type {
   OrderRow,
@@ -436,11 +441,16 @@ export default function Dashboard(props: DashboardProps) {
   const [expandedTournamentId, setExpandedTournamentId] = useState<string | null>(null);
   const [tournamentSaved, setTournamentSaved] = useState<string | null>(null);
 
-  // نفس الدالة التي يستخدمها الموقع حرفياً، فما يُعلَّم هنا "معروضة الآن" هو ما يراه
-  // الزائر فعلاً — لا تخمين
-  const liveTournament = useMemo(() => pickLiveTournament(tournaments), [tournaments]);
-  const activeCount = useMemo(
-    () => tournaments.filter((t) => t.is_active).length,
+  // نفس الدالة التي يستخدمها الموقع حرفياً، فما يُعلَّم هنا "معروضة بالموقع" هو ما
+  // يراه الزائر فعلاً — لا تخمين. الموقع يعرضها كلها، كل بطولة ببطاقتها
+  const liveIds = useMemo(
+    () => new Set(listLiveTournaments(tournaments).map((t) => t.id)),
+    [tournaments]
+  );
+  // التحذير للنسخ المكرّرة فقط (نفس العنوان ونفس الموعد)، لا لتعدد البطولات — تعدّدها
+  // مقصود. المكرّرة تقسم المشتركين بين بطولتين متطابقتين بلا أن ينتبه أحد
+  const duplicateIds = useMemo(
+    () => new Set(findDuplicateTournaments(tournaments).map((t) => t.id)),
     [tournaments]
   );
   const [teamForm, setTeamForm] = useState<TeamInput | null>(null);
@@ -1890,9 +1900,9 @@ export default function Dashboard(props: DashboardProps) {
                     mazaajcafe.com/tournament
                   </span>
                   <br />
-                  تظهر بالصفحة الرئيسية وبهذا الرابط البطولة <b>المفعّلة</b> الأقرب موعداً
-                  والتي لم ينتهِ موعدها. البطولة المنتهية تختفي وحدها بعد ٦ ساعات من
-                  موعد بدايتها.
+                  تظهر بالصفحة الرئيسية وبهذا الرابط <b>كل</b> البطولات المفعّلة التي لم
+                  ينتهِ موعدها، مرتّبة بالأقرب موعداً. البطولة المنتهية تختفي وحدها بعد ٦
+                  ساعات من موعد بدايتها.
                 </p>
 
                 {tournamentSaved && (
@@ -1901,11 +1911,10 @@ export default function Dashboard(props: DashboardProps) {
                   </p>
                 )}
 
-                {activeCount > 1 && (
+                {duplicateIds.size > 0 && (
                   <p className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-900">
-                    عندك {activeCount.toLocaleString("en-US")} بطولات مفعّلة، والموقع يعرض
-                    واحدة فقط (المعلّمة «معروضة الآن»). أخفِ أو احذف الباقي حتى لا ينقسم
-                    المشتركون بين بطولتين.
+                    عندك بطولتان بنفس العنوان ونفس الموعد (المعلّمتان «مكرّرة»). الاثنتان
+                    تظهران بالموقع، فينقسم المشتركون بينهما. احذف أو أخفِ واحدة منهما.
                   </p>
                 )}
 
@@ -2055,7 +2064,8 @@ export default function Dashboard(props: DashboardProps) {
                       (t) => t.tournament_id === tournament.id
                     );
                     const isExpanded = expandedTournamentId === tournament.id;
-                    const isLive = liveTournament?.id === tournament.id;
+                    const isLive = liveIds.has(tournament.id);
+                    const isDuplicate = duplicateIds.has(tournament.id);
                     return (
                       <div
                         key={tournament.id}
@@ -2076,7 +2086,12 @@ export default function Dashboard(props: DashboardProps) {
                               </span>
                               {isLive && (
                                 <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[11px] font-bold text-primary">
-                                  معروضة الآن بالموقع
+                                  معروضة بالموقع
+                                </span>
+                              )}
+                              {isDuplicate && (
+                                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
+                                  مكرّرة
                                 </span>
                               )}
                             </div>

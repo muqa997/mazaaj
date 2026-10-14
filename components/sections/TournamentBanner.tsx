@@ -1,77 +1,65 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, CalendarDays, Coins, Trophy } from "lucide-react";
 import { fadeUp } from "@/lib/motion";
-import { formatTournamentDate } from "@/lib/tournaments";
+import type { TournamentRow } from "@/lib/tournaments";
+import TournamentCard from "@/components/tournament/TournamentCard";
+import { SuitRow } from "@/components/tournament/CardSuits";
 
 type TournamentBannerProps = {
-  title: string;
-  category: string;
-  startsAt: string;
-  entryFee: number;
-  registrationOpen: boolean;
+  tournaments: TournamentRow[];
+  teamCounts: Record<string, number>;
 };
 
-// قسم البطولة أعلى الصفحة الرئيسية (فوق "الأكثر طلباً") — بطاقة واحدة قابلة للضغط
-// تفتح صفحة البطولة المستقلة. رابط عادي <a> وليس Link الخاص بـ next-intl، لأن
-// /tournament خارج مسارات اللغة
-export default function TournamentBanner({
-  title,
-  category,
-  startsAt,
-  entryFee,
-  registrationOpen,
-}: TournamentBannerProps) {
+// قسم البطولات أعلى الصفحة الرئيسية (فوق "الأكثر طلباً") — بطاقة زجاجية لكل بطولة
+// معلنة. الروابط عادية <a> وليست Link الخاص بـ next-intl، لأن /tournament خارج
+// مسارات اللغة.
+//
+// ببطولة واحدة تُفتح صفحتها مباشرة؛ بأكثر من واحدة تفتح كل بطاقة صفحة بطولتها
+export default function TournamentBanner({ tournaments, teamCounts }: TournamentBannerProps) {
+  if (tournaments.length === 0) return null;
+
+  const single = tournaments.length === 1;
+
   return (
-    <section id="tournament" className="px-6 pt-10">
-      <motion.a
-        href="/tournament"
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, amount: 0.3 }}
-        whileTap={{ scale: 0.98 }}
-        className="mx-auto flex max-w-md flex-col gap-4 rounded-3xl bg-primary p-6 shadow-glass-lg"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full bg-background/15 px-3 py-1 text-[11px] font-bold text-background">
-            {category}
-          </span>
-          <span
-            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
-              registrationOpen
-                ? "bg-green-400/20 text-green-200"
-                : "bg-background/10 text-background/50"
-            }`}
+    <section id="tournament" className="px-6 pt-12">
+      {!single && (
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.4 }}
+          className="mx-auto mb-5 flex max-w-md flex-col items-center gap-2.5 text-center"
+        >
+          <SuitRow size={13} className="text-accent" />
+          <h2 className="text-2xl font-extrabold text-primary">بطولات مزاج</h2>
+          {/* العربية تثنّي ثم تجمع: «بطولتان» للاثنتين و«بطولات» لثلاث فأكثر */}
+          <p className="text-[13px] text-primary/50">
+            {tournaments.length === 2
+              ? "بطولتان مفتوحتان للتسجيل"
+              : `${tournaments.length.toLocaleString("en-US")} بطولات مفتوحة للتسجيل`}
+          </p>
+        </motion.div>
+      )}
+
+      <div className="mx-auto flex max-w-md flex-col gap-5">
+        {tournaments.map((tournament, i) => (
+          <motion.div
+            key={tournament.id}
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.25 }}
+            transition={{ delay: i * 0.07 }}
           >
-            {registrationOpen ? "التسجيل مفتوح" : "انتهى التسجيل"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/20">
-            <Trophy size={24} className="text-accent" />
-          </span>
-          <h2 className="text-xl font-extrabold text-background sm:text-2xl">{title}</h2>
-        </div>
-
-        <div className="flex flex-col gap-2 border-t border-background/15 pt-4">
-          <p className="flex items-center gap-2 text-xs text-background/70">
-            <CalendarDays size={14} className="shrink-0 text-accent" />
-            {formatTournamentDate(startsAt)}
-          </p>
-          <p className="flex items-center gap-2 text-xs text-background/70">
-            <Coins size={14} className="shrink-0 text-accent" />
-            الاشتراك {entryFee.toLocaleString("en-US")} د.ع للفريق
-          </p>
-        </div>
-
-        <span className="flex items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-bold text-primary">
-          {registrationOpen ? "سجّل فريقك الآن" : "تفاصيل البطولة"}
-          <ArrowLeft size={16} className="ltr:rotate-180" />
-        </span>
-      </motion.a>
+            <TournamentCard
+              tournament={tournament}
+              teamCount={teamCounts[tournament.id] ?? 0}
+              href={single ? "/tournament" : `/tournament/${tournament.id}`}
+            />
+          </motion.div>
+        ))}
+      </div>
     </section>
   );
 }
