@@ -12,7 +12,36 @@ export type TournamentRow = {
   max_teams: number | null;
   is_active: boolean;
   created_at: string;
+  // يملؤه trigger بقاعدة البيانات تلقائياً عند كل تعديل. قد يكون غائباً بالصفوف
+  // القديمة التي أُنشئت قبل إضافة العمود
+  updated_at?: string | null;
 };
+
+// تبقى البطولة معروضة ٦ ساعات بعد موعد بدايتها (تكفي ليلة البطولة كاملة)، ثم تختفي
+// من الموقع وحدها. بدون هذا كانت البطولة المنتهية تبقى معروضة للأبد، والأسوأ: تمنع
+// أي بطولة جديدة من الظهور لأن موعدها أقدم — وهذا سبب "أضفت بطولة ولم تتحدث الصفحة"
+export const TOURNAMENT_VISIBLE_HOURS_AFTER_START = 6;
+
+/**
+ * البطولة التي يعرضها الموقع فعلاً: المفعّلة التي لم ينتهِ موعدها، الأقرب موعداً.
+ * عند تساوي الموعد تفوز الأحدث إنشاءً.
+ *
+ * هذه الدالة هي **المرجع الوحيد**: الصفحة الرئيسية وصفحة البطولة ولوحة التحكم كلها
+ * تستدعيها، فما تراه اللوحة هو بالضبط ما يراه الزائر — لا تخمين ولا اختلاف.
+ */
+export function pickLiveTournament<T extends TournamentRow>(tournaments: T[]): T | null {
+  const cutoff = Date.now() - TOURNAMENT_VISIBLE_HOURS_AFTER_START * 60 * 60 * 1000;
+
+  const upcoming = tournaments
+    .filter((t) => t.is_active && new Date(t.starts_at).getTime() >= cutoff)
+    .sort((a, b) => {
+      const byStart = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+      if (byStart !== 0) return byStart;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+  return upcoming[0] ?? null;
+}
 
 // لا يوجد "اسم فريق" — الفريق يُعرَّف باسمي لاعبيه فقط
 export type TournamentTeamRow = {

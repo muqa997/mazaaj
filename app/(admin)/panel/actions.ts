@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ADMIN_COOKIE_NAME, createSessionToken, verifySessionToken } from "@/lib/admin-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
@@ -480,10 +481,18 @@ export async function getTournaments(): Promise<TournamentRow[]> {
   return (data ?? []) as TournamentRow[];
 }
 
+// الصفحة الرئيسية مولّدة مسبقاً وتُعاد كل دقيقة، فبدون هذا كان المدير يعدّل البطولة
+// ولا يرى أثرها بالموقع. هنا نُبطل تخزينها فوراً فيظهر التعديل من أول تحديث للصفحة
+function revalidateTournamentPages() {
+  revalidatePath("/[locale]", "page");
+  revalidatePath("/tournament");
+}
+
 export async function createTournament(input: TournamentInput) {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("card_tournaments").insert(input);
+  if (!error) revalidateTournamentPages();
   return { error: toArabicError(error) };
 }
 
@@ -491,6 +500,7 @@ export async function updateTournament(id: string, input: TournamentInput) {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("card_tournaments").update(input).eq("id", id);
+  if (!error) revalidateTournamentPages();
   return { error: toArabicError(error) };
 }
 
@@ -499,6 +509,7 @@ export async function deleteTournament(id: string) {
   requireSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
   const { error } = await supabaseAdmin.from("card_tournaments").delete().eq("id", id);
+  if (!error) revalidateTournamentPages();
   return { error: toArabicError(error) };
 }
 

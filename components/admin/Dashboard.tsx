@@ -30,7 +30,7 @@ import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-o
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
-import { formatTournamentDate, teamLabel } from "@/lib/tournaments";
+import { formatTournamentDate, pickLiveTournament, teamLabel } from "@/lib/tournaments";
 import { useSyncSignal } from "@/lib/use-sync-signal";
 import type {
   OrderRow,
@@ -434,6 +434,15 @@ export default function Dashboard(props: DashboardProps) {
   const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
   const [tournamentFormError, setTournamentFormError] = useState("");
   const [expandedTournamentId, setExpandedTournamentId] = useState<string | null>(null);
+  const [tournamentSaved, setTournamentSaved] = useState<string | null>(null);
+
+  // نفس الدالة التي يستخدمها الموقع حرفياً، فما يُعلَّم هنا "معروضة الآن" هو ما يراه
+  // الزائر فعلاً — لا تخمين
+  const liveTournament = useMemo(() => pickLiveTournament(tournaments), [tournaments]);
+  const activeCount = useMemo(
+    () => tournaments.filter((t) => t.is_active).length,
+    [tournaments]
+  );
   const [teamForm, setTeamForm] = useState<TeamInput | null>(null);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [teamFormError, setTeamFormError] = useState("");
@@ -779,10 +788,16 @@ export default function Dashboard(props: DashboardProps) {
 
     if (result.error) {
       setTournamentFormError(result.error);
+      setTournamentSaved(null);
       return;
     }
 
     closeTournamentForm();
+    setTournamentSaved(
+      editingTournamentId
+        ? "تم حفظ التعديل — صفحة البطولة والصفحة الرئيسية محدّثتان الآن"
+        : "تمت إضافة البطولة — صفحة البطولة والصفحة الرئيسية محدّثتان الآن"
+    );
     loadAll();
   };
 
@@ -795,6 +810,7 @@ export default function Dashboard(props: DashboardProps) {
     );
     if (!confirmed) return;
     await props.deleteTournament(tournament.id);
+    setTournamentSaved("تم حذف البطولة — صفحة البطولة والصفحة الرئيسية محدّثتان الآن");
     loadAll();
   };
 
@@ -1874,8 +1890,24 @@ export default function Dashboard(props: DashboardProps) {
                     mazaajcafe.com/tournament
                   </span>
                   <br />
-                  تظهر بالصفحة الرئيسية وبهذا الرابط البطولة <b>المفعّلة</b> الأقرب موعداً.
+                  تظهر بالصفحة الرئيسية وبهذا الرابط البطولة <b>المفعّلة</b> الأقرب موعداً
+                  والتي لم ينتهِ موعدها. البطولة المنتهية تختفي وحدها بعد ٦ ساعات من
+                  موعد بدايتها.
                 </p>
+
+                {tournamentSaved && (
+                  <p className="mb-4 rounded-2xl border border-green-300 bg-green-50 px-4 py-3 text-xs font-bold text-green-800">
+                    {tournamentSaved}
+                  </p>
+                )}
+
+                {activeCount > 1 && (
+                  <p className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-900">
+                    عندك {activeCount.toLocaleString("en-US")} بطولات مفعّلة، والموقع يعرض
+                    واحدة فقط (المعلّمة «معروضة الآن»). أخفِ أو احذف الباقي حتى لا ينقسم
+                    المشتركون بين بطولتين.
+                  </p>
+                )}
 
                 {!tournamentForm && (
                   <button
@@ -2023,6 +2055,7 @@ export default function Dashboard(props: DashboardProps) {
                       (t) => t.tournament_id === tournament.id
                     );
                     const isExpanded = expandedTournamentId === tournament.id;
+                    const isLive = liveTournament?.id === tournament.id;
                     return (
                       <div
                         key={tournament.id}
@@ -2041,6 +2074,11 @@ export default function Dashboard(props: DashboardProps) {
                               >
                                 {tournament.is_active ? "مفعّلة" : "مخفية"}
                               </span>
+                              {isLive && (
+                                <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[11px] font-bold text-primary">
+                                  معروضة الآن بالموقع
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-primary/60">
                               {tournament.category} — {formatTournamentDate(tournament.starts_at)}
@@ -2053,6 +2091,12 @@ export default function Dashboard(props: DashboardProps) {
                               الاشتراك {tournament.entry_fee.toLocaleString("en-US")} د.ع
                               {tournament.max_teams !== null &&
                                 ` — حد أقصى ${tournament.max_teams.toLocaleString("en-US")} فريق`}
+                            </p>
+                            <p className="mt-2 border-t border-primary/5 pt-2 text-[11px] text-primary/40">
+                              أُنشئت: {formatTournamentDate(tournament.created_at)}
+                              {tournament.updated_at
+                                ? ` — آخر تعديل: ${formatTournamentDate(tournament.updated_at)}`
+                                : " — بلا تعديلات"}
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
