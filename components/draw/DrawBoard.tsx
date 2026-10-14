@@ -21,9 +21,10 @@ import {
   setWinner,
   type Bracket,
 } from "@/lib/draw";
-import { playPicked, unlockAudio } from "@/lib/draw-sounds";
+import { playFanfare, playPicked, unlockAudio } from "@/lib/draw-sounds";
 import { teamLabel, type TournamentRow, type TournamentTeamRow } from "@/lib/tournaments";
 import BracketView from "./Bracket";
+import ChampionOverlay from "./ChampionOverlay";
 import Wheel from "./Wheel";
 
 type DrawBoardProps = {
@@ -48,6 +49,9 @@ type DrawState = {
   bracket: Bracket | null;
   phase: Phase;
   lastPicked: string | null;
+  /** القرعة تمشي وحدها بعد الضغطة الأولى — نحفظها فتُستأنف لو انطفأت الشاشة */
+  auto: boolean;
+  tournamentTitle: string;
 };
 
 const EMPTY: DrawState = {
@@ -56,7 +60,12 @@ const EMPTY: DrawState = {
   bracket: null,
   phase: "setup",
   lastPicked: null,
+  auto: false,
+  tournamentTitle: "",
 };
+
+/** وقفة بعد كل اسم ليقرأه الحضور قبل أن تدور العجلة من جديد */
+const PAUSE_MS = 2700;
 
 const STORAGE_KEY = "mazaaj-draw-v2";
 const MIN_TEAMS = 2;
@@ -87,6 +96,8 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
   const [state, setState] = useState<DrawState>(EMPTY);
   const [spinningTo, setSpinningTo] = useState<number | null>(null);
   const [announce, setAnnounce] = useState<string | null>(null);
+  const [celebrated, setCelebrated] = useState(false);
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
   const [manualName, setManualName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -94,13 +105,15 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
   // يعمل فيها مؤثّر الاستعادة — فيكتب الحالة الفارغة فوق قرعة محفوظة ويمحوها
   const [loaded, setLoaded] = useState(false);
   const spinTargetRef = useRef<number | null>(null);
+  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const { entrants, remaining, bracket, phase, lastPicked } = state;
+  const { entrants, remaining, bracket, phase, lastPicked, auto, tournamentTitle } = state;
 
   useEffect(() => {
     const saved = loadSaved();
     if (saved) setState(saved);
+    else setState((prev) => ({ ...prev, tournamentTitle: tournaments[0]?.title ?? "" }));
     setLoaded(true);
     // المتصفحات تكتم الصوت قبل أول لمسة على الصفحة
     const unlock = () => unlockAudio();
@@ -156,15 +169,23 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
             remaining: prev.entrants,
             lastPicked: null,
             phase: "drawing",
+            auto: false,
           }
     );
 
   const resetAll = () => {
     if (!confirm("إعادة القرعة من البداية؟ ستُمسح كل النتائج.")) return;
+    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
     setSpinningTo(null);
     setAnnounce(null);
     spinTargetRef.current = null;
-    setState((prev) => ({ ...EMPTY, entrants: prev.entrants }));
+    setCelebrated(false);
+    setCelebrationOpen(false);
+    setState((prev) => ({
+      ...EMPTY,
+      entrants: prev.entrants,
+      tournamentTitle: prev.tournamentTitle,
+    }));
   };
 
   const drawnCount = bracket ? countDrawn(bracket) : 0;
@@ -179,6 +200,25 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
     spinTargetRef.current = target;
     setSpinningTo(target);
   };
+
+  /** ضغطة واحدة فقط: تبدأ القرعة وتكملها وحدها حتى آخر فريق */
+  const startAuto = () => {
+    if (auto) return;
+    unlockAudio();
+    setState((prev) => ({ ...prev, auto: true }));
+    spin();
+  };
+
+  // بعد كل وقفة تدور العجلة من جديد وحدها. الوقفة تُعطي الحضور وقتاً لقراءة الاسم
+  // ورؤيته وهو يستقر بمكانه على الشجرة
+  useEffect(() => {
+    if (!auto || phase !== "drawing" || spinningTo !== null || remaining.length === 0) return;
+    autoTimerRef.current = setTimeout(spin, PAUSE_MS);
+    return () => {
+      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, phase, spinningTo, remaining.length]);
 
   // تُستدعى بعد توقف العجلة. حسبة نقيّة واحدة من الحالة السابقة: تُثبّت الاسم بخانته
   // وتحذفه من العجلة، فلا يمكن أن يُوضع الفريق مرتين مهما تكرر تنفيذها
@@ -232,6 +272,13 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
     phase === "playing" && bracket
       ? (bracket.matches[bracket.matches.length - 1]?.winner ?? null)
       : null;
+
+  useEffect(() => {
+    if (!champion || celebrated) return;
+    setCelebrated(true);
+    setCelebrationOpen(true);
+    playFanfare();
+  }, [champion, celebrated]);
 
   return (
     <div
@@ -324,14 +371,25 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] text-sm font-black text-[#F3EBE1]/85"
-          >
-            <Users size={18} />
-            اختيار من المشتركين
-          </button>
+          <div className="flex gap-2 max-sm:flex-col">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] text-sm font-black text-[#F3EBE1]/85"
+            >
+              <Users size={18} />
+              اختيار من المشتركين
+            </button>
+            <input
+              value={tournamentTitle}
+              onChange={(e) =>
+                setState((prev) => ({ ...prev, tournamentTitle: e.target.value }))
+              }
+              maxLength={60}
+              placeholder="اسم البطولة (يظهر عند التتويج)"
+              className="min-h-[52px] flex-1 rounded-2xl border border-white/15 bg-white/[0.06] px-4 text-base font-bold text-[#F3EBE1] outline-none placeholder:font-normal placeholder:text-[#F3EBE1]/30 focus:border-accent"
+            />
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <span className="text-sm font-black">
@@ -387,7 +445,11 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
             <BracketView bracket={bracket} nextSlot={nextSlot} compact />
           </div>
 
-          <div className="relative order-2 flex w-full shrink-0 flex-col items-center justify-center gap-4 lg:w-[38%] lg:max-w-[460px]">
+          <div
+            className={`relative order-2 flex w-full shrink-0 flex-col items-center justify-center gap-4 transition-[width,max-width] duration-500 ${
+              auto ? "lg:w-[46%] lg:max-w-[600px]" : "lg:w-[38%] lg:max-w-[460px]"
+            }`}
+          >
             {/* إعلان الاسم المسحوب — فوق العجلة مباشرةً ليراه الجميع */}
             <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center">
               {announce && (
@@ -402,19 +464,31 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
               )}
             </div>
 
-            <div className="w-full max-w-[380px] px-2">
+            <div
+              className={`w-full px-2 transition-[max-width] duration-500 ${
+                auto ? "max-w-[520px]" : "max-w-[380px]"
+              }`}
+            >
               <Wheel names={remaining} spinningTo={spinningTo} onSpinEnd={handleSpinEnd} />
             </div>
 
-            <button
-              type="button"
-              onClick={spin}
-              disabled={spinningTo !== null || remaining.length === 0}
-              className="flex min-h-[60px] w-full max-w-[330px] items-center justify-center gap-2.5 rounded-2xl bg-accent text-xl font-black text-[#1C120B] transition-transform active:scale-[0.98] disabled:opacity-40"
-            >
-              <Shuffle size={22} />
-              {spinningTo !== null ? "..." : "دوّر العجلة"}
-            </button>
+            {/* ضغطة واحدة فقط: بعدها يختفي الزر وتكمل القرعة وحدها حتى آخر فريق */}
+            {!auto ? (
+              <button
+                type="button"
+                onClick={startAuto}
+                disabled={remaining.length === 0}
+                className="flex min-h-[60px] w-full max-w-[330px] items-center justify-center gap-2.5 rounded-2xl bg-accent text-xl font-black text-[#1C120B] transition-transform active:scale-[0.98] disabled:opacity-40"
+              >
+                <Shuffle size={22} />
+                دوّر العجلة
+              </button>
+            ) : (
+              <p className="text-sm font-bold text-[#F3EBE1]/40">
+                بقي {remaining.length.toLocaleString("en-US")} من{" "}
+                {entrants.length.toLocaleString("en-US")}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -423,12 +497,14 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
       {phase === "playing" && bracket && (
         <div className="relative z-10 flex flex-1 flex-col overflow-hidden px-5 pb-5">
           {champion ? (
-            <div className="mb-3 flex shrink-0 items-center justify-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 py-3">
+            <button
+              type="button"
+              onClick={() => setCelebrationOpen(true)}
+              className="mb-3 flex w-full shrink-0 items-center justify-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 py-3"
+            >
               <Trophy size={22} className="text-amber-300" />
-              <span className="text-xl font-black text-amber-200">
-                البطل: {champion}
-              </span>
-            </div>
+              <span className="text-xl font-black text-amber-200">البطل: {champion}</span>
+            </button>
           ) : (
             <p className="mb-2 shrink-0 text-center text-[11px] font-bold text-[#F3EBE1]/40">
               اضغط على الفريق الفائز ليصعد للدور التالي
@@ -438,6 +514,14 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
           <div className="min-h-0 flex-1">
             <BracketView bracket={bracket} nextSlot={null} onPickWinner={pickWinner} />
           </div>
+
+          {champion && celebrationOpen && (
+            <ChampionOverlay
+              champion={champion}
+              tournamentTitle={tournamentTitle}
+              onClose={() => setCelebrationOpen(false)}
+            />
+          )}
         </div>
       )}
 
