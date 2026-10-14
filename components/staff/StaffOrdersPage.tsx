@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Trash2, MessageSquare, ChevronDown, RefreshCw } from "lucide-react";
+import { LogOut, Trash2, MessageSquare, ChevronDown, RefreshCw, BellRing } from "lucide-react";
+import { useSyncSignal } from "@/lib/use-sync-signal";
+import { playNewOrderAlert, useUnlockChime } from "@/lib/use-new-order-alert";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
@@ -37,6 +39,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [newOrdersWaiting, setNewOrdersWaiting] = useState(0);
   // دالة تحديث بطاقة البلياردو، تُسجّلها البطاقة عند أول عرض
   const reloadBilliardsRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -64,16 +67,26 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // لا تحديث تلقائي ولا استطلاع دوري — الكاشير يحدّث بالزر الكبير أدناه. زر واحد
+  // لا استطلاع دوري ولا جلب تلقائي — الكاشير يحدّث بالزر الكبير أدناه. زر واحد
   // يحدّث التبويبين معاً، فلا يفوته شيء لمجرد أنه كان على التبويب الآخر
   const handleManualRefresh = async () => {
     setRefreshing(true);
+    setNewOrdersWaiting(0);
     try {
       await Promise.all([loadOrders(), reloadBilliardsRef.current?.()]);
     } finally {
       setRefreshing(false);
     }
   };
+
+  // تنبيه الطلب الجديد: **إشعار فقط، بلا جلب تلقائي**. تصل رسالة واحدة فارغة لكل طلب
+  // حقيقي (لا عند تغيير حالة أو حذف)، فترنّ النغمة ويظهر شريط أحمر — والقائمة لا
+  // تتحدّث إلا بضغطة الكاشير. يعني تنبيه موثوق بلا أي استهلاك للخطة
+  useUnlockChime();
+  useSyncSignal("new-order", () => {
+    setNewOrdersWaiting((n) => n + 1);
+    playNewOrderAlert();
+  });
 
   const handleLogout = async () => {
     await props.logoutAction();
@@ -130,6 +143,19 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+        {newOrdersWaiting > 0 && (
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            className="mb-3 flex w-full animate-pulse items-center justify-center gap-3 rounded-2xl bg-red-600 px-4 py-4 text-base font-extrabold text-white shadow-glass active:scale-[0.98]"
+          >
+            <BellRing size={22} />
+            {newOrdersWaiting === 1
+              ? "وصل طلب جديد — اضغط لعرضه"
+              : `وصلت ${newOrdersWaiting.toLocaleString("en-US")} طلبات جديدة — اضغط لعرضها`}
+          </button>
+        )}
+
         <button
           type="button"
           onClick={handleManualRefresh}

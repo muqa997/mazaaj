@@ -6,12 +6,15 @@
 // سجلات أموال وأرقام هواتف زبائن — فلا يصح أن تمر بها أي بيانات، ولا أن نفتح
 // صلاحية قراءتها لذلك المفتاح (اليوم يقرأ صفر صفوف من كل الجداول، ويبقى كذلك).
 
-export type SyncScope = "billiards" | "orders";
+// "new-order" منفصل عن "orders" عن قصد: الكاشير يريد تنبيهاً عند **طلب جديد فقط**،
+// لا عند كل تغيير حالة أو حذف — وإلا رنّ الجرس بوجهه كلما غيّر هو نفسه حالة طلب
+export type SyncScope = "billiards" | "orders" | "new-order";
 
 // موضوع مستقل لكل قسم: الصفحة تستمع لما يخصّها فقط بلا فلترة يدوية
 export const SYNC_TOPICS: Record<SyncScope, string> = {
   billiards: "mazaaj-billiards",
   orders: "mazaaj-orders",
+  "new-order": "mazaaj-new-order",
 };
 
 export const SYNC_EVENT = "changed";
