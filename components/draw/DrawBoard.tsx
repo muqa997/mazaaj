@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Maximize2,
   Minimize2,
@@ -8,18 +8,22 @@ import {
   RotateCcw,
   Shuffle,
   Trash2,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
 import {
-  bracketSizeFor,
-  buildMatches,
+  buildBracket,
+  countDrawn,
+  describeFormat,
   pickRandomIndex,
-  roundNames,
-  slotOrder,
-  type DrawMatch,
+  placeTeam,
+  setWinner,
+  type Bracket,
 } from "@/lib/draw";
+import { playPicked, unlockAudio } from "@/lib/draw-sounds";
 import { teamLabel, type TournamentRow, type TournamentTeamRow } from "@/lib/tournaments";
+import BracketView from "./Bracket";
 import Wheel from "./Wheel";
 
 type DrawBoardProps = {
@@ -28,7 +32,7 @@ type DrawBoardProps = {
   onExit: () => void;
 };
 
-type Phase = "setup" | "drawing" | "done";
+type Phase = "setup" | "drawing" | "playing";
 
 /**
  * كل حالة القرعة بكائن واحد عن قصد.
@@ -41,7 +45,7 @@ type Phase = "setup" | "drawing" | "done";
 type DrawState = {
   entrants: string[];
   remaining: string[];
-  matches: DrawMatch[];
+  bracket: Bracket | null;
   phase: Phase;
   lastPicked: string | null;
 };
@@ -49,24 +53,21 @@ type DrawState = {
 const EMPTY: DrawState = {
   entrants: [],
   remaining: [],
-  matches: [],
+  bracket: null,
   phase: "setup",
   lastPicked: null,
 };
 
-const STORAGE_KEY = "mazaaj-draw-v1";
+const STORAGE_KEY = "mazaaj-draw-v2";
 const MIN_TEAMS = 2;
 const MAX_TEAMS = 32;
-
-const countFilled = (matches: DrawMatch[]) =>
-  matches.reduce((n, m) => n + m.teams.filter(Boolean).length, 0);
 
 function loadSaved(): DrawState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as DrawState;
-    if (!Array.isArray(parsed.entrants) || !Array.isArray(parsed.matches)) return null;
+    if (!Array.isArray(parsed.entrants)) return null;
     return { ...EMPTY, ...parsed };
   } catch {
     return null;
@@ -76,40 +77,46 @@ function loadSaved(): DrawState | null {
 /**
  * شاشة القرعة — تُعرض ملء الشاشة على تلفاز الكافيه عبر HDMI.
  *
- * العجلة يساراً والمربعات يميناً. كل دورة تسحب فريقاً وتضعه في **الخانة التالية
- * بالترتيب** من المباراة الأولى إلى الأخيرة، فلا يتدخل أحد في وجهة أي اسم.
+ * أثناء القرعة: العجلة يساراً والشجرة يميناً، وكل دورة تضع فريقاً في **الخانة التالية
+ * بالترتيب** فلا يتدخل أحد في وجهة أي اسم. وبعد اكتمالها تختفي العجلة وتملأ الشجرة
+ * الشاشة، فتُدار البطولة منها: ضغطة على الفائز تُصعّده ويبهت الخاسر.
  *
- * الحالة تُحفظ بالمتصفح بعد كل تغيير: لو انطفأت الشاشة أو أُغلق المتصفح وسط القرعة،
- * تُستأنف من حيث وقفت بدل إعادتها من الصفر أمام الحضور.
+ * الحالة تُحفظ بالمتصفح بعد كل تغيير، فلو انطفأت الشاشة تُستأنف من حيث وقفت.
  */
 export default function DrawBoard({ tournaments, tournamentTeams, onExit }: DrawBoardProps) {
   const [state, setState] = useState<DrawState>(EMPTY);
   const [spinningTo, setSpinningTo] = useState<number | null>(null);
+  const [announce, setAnnounce] = useState<string | null>(null);
   const [manualName, setManualName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const hydrated = useRef(false);
+  // علم حالة لا مرجع: المرجع يتغيّر فوراً، فكان مؤثّر الحفظ يعمل بنفس اللحظة التي
+  // يعمل فيها مؤثّر الاستعادة — فيكتب الحالة الفارغة فوق قرعة محفوظة ويمحوها
+  const [loaded, setLoaded] = useState(false);
   const spinTargetRef = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const { entrants, remaining, matches, phase, lastPicked } = state;
+  const { entrants, remaining, bracket, phase, lastPicked } = state;
 
-  // استعادة قرعة غير مكتملة
   useEffect(() => {
     const saved = loadSaved();
     if (saved) setState(saved);
-    hydrated.current = true;
+    setLoaded(true);
+    // المتصفحات تكتم الصوت قبل أول لمسة على الصفحة
+    const unlock = () => unlockAudio();
+    document.addEventListener("pointerdown", unlock, { once: true });
+    return () => document.removeEventListener("pointerdown", unlock);
   }, []);
 
   // الحفظ بعد كل تغيير — لا دورياً، فلا تضيع أي خطوة
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!loaded) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // الوضع الخاص بالمتصفح يمنع الحفظ — القرعة تبقى شغّالة بالذاكرة
     }
-  }, [state]);
+  }, [state, loaded]);
 
   useEffect(() => {
     const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -145,7 +152,7 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
         ? prev
         : {
             ...prev,
-            matches: buildMatches(prev.entrants.length),
+            bracket: buildBracket(prev.entrants.length),
             remaining: prev.entrants,
             lastPicked: null,
             phase: "drawing",
@@ -153,18 +160,21 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
     );
 
   const resetAll = () => {
-    if (!confirm("إعادة القرعة من البداية؟ ستُمسح كل الأسماء المسحوبة.")) return;
+    if (!confirm("إعادة القرعة من البداية؟ ستُمسح كل النتائج.")) return;
     setSpinningTo(null);
+    setAnnounce(null);
     spinTargetRef.current = null;
     setState((prev) => ({ ...EMPTY, entrants: prev.entrants }));
   };
 
-  const order = useMemo(() => slotOrder(matches), [matches]);
-  const filledCount = countFilled(matches);
-  const nextSlot = order[filledCount] ?? null;
+  const drawnCount = bracket ? countDrawn(bracket) : 0;
+  const totalSlots = bracket?.drawSlots.length ?? 0;
+  const nextSlot = bracket?.drawSlots[drawnCount] ?? null;
 
   const spin = () => {
     if (spinningTo !== null || remaining.length === 0 || !nextSlot) return;
+    unlockAudio();
+    setAnnounce(null);
     const target = pickRandomIndex(remaining.length);
     spinTargetRef.current = target;
     setSpinningTo(target);
@@ -180,46 +190,54 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
 
     setState((prev) => {
       const name = prev.remaining[picked];
-      if (name === undefined) return prev;
+      if (name === undefined || !prev.bracket) return prev;
 
-      const slots = slotOrder(prev.matches);
-      const slot = slots[countFilled(prev.matches)];
-      if (!slot) return prev;
-
-      const nextMatches = prev.matches.map((m) =>
-        m.number === slot.match
-          ? {
-              ...m,
-              teams: m.teams.map((t, i) => (i === slot.side ? name : t)) as [
-                string | null,
-                string | null,
-              ],
-            }
-          : m
-      );
+      const nextBracket = placeTeam(prev.bracket, name);
+      const nextRemaining = prev.remaining.filter((_, i) => i !== picked);
 
       return {
         ...prev,
-        matches: nextMatches,
-        remaining: prev.remaining.filter((_, i) => i !== picked),
+        bracket: nextBracket,
+        remaining: nextRemaining,
         lastPicked: name,
-        phase: countFilled(nextMatches) >= slots.length ? "done" : prev.phase,
+        phase: nextRemaining.length === 0 ? "playing" : prev.phase,
       };
     });
   };
 
-  const bracketSize = entrants.length >= MIN_TEAMS ? bracketSizeFor(entrants.length) : 0;
-  const byeCount = bracketSize > 0 ? bracketSize - entrants.length : 0;
-  const rounds = entrants.length >= MIN_TEAMS ? roundNames(entrants.length) : [];
+  // إعلان الاسم المسحوب فوق العجلة + نغمة الاختيار
+  useEffect(() => {
+    if (!lastPicked) return;
+    setAnnounce(lastPicked);
+    playPicked();
+    const id = setTimeout(() => setAnnounce(null), 2600);
+    return () => clearTimeout(id);
+  }, [lastPicked]);
 
-  // مع كثرة المباريات نوزّعها على أعمدة أكثر فتبقى داخل الشاشة بلا تمرير
-  const matchColumns = matches.length > 12 ? 3 : matches.length > 5 ? 2 : 1;
+  const pickWinner = (matchId: number, team: string) =>
+    setState((prev) =>
+      prev.bracket
+        ? {
+            ...prev,
+            bracket: setWinner(
+              prev.bracket,
+              matchId,
+              prev.bracket.matches[matchId].winner === team ? null : team
+            ),
+          }
+        : prev
+    );
+
+  const champion =
+    phase === "playing" && bracket
+      ? (bracket.matches[bracket.matches.length - 1]?.winner ?? null)
+      : null;
 
   return (
     <div
       ref={rootRef}
       dir="rtl"
-      className="fixed inset-0 z-[100] overflow-hidden bg-[#140E0A] text-[#F3EBE1]"
+      className="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-[#140E0A] text-[#F3EBE1]"
     >
       <span
         aria-hidden="true"
@@ -231,12 +249,14 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
       />
 
       {/* ═══ شريط التحكم ═══ */}
-      <div className="relative z-30 flex h-16 items-center justify-between gap-3 px-6">
+      <div className="relative z-30 flex h-14 shrink-0 items-center justify-between gap-3 px-6">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-lg font-black tracking-tight">قرعة البطولة</h1>
-          {phase !== "setup" && (
+          <h1 className="text-base font-black tracking-tight">
+            {phase === "playing" ? "بطولة مزاج" : "قرعة البطولة"}
+          </h1>
+          {phase === "drawing" && (
             <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-bold tabular-nums text-[#F3EBE1]/70">
-              {filledCount.toLocaleString("en-US")} / {order.length.toLocaleString("en-US")}
+              {drawnCount.toLocaleString("en-US")} / {totalSlots.toLocaleString("en-US")}
             </span>
           )}
         </div>
@@ -246,18 +266,18 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
             type="button"
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? "خروج من ملء الشاشة" : "ملء الشاشة"}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EBE1]/80"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EBE1]/80"
           >
-            {isFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
           {phase !== "setup" && (
             <button
               type="button"
               onClick={resetAll}
               aria-label="إعادة القرعة"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EBE1]/80"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EBE1]/80"
             >
-              <RotateCcw size={17} />
+              <RotateCcw size={16} />
             </button>
           )}
           {!isFullscreen && (
@@ -265,17 +285,17 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
               type="button"
               onClick={onExit}
               aria-label="إغلاق القرعة"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EBE1]/80"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EBE1]/80"
             >
-              <X size={17} />
+              <X size={16} />
             </button>
           )}
         </div>
       </div>
 
-      {/* ═══ الإعداد: بناء قائمة الفرق قبل العرض ═══ */}
-      {phase === "setup" ? (
-        <div className="relative z-10 mx-auto flex h-[calc(100%-4rem)] w-full max-w-3xl flex-col gap-4 overflow-y-auto px-6 pb-6">
+      {/* ═══ الإعداد ═══ */}
+      {phase === "setup" && (
+        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6">
           <div className="flex gap-2">
             <input
               value={manualName}
@@ -313,17 +333,13 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
             اختيار من المشتركين
           </button>
 
-          <div className="flex items-center justify-between px-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <span className="text-sm font-black">
               الفرق: {entrants.length.toLocaleString("en-US")}
             </span>
             {entrants.length >= MIN_TEAMS && (
-              <span className="text-xs font-bold text-[#F3EBE1]/50">
-                شجرة {bracketSize.toLocaleString("en-US")}
-                {byeCount === 1 && " — فريق واحد يتأهل مباشرة لدور واحد"}
-                {byeCount === 2 && " — فريقان يتأهلان مباشرة لدور واحد"}
-                {byeCount > 2 &&
-                  ` — ${byeCount.toLocaleString("en-US")} فرق تتأهل مباشرة لدور واحد`}
+              <span className="text-xs font-bold text-accent/90">
+                {describeFormat(entrants.length)}
               </span>
             )}
           </div>
@@ -362,113 +378,69 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
             ابدأ القرعة
           </button>
         </div>
-      ) : (
-        /* ═══ القرعة: العجلة يساراً والمربعات يميناً ═══ */
-        <div className="relative z-10 flex h-[calc(100%-4rem)] gap-6 px-6 pb-6 max-lg:flex-col-reverse max-lg:overflow-y-auto">
-          {/* المربعات */}
-          <div className="order-1 flex min-w-0 flex-1 flex-col lg:overflow-hidden">
-            <div className="mb-3 flex shrink-0 items-center gap-2.5">
-              <h2 className="text-sm font-black text-accent">{rounds[0] ?? "الدور الأول"}</h2>
-              <span className="h-px flex-1 bg-white/10" />
-              <span className="text-[11px] font-bold text-[#F3EBE1]/40">
-                {rounds.slice(1).join(" ← ")}
-              </span>
-            </div>
+      )}
 
-            <div
-              className="grid flex-1 content-start gap-2.5 lg:overflow-y-auto"
-              style={{ gridTemplateColumns: `repeat(${matchColumns}, minmax(0, 1fr))` }}
-            >
-              {matches.map((match) => {
-                const isNext = nextSlot?.match === match.number;
-                return (
-                  <div
-                    key={match.number}
-                    className={`rounded-2xl border p-2.5 transition-colors ${
-                      isNext
-                        ? "border-accent/70 bg-accent/[0.08]"
-                        : "border-white/10 bg-white/[0.04]"
-                    }`}
-                  >
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-black text-[#F3EBE1]/35">
-                        مباراة {match.number.toLocaleString("en-US")}
-                      </span>
-                      {match.isBye && (
-                        <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-black text-emerald-300">
-                          يتأهل مباشرة
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      {([0, 1] as const).map((side) => {
-                        if (match.isBye && side === 1) return null;
-                        const name = match.teams[side];
-                        const isTarget =
-                          nextSlot?.match === match.number && nextSlot.side === side;
-                        return (
-                          <div
-                            key={side}
-                            className={`flex min-h-[40px] items-center truncate rounded-xl px-3 text-[15px] font-black ${
-                              name
-                                ? "bg-white/[0.09] text-[#F3EBE1]"
-                                : isTarget
-                                  ? "border border-dashed border-accent/60 bg-accent/[0.06] text-accent/70"
-                                  : "border border-dashed border-white/10 text-[#F3EBE1]/20"
-                            }`}
-                          >
-                            {name ?? (isTarget ? "التالي..." : "—")}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      {/* ═══ القرعة: العجلة يساراً والشجرة يميناً ═══ */}
+      {phase === "drawing" && bracket && (
+        <div className="relative z-10 flex flex-1 gap-5 overflow-hidden px-5 pb-5 max-lg:flex-col-reverse max-lg:overflow-y-auto">
+          <div className="order-1 min-w-0 flex-1 overflow-hidden">
+            <BracketView bracket={bracket} nextSlot={nextSlot} compact />
           </div>
 
-          {/* العجلة */}
-          <div className="order-2 flex w-full shrink-0 flex-col items-center justify-center gap-4 lg:w-[40%] lg:max-w-[520px]">
-            {/* بانتهاء القرعة تُخفى العجلة الفارغة: لا معنى لعرض دائرة بلا أسماء، ولا
-                لرسالة «أضف الفرق أولاً» وقد اكتملت الشجرة أمام الحضور */}
-            {phase === "done" ? (
-              <div className="flex w-full max-w-[420px] flex-col items-center gap-4 rounded-3xl border border-emerald-400/30 bg-emerald-400/[0.07] px-6 py-12 text-center">
-                <span className="text-3xl font-black text-emerald-300">اكتملت القرعة</span>
-                <span className="text-sm font-bold text-[#F3EBE1]/55">
-                  {order.length.toLocaleString("en-US")} فريق موزّعة على{" "}
-                  {matches.length.toLocaleString("en-US")} مباراة
-                </span>
-              </div>
-            ) : (
-              <div className="w-full max-w-[420px] px-2">
-                <Wheel names={remaining} spinningTo={spinningTo} onSpinEnd={handleSpinEnd} />
-              </div>
-            )}
+          <div className="relative order-2 flex w-full shrink-0 flex-col items-center justify-center gap-4 lg:w-[38%] lg:max-w-[460px]">
+            {/* إعلان الاسم المسحوب — فوق العجلة مباشرةً ليراه الجميع */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center">
+              {announce && (
+                <div className="animate-[fadeIn_0.25s_ease-out] rounded-2xl border border-accent bg-[#1C120B] px-7 py-4 text-center shadow-[0_18px_40px_-10px_rgba(0,0,0,0.8)]">
+                  <p className="mb-1 text-[11px] font-black tracking-wide text-accent/70">
+                    سُحب الفريق
+                  </p>
+                  <p className="max-w-[20ch] truncate text-2xl font-black text-accent">
+                    {announce}
+                  </p>
+                </div>
+              )}
+            </div>
 
-            {lastPicked && spinningTo === null && phase !== "done" && (
-              <p className="max-w-full truncate rounded-2xl border border-accent/40 bg-accent/10 px-6 py-2.5 text-center text-xl font-black text-accent">
-                {lastPicked}
-              </p>
-            )}
+            <div className="w-full max-w-[380px] px-2">
+              <Wheel names={remaining} spinningTo={spinningTo} onSpinEnd={handleSpinEnd} />
+            </div>
 
-            {phase === "done" ? null : (
-              <button
-                type="button"
-                onClick={spin}
-                disabled={spinningTo !== null || remaining.length === 0}
-                className="flex min-h-[64px] w-full max-w-[340px] items-center justify-center gap-2.5 rounded-2xl bg-accent text-xl font-black text-[#1C120B] transition-transform active:scale-[0.98] disabled:opacity-40"
-              >
-                <Shuffle size={22} />
-                {spinningTo !== null ? "..." : "دوّر العجلة"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={spin}
+              disabled={spinningTo !== null || remaining.length === 0}
+              className="flex min-h-[60px] w-full max-w-[330px] items-center justify-center gap-2.5 rounded-2xl bg-accent text-xl font-black text-[#1C120B] transition-transform active:scale-[0.98] disabled:opacity-40"
+            >
+              <Shuffle size={22} />
+              {spinningTo !== null ? "..." : "دوّر العجلة"}
+            </button>
           </div>
         </div>
       )}
 
-      {/* ═══ اختيار المشتركين ═══ */}
+      {/* ═══ البطولة: الشجرة تملأ الشاشة، وضغطة على الفائز تُصعّده ═══ */}
+      {phase === "playing" && bracket && (
+        <div className="relative z-10 flex flex-1 flex-col overflow-hidden px-5 pb-5">
+          {champion ? (
+            <div className="mb-3 flex shrink-0 items-center justify-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 py-3">
+              <Trophy size={22} className="text-amber-300" />
+              <span className="text-xl font-black text-amber-200">
+                البطل: {champion}
+              </span>
+            </div>
+          ) : (
+            <p className="mb-2 shrink-0 text-center text-[11px] font-bold text-[#F3EBE1]/40">
+              اضغط على الفريق الفائز ليصعد للدور التالي
+            </p>
+          )}
+
+          <div className="min-h-0 flex-1">
+            <BracketView bracket={bracket} nextSlot={null} onPickWinner={pickWinner} />
+          </div>
+        </div>
+      )}
+
       {pickerOpen && (
         <SubscriberPicker
           tournaments={tournaments}
@@ -479,6 +451,19 @@ export default function DrawBoard({ tournaments, tournamentTeams, onExit }: Draw
           onClose={() => setPickerOpen(false)}
         />
       )}
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -503,15 +488,15 @@ function SubscriberPicker({
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-[#140E0A]/95 backdrop-blur-xl">
-      <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-6">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-6">
         <h2 className="text-base font-black">المشتركون</h2>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.06]"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/[0.06]"
           aria-label="إغلاق"
         >
-          <X size={17} />
+          <X size={16} />
         </button>
       </div>
 

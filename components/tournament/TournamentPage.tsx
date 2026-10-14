@@ -162,7 +162,7 @@ export default function TournamentPageClient({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="relative overflow-hidden rounded-b-[2.5rem] bg-[#1C120B] px-6 pb-9 pt-10 text-center"
+        className="relative overflow-hidden rounded-b-[2.5rem] bg-[#1C120B] px-6 pb-12 pt-10 text-center"
       >
         <span
           aria-hidden="true"
@@ -229,8 +229,10 @@ export default function TournamentPageClient({
       </motion.section>
 
       {/* ═══ الأرقام الأساسية ═══ */}
-      <section className="px-6">
-        <div className="-mt-6 overflow-hidden rounded-3xl border border-primary/[0.07] bg-background shadow-glass">
+      {/* z-10 ضرورية: الترويسة أعلاها تُنشئ سياق طبقات (بسبب حركة الظهور)، فكانت
+          تُغطّي أول صف من البطاقة ويختفي نصف سطر التاريخ تحت حافتها المقوّسة */}
+      <section className="relative z-10 px-6">
+        <div className="-mt-5 overflow-hidden rounded-3xl border border-primary/[0.07] bg-background shadow-glass">
           {stats.map((row, i) => (
             <div
               key={row.label}

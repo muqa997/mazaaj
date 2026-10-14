@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { wheelColor } from "@/lib/draw";
+import { playSpin } from "@/lib/draw-sounds";
 
 type WheelProps = {
   names: string[];
@@ -10,7 +11,7 @@ type WheelProps = {
   onSpinEnd: () => void;
 };
 
-const SPIN_MS = 4600;
+export const SPIN_MS = 4600;
 const FULL_TURNS = 6;
 
 /**
@@ -23,26 +24,21 @@ const FULL_TURNS = 6;
 export default function Wheel({ names, spinningTo, onSpinEnd }: WheelProps) {
   const [rotation, setRotation] = useState(0);
   const turnsRef = useRef(0);
-  const endedRef = useRef(true);
 
   const count = names.length;
   const segment = count > 0 ? 360 / count : 360;
 
   useEffect(() => {
     if (spinningTo === null || count === 0) return;
-    endedRef.current = false;
 
     // المؤشر بأعلى العجلة (زاوية 0). لإيقاف منتصف القطاع تحته ندوّر بمقدار
     // -(مركز القطاع)، ونزيد دورات كاملة ليبدو الدوران طبيعياً
     const center = spinningTo * segment + segment / 2;
     turnsRef.current += FULL_TURNS;
     setRotation(turnsRef.current * 360 - center);
+    playSpin(SPIN_MS, count);
 
-    const id = setTimeout(() => {
-      endedRef.current = true;
-      onSpinEnd();
-    }, SPIN_MS + 120);
-
+    const id = setTimeout(onSpinEnd, SPIN_MS + 120);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinningTo]);
@@ -55,10 +51,12 @@ export default function Wheel({ names, spinningTo, onSpinEnd }: WheelProps) {
     );
   }
 
-  // 100 وحدة قطراً داخل viewBox، فكل المقاسات نسبية وتكبر مع حجم الشاشة
   const r = 50;
-  const nameSize = count > 24 ? 3 : count > 16 ? 3.6 : count > 10 ? 4.4 : 5.4;
-  const maxChars = count > 24 ? 14 : count > 16 ? 18 : 24;
+  // النص يقع داخل القطاع دائماً: نضعه بمنتصف نصف القطر ونوسّطه حوله، فلا يتأثر
+  // موضعه باتجاه الكتابة. (الإرساء على الحافة مع direction:rtl كان يدفعه للخارج)
+  const textRadius = r * 0.56;
+  const nameSize = count > 24 ? 3.1 : count > 16 ? 3.7 : count > 10 ? 4.4 : 5.2;
+  const maxChars = count > 24 ? 11 : count > 16 ? 14 : count > 10 ? 17 : 20;
 
   return (
     <div className="relative w-full">
@@ -76,7 +74,8 @@ export default function Wheel({ names, spinningTo, onSpinEnd }: WheelProps) {
         className="w-full"
         style={{
           transform: `rotate(${rotation}deg)`,
-          transition: spinningTo === null ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.8, 0.12, 1)`,
+          transition:
+            spinningTo === null ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.8, 0.12, 1)`,
         }}
         role="img"
         aria-label={`عجلة فيها ${count.toLocaleString("en-US")} فريق`}
@@ -92,6 +91,8 @@ export default function Wheel({ names, spinningTo, onSpinEnd }: WheelProps) {
           const largeArc = segment > 180 ? 1 : 0;
           const mid = i * segment + segment / 2 - 90;
           const label = name.length > maxChars ? `${name.slice(0, maxChars - 1)}…` : name;
+          // بالنصف الأيسر من العجلة يصير النص مقلوباً رأساً على عقب، فنُدوّره 180°
+          const flipped = mid > 90 && mid < 270;
 
           return (
             <g key={`${name}-${i}`}>
@@ -102,22 +103,21 @@ export default function Wheel({ names, spinningTo, onSpinEnd }: WheelProps) {
                     : `M 0 0 L ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${x1.toFixed(3)} ${y1.toFixed(3)} Z`
                 }
                 fill={wheelColor(i, count)}
-                stroke="rgba(0,0,0,0.3)"
+                stroke="rgba(0,0,0,0.32)"
                 strokeWidth="0.35"
               />
-              {/* النص على نصف القطر: يُقرأ من المركز للخارج، فيتسع مهما ضاق القطاع */}
               <text
-                x={r - 4}
+                x={flipped ? -textRadius : textRadius}
                 y="0"
-                transform={`rotate(${mid})`}
-                textAnchor="end"
-                dominantBaseline="middle"
+                transform={`rotate(${flipped ? mid + 180 : mid})`}
+                textAnchor="middle"
+                dominantBaseline="central"
                 fontSize={nameSize}
                 fontWeight="800"
                 fill="#FFFFFF"
-                style={{ paintOrder: "stroke", direction: "rtl" }}
-                stroke="rgba(0,0,0,0.35)"
-                strokeWidth="0.5"
+                stroke="rgba(0,0,0,0.4)"
+                strokeWidth="0.55"
+                style={{ paintOrder: "stroke" }}
               >
                 {label}
               </text>
