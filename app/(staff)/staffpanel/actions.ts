@@ -75,16 +75,18 @@ function toArabicError(error: { message: string } | null): string | null {
   return "حدث خطأ أثناء الحفظ، الرجاء المحاولة مرة أخرى.";
 }
 
-export async function getStaffOrders(): Promise<OrderRow[]> {
+// ترجع null عند تعذّر الجلب (لا [] ): الواجهة عندها تُبقي آخر بيانات صحيحة بدل أن
+// تمسح الشاشة. القائمة الفارغة محجوزة لمعناها الحقيقي: لا توجد سجلات
+export async function getStaffOrders(): Promise<OrderRow[] | null> {
   requireStaffSession();
-  if (!supabaseAdmin) return [];
+  if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select("*")
     .order("created_at", { ascending: false });
   if (error) {
     console.error(error);
-    return [];
+    return null;
   }
   return data ?? [];
 }
@@ -105,16 +107,16 @@ export async function deleteStaffOrder(id: string) {
 
 // يعرض حساب طاولات البلياردو الحي للكاشير — بما فيها اسم/رقم الزبون الحي إن كتبه
 // موظف البلياردو، مع إمكانية الدفع المباشر من هنا عبر payTableDirect بالأسفل
-export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[]> {
+export async function getStaffBilliardsTables(): Promise<BilliardsTableRow[] | null> {
   requireStaffSession();
-  if (!supabaseAdmin) return [];
+  if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("billiards_tables")
     .select("*")
     .order("table_number", { ascending: true });
   if (error) {
     console.error(error);
-    return [];
+    return null;
   }
   return (data ?? []) as BilliardsTableRow[];
 }
@@ -157,9 +159,9 @@ export async function payTableDirect(tableNumber: number) {
 
 // الفواتير الصادرة من موظف البلياردو بانتظار الدفع أو الإلغاء — الكاشير حصراً هو من
 // يدفعها أو يلغيها؛ الملغاة لا تظهر هنا (تبقى بسجل التدقيق للمدير فقط)
-export async function getStaffPendingTickets(): Promise<BilliardsTicketRow[]> {
+export async function getStaffPendingTickets(): Promise<BilliardsTicketRow[] | null> {
   requireStaffSession();
-  if (!supabaseAdmin) return [];
+  if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("billiards_tickets")
     .select("*")
@@ -167,7 +169,7 @@ export async function getStaffPendingTickets(): Promise<BilliardsTicketRow[]> {
     .order("created_at", { ascending: true });
   if (error) {
     console.error(error);
-    return [];
+    return null;
   }
   return (data ?? []) as BilliardsTicketRow[];
 }
@@ -215,9 +217,12 @@ export async function cancelTicket(ticketId: string, reason: string) {
 }
 
 // مجموع ما حصّله الكاشير نفسه اليوم (اليوم التجاري: يبدأ ٦ صباحاً) من حسابات البلياردو
-export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; amount: number }> {
+export async function getStaffBilliardsTodayTotal(): Promise<{
+  games: number;
+  amount: number;
+} | null> {
   requireStaffSession();
-  if (!supabaseAdmin) return { games: 0, amount: 0 };
+  if (!supabaseAdmin) return null;
 
   const startOfDay = getBusinessDayStart();
 
@@ -228,7 +233,7 @@ export async function getStaffBilliardsTodayTotal(): Promise<{ games: number; am
     .gte("paid_at", startOfDay.toISOString());
   if (error) {
     console.error(error);
-    return { games: 0, amount: 0 };
+    return null;
   }
 
   return (data ?? []).reduce(
@@ -247,9 +252,9 @@ export async function getStaffBilliardsYesterdaySummary(): Promise<{
   amount: number;
   count: number;
   unsettledCount: number;
-}> {
+} | null> {
   requireStaffSession();
-  if (!supabaseAdmin) return { amount: 0, count: 0, unsettledCount: 0 };
+  if (!supabaseAdmin) return null;
 
   const startOfToday = getBusinessDayStart();
   const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
@@ -261,7 +266,7 @@ export async function getStaffBilliardsYesterdaySummary(): Promise<{
     .lt("paid_at", startOfToday.toISOString());
   if (error) {
     console.error(error);
-    return { amount: 0, count: 0, unsettledCount: 0 };
+    return null;
   }
 
   const rows = data ?? [];
@@ -275,9 +280,12 @@ export async function getStaffBilliardsYesterdaySummary(): Promise<{
 // المبلغ الذي حصّله الكاشير قبل بداية اليوم التجاري الحالي ولا يزال غير مُسوّى مع
 // المدير — تذكير للكاشير في حال نسي المدير الضغط على "استلمت من الكاشير" أمس، فيبقى
 // الرقم ظاهراً له إلى أن يُسوّيه المدير من لوحة التحكم
-export async function getStaffBilliardsOverdueTotal(): Promise<{ amount: number; count: number }> {
+export async function getStaffBilliardsOverdueTotal(): Promise<{
+  amount: number;
+  count: number;
+} | null> {
   requireStaffSession();
-  if (!supabaseAdmin) return { amount: 0, count: 0 };
+  if (!supabaseAdmin) return null;
 
   const startOfDay = getBusinessDayStart();
 
@@ -288,7 +296,7 @@ export async function getStaffBilliardsOverdueTotal(): Promise<{ amount: number;
     .lt("paid_at", startOfDay.toISOString());
   if (error) {
     console.error(error);
-    return { amount: 0, count: 0 };
+    return null;
   }
 
   const rows = data ?? [];

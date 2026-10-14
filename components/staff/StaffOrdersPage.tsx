@@ -1,33 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Trash2, MessageSquare, ChevronDown, RefreshCw, BellRing } from "lucide-react";
-import { useSyncSignal } from "@/lib/use-sync-signal";
-import { playNewOrderAlert, useUnlockChime } from "@/lib/use-new-order-alert";
+import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
-import BilliardsSummaryCard from "./BilliardsSummaryCard";
+import BilliardsSummaryCard, { type InitialBilliards } from "./BilliardsSummaryCard";
 
 type StaffOrdersPageProps = {
+  // تصل جاهزة مع HTML الصفحة: F5 واحدة تُظهر كل جديد — لا جلب عند العرض ولا دورياً
+  initialOrders: OrderRow[];
+  initialBilliards: InitialBilliards;
   logoutAction: () => Promise<void>;
   refreshSessionAction: () => Promise<void>;
-  getOrders: () => Promise<OrderRow[]>;
+  getOrders: () => Promise<OrderRow[] | null>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<{ error: string | null }>;
   deleteOrder: (id: string) => Promise<{ error: string | null }>;
-  getBilliardsTables: () => Promise<BilliardsTableRow[]>;
-  getPendingTickets: () => Promise<BilliardsTicketRow[]>;
+  getBilliardsTables: () => Promise<BilliardsTableRow[] | null>;
+  getPendingTickets: () => Promise<BilliardsTicketRow[] | null>;
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string, reason: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
-  getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
-  getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number }>;
+  getBilliardsTodayTotal: () => Promise<{ games: number; amount: number } | null>;
+  getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number } | null>;
   getBilliardsYesterdaySummary: () => Promise<{
     amount: number;
     count: number;
     unsettledCount: number;
-  }>;
+  } | null>;
 };
 
 type StaffTab = "billiards" | "orders";
@@ -35,58 +36,20 @@ type StaffTab = "billiards" | "orders";
 export default function StaffOrdersPage(props: StaffOrdersPageProps) {
   const router = useRouter();
   const [tab, setTab] = useState<StaffTab>("billiards");
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<OrderRow[]>(props.initialOrders);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [newOrdersWaiting, setNewOrdersWaiting] = useState(0);
-  // دالة تحديث بطاقة البلياردو، تُسجّلها البطاقة عند أول عرض
-  const reloadBilliardsRef = useRef<(() => Promise<void>) | null>(null);
 
-  // showSpinner=false عند التحديث اليدوي: بدونها تومض القائمة "جاري التحميل" في كل
-  // ضغطة، فتبدو الصفحة مضطربة ويفقد الكاشير مكانه بالقائمة
-  const loadOrders = useCallback(
-    async (showSpinner = false) => {
-      if (showSpinner) setLoading(true);
-      try {
-        const o = await props.getOrders();
-        setOrders(o ?? []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (showSpinner) setLoading(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  useEffect(() => {
-    loadOrders(true);
-    props.refreshSessionAction();
+  // الطلبات تصل مع الصفحة؛ هذي تُستدعى بعد إجراءات الكاشير نفسه فقط (حذف طلب مثلاً).
+  // null تعني "تعذّر الجلب" فنُبقي القائمة كما هي بدل أن نُفرّغها أمام الكاشير
+  const loadOrders = useCallback(async () => {
+    try {
+      const o = await props.getOrders();
+      if (o !== null) setOrders(o);
+    } catch (err) {
+      console.error(err);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // لا استطلاع دوري ولا جلب تلقائي — الكاشير يحدّث بالزر الكبير أدناه. زر واحد
-  // يحدّث التبويبين معاً، فلا يفوته شيء لمجرد أنه كان على التبويب الآخر
-  const handleManualRefresh = async () => {
-    setRefreshing(true);
-    setNewOrdersWaiting(0);
-    try {
-      await Promise.all([loadOrders(), reloadBilliardsRef.current?.()]);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // تنبيه الطلب الجديد: **إشعار فقط، بلا جلب تلقائي**. تصل رسالة واحدة فارغة لكل طلب
-  // حقيقي (لا عند تغيير حالة أو حذف)، فترنّ النغمة ويظهر شريط أحمر — والقائمة لا
-  // تتحدّث إلا بضغطة الكاشير. يعني تنبيه موثوق بلا أي استهلاك للخطة
-  useUnlockChime();
-  useSyncSignal("new-order", () => {
-    setNewOrdersWaiting((n) => n + 1);
-    playNewOrderAlert();
-  });
 
   const handleLogout = async () => {
     await props.logoutAction();
@@ -143,34 +106,9 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-        {newOrdersWaiting > 0 && (
-          <button
-            type="button"
-            onClick={handleManualRefresh}
-            className="mb-3 flex w-full animate-pulse items-center justify-center gap-3 rounded-2xl bg-red-600 px-4 py-4 text-base font-extrabold text-white shadow-glass active:scale-[0.98]"
-          >
-            <BellRing size={22} />
-            {newOrdersWaiting === 1
-              ? "وصل طلب جديد — اضغط لعرضه"
-              : `وصلت ${newOrdersWaiting.toLocaleString("en-US")} طلبات جديدة — اضغط لعرضها`}
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={handleManualRefresh}
-          disabled={refreshing}
-          className="mb-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-lg font-extrabold text-background shadow-glass active:scale-[0.98] disabled:opacity-60"
-        >
-          <RefreshCw size={22} className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? "جاري التحديث..." : "تحديث الصفحة"}
-        </button>
-
         {tab === "billiards" && (
           <BilliardsSummaryCard
-            registerReload={(reload) => {
-              reloadBilliardsRef.current = reload;
-            }}
+            initial={props.initialBilliards}
             getBilliardsTables={props.getBilliardsTables}
             getPendingTickets={props.getPendingTickets}
             payTicket={props.payTicket}
@@ -182,9 +120,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
           />
         )}
 
-        {tab === "orders" && (loading ? (
-          <p className="py-10 text-center text-primary/50">جاري التحميل...</p>
-        ) : (
+        {tab === "orders" && (
           <div className="flex flex-col gap-3">
             {orders.length === 0 && (
               <p className="py-10 text-center text-primary/50">لا توجد طلبات بعد</p>
@@ -280,7 +216,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
               );
             })}
           </div>
-        ))}
+        )}
       </main>
     </div>
   );

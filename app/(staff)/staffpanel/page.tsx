@@ -38,8 +38,34 @@ export default async function StaffPage() {
     return <StaffLoginForm loginAction={staffLogin} />;
   }
 
+  // كل ما تعرضه الصفحة يُجلب على الخادم ويصل مع HTML: ضغطة F5 واحدة تكفي لرؤية
+  // الكيمات الحية والجلسات المرحّلة والطلبات، بطلب واحد بدل ستة
+  const [
+    initialOrders,
+    initialTables,
+    initialTickets,
+    initialTodayTotal,
+    initialOverdueTotal,
+    initialYesterday,
+  ] = await Promise.all([
+    getStaffOrders(),
+    getStaffBilliardsTables(),
+    getStaffPendingTickets(),
+    getStaffBilliardsTodayTotal(),
+    getStaffBilliardsOverdueTotal(),
+    getStaffBilliardsYesterdaySummary(),
+  ]);
+
   return (
     <StaffOrdersPage
+      initialOrders={initialOrders ?? []}
+      initialBilliards={{
+        tables: initialTables ?? [],
+        tickets: initialTickets ?? [],
+        todayTotal: initialTodayTotal ?? { games: 0, amount: 0 },
+        overdueTotal: initialOverdueTotal ?? { amount: 0, count: 0 },
+        yesterday: initialYesterday ?? { amount: 0, count: 0, unsettledCount: 0 },
+      }}
       logoutAction={staffLogout}
       refreshSessionAction={refreshStaffSession}
       getOrders={getStaffOrders}

@@ -68,9 +68,8 @@ export async function notifyNewOrder(order: OrderNotificationInput) {
   }
 }
 
-// يستدعيها المتصفح بعد حفظ الطلب بقاعدة البيانات. إشارتان فارغتان بلا أي بيانات
-// (القناة يصلها المفتاح العام): "new-order" تُرنّ جرس الكاشير، و"orders" تُحدّث لوحة
-// تحكم المدير. رسالتان لكل طلب حقيقي فقط — لا استطلاع دوري ولا كلفة تُذكر
+// يستدعيها المتصفح بعد حفظ الطلب بقاعدة البيانات: إشارة فارغة بلا أي بيانات تُحدّث
+// لوحة تحكم المدير لحظياً. صفحة الكاشير لا تستمع لها — تحديثها بفتح الصفحة فقط
 export async function signalNewOrder() {
-  await Promise.all([sendSyncSignal("new-order"), sendSyncSignal("orders")]);
+  await sendSyncSignal("orders");
 }

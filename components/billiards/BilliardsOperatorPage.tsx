@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Minus, Send, Trash2, X, RefreshCw } from "lucide-react";
+import { LogOut, Plus, Minus, Send, Trash2, X, WifiOff } from "lucide-react";
 import {
   computePoolAmount,
   type BilliardsTableRow,
@@ -32,9 +32,13 @@ const EMPTY_STATS: OperatorStats = {
 };
 
 type BilliardsOperatorPageProps = {
+  // تصل جاهزة مع HTML الصفحة: الطاولات تظهر لحظة الفتح على أي اتصال، بلا طلب إضافي
+  initialTables: BilliardsTableRow[];
+  initialTickets: BilliardsTicketRow[];
+  initialNotes: BilliardsNoteRow[];
   logoutAction: () => Promise<void>;
   refreshSessionAction: () => Promise<void>;
-  getTables: () => Promise<BilliardsTableRow[]>;
+  getTables: () => Promise<BilliardsTableRow[] | null>;
   setGameCount: (tableNumber: number, pool: PoolType, count: number) => Promise<{ error: string | null }>;
   updateCustomerRef: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   endSession: (
@@ -42,10 +46,10 @@ type BilliardsOperatorPageProps = {
     customerRef: string,
     counts: { eight: number; nine: number }
   ) => Promise<{ error: string | null }>;
-  getPendingTickets: () => Promise<BilliardsTicketRow[]>;
+  getPendingTickets: () => Promise<BilliardsTicketRow[] | null>;
   cancelTicket: (ticketId: string) => Promise<{ error: string | null }>;
   getStats: () => Promise<OperatorStats>;
-  getNotes: () => Promise<BilliardsNoteRow[]>;
+  getNotes: () => Promise<BilliardsNoteRow[] | null>;
   addNote: (text: string) => Promise<{ error: string | null }>;
   deleteNote: (noteId: string) => Promise<{ error: string | null }>;
 };
@@ -85,17 +89,19 @@ function ActiveDot() {
 
 export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps) {
   const router = useRouter();
-  const [tables, setTables] = useState<BilliardsTableRow[]>([]);
-  const [pendingTickets, setPendingTickets] = useState<BilliardsTicketRow[]>([]);
+  const [tables, setTables] = useState<BilliardsTableRow[]>(props.initialTables);
+  const [pendingTickets, setPendingTickets] = useState<BilliardsTicketRow[]>(props.initialTickets);
   const [stats, setStats] = useState<OperatorStats>(EMPTY_STATS);
-  const [notes, setNotes] = useState<BilliardsNoteRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [notes, setNotes] = useState<BilliardsNoteRow[]>(props.initialNotes);
+  // آخر تحديث فشل: نُبقي البيانات الظاهرة كما هي ونكتفي بتنبيه الموظف
+  const [staleSince, setStaleSince] = useState<Date | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
-  const [customerRefs, setCustomerRefs] = useState<Record<number, string>>({});
+  const [customerRefs, setCustomerRefs] = useState<Record<number, string>>(() =>
+    Object.fromEntries(props.initialTables.map((t) => [t.table_number, t.customer_ref ?? ""]))
+  );
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const focusedTableRef = useRef<number | null>(null);
   // كاتب متسلسل لكل عدّاد (طاولة+قسم): كتابة واحدة بالتنفيذ، وآخر قيمة مطلوبة بالانتظار.
@@ -135,6 +141,13 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     makeCoalescedLoader(
       () => Promise.all([props.getTables(), props.getPendingTickets()]),
       ([t, tickets]) => {
+        // الجلب فشل (null) — نترك الشاشة كما هي ونرفع علم "البيانات قديمة". بدون هذا
+        // كانت قائمة فارغة تمسح الطاولات الثلاث من أمام الموظف
+        if (t === null || tickets === null) {
+          setStaleSince(new Date());
+          return;
+        }
+        setStaleSince(null);
         // لا نستبدل عداد طاولة+قسم لا يزال بانتظار مزامنة مؤجَّلة (debounce) — لتجنّب أن
         // يُصفِّر الاستطلاع الدوري القيمة المحلية قبل وصول التحديث الفعلي للخادم
         setTables((prevTables) =>
@@ -165,24 +178,35 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           return next;
         });
         setPendingTickets(tickets);
-        setLoading(false);
       }
     )
   );
   const loadCore = () => loadCoreRef.current();
 
-  const loadNotesRef = useRef(makeCoalescedLoader(() => props.getNotes(), setNotes));
+  const loadNotesRef = useRef(
+    makeCoalescedLoader(
+      () => props.getNotes(),
+      (n) => {
+        if (n !== null) setNotes(n);
+      }
+    )
+  );
   const loadNotes = () => loadNotesRef.current();
 
   const loadStatsRef = useRef(makeCoalescedLoader(() => props.getStats(), setStats));
   const loadStats = () => loadStatsRef.current();
 
+  // التحديث ينتظر الطاولات والفواتير فقط. الإحصائيات تمسح ٣٥ يوماً من المعاملات وهي
+  // أبطأ استعلام بكثير، فتعمل بالخلفية ولا تؤخّر ما يحتاجه الموظف فعلاً
   const load = async () => {
-    await Promise.all([loadCore(), loadStats(), loadNotes()]);
+    void loadStats();
+    void loadNotes();
+    await loadCore();
   };
 
   useEffect(() => {
-    load();
+    // الطاولات وصلت مع HTML، فما نجلبها ثانية — نكتفي بالإحصائيات الثقيلة بالخلفية
+    void loadStats();
     props.refreshSessionAction();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -302,19 +326,15 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       setPendingTickets((prev) => prev.filter((t) => t.id !== tempId));
       setErrorMsg(error);
     } else {
-      await loadCore();
+      // الفاتورة نجحت فعلاً؛ فشل إعادة الجلب بعدها لا يصح أن يُجمّد الزر على الموظف
+      try {
+        await loadCore();
+      } catch {
+        setStaleSince(new Date());
+      }
+      void loadStats();
     }
     setBusyTable(null);
-  };
-
-  const handleManualRefresh = async () => {
-    setRefreshing(true);
-    setErrorMsg(null);
-    try {
-      await load();
-    } finally {
-      setRefreshing(false);
-    }
   };
 
   // إلغاء بدون دفع — بدون سبب إلزامي (بعكس إلغاء الكاشير)، لتصحيح خطأ عرضي سريعاً
@@ -364,16 +384,14 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-28 sm:px-6">
-        {/* التحديث يدوي بالكامل (بالسحب للأسفل أو بهذا الزر) — لا استطلاع تلقائي */}
-        <button
-          type="button"
-          onClick={handleManualRefresh}
-          disabled={refreshing}
-          className="mb-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-lg font-extrabold text-background shadow-glass active:scale-[0.98] disabled:opacity-60"
-        >
-          <RefreshCw size={22} className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? "جاري التحديث..." : "تحديث الصفحة"}
-        </button>
+        {staleSince && (
+          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+            <WifiOff size={18} className="shrink-0 text-amber-700" />
+            <p className="text-sm font-bold text-amber-800">
+              تعذّر التحديث — الأرقام المعروضة آخر ما وصل. اسحب للأسفل للمحاولة
+            </p>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mb-5 flex items-start justify-between gap-3 rounded-2xl border border-red-300 bg-red-50 px-4 py-3">
@@ -389,10 +407,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           </div>
         )}
 
-        {loading ? (
-          <p className="py-10 text-center text-primary/50">جاري التحميل...</p>
-        ) : (
-          <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
             {tables.map((table) => {
               const totalGames = table.games_count + table.games_count_9ball;
               const amount = computePoolAmount(table.games_count, table.games_count_9ball);
@@ -504,8 +519,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                 </div>
               );
             })}
-          </div>
-        )}
+        </div>
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
           <h3 className="mb-3 text-sm font-bold text-primary">الفواتير الصادرة</h3>

@@ -37,8 +37,19 @@ export default async function BilliardsPage() {
     return <BilliardsLoginForm loginAction={billiardsLogin} />;
   }
 
+  // تُجلب على الخادم وتصل مع HTML الصفحة: الطاولات تظهر لحظة الفتح حتى على اتصال
+  // ضعيف، وبطلب واحد بدل خمسة. الإحصائيات وحدها تبقى على المتصفح لأنها تمسح ٣٥ يوماً
+  const [initialTables, initialTickets, initialNotes] = await Promise.all([
+    getBilliardsTables(),
+    getPendingTickets(),
+    getNotes(),
+  ]);
+
   return (
     <BilliardsOperatorPage
+      initialTables={initialTables ?? []}
+      initialTickets={initialTickets ?? []}
+      initialNotes={initialNotes ?? []}
       logoutAction={billiardsLogout}
       refreshSessionAction={refreshBilliardsSession}
       getTables={getBilliardsTables}

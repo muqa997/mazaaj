@@ -1,22 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Eye, EyeOff, Wallet, X } from "lucide-react";
 import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 
 type YesterdaySummary = { amount: number; count: number; unsettledCount: number };
 
+export type InitialBilliards = {
+  tables: BilliardsTableRow[];
+  tickets: BilliardsTicketRow[];
+  todayTotal: { games: number; amount: number };
+  overdueTotal: { amount: number; count: number };
+  yesterday: YesterdaySummary;
+};
+
 type BilliardsSummaryCardProps = {
-  getBilliardsTables: () => Promise<BilliardsTableRow[]>;
-  getPendingTickets: () => Promise<BilliardsTicketRow[]>;
+  // تصل جاهزة مع HTML الصفحة — لا جلب عند العرض، فضغطة F5 وحدها تكفي
+  initial: InitialBilliards;
+  getBilliardsTables: () => Promise<BilliardsTableRow[] | null>;
+  getPendingTickets: () => Promise<BilliardsTicketRow[] | null>;
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string, reason: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
-  getBilliardsTodayTotal: () => Promise<{ games: number; amount: number }>;
-  getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number }>;
-  getBilliardsYesterdaySummary: () => Promise<YesterdaySummary>;
-  // تُسلّم دالة التحديث لصفحة الكاشير ليشغّلها زر "تحديث" الكبير — لا تحديث تلقائي
-  registerReload?: (reload: () => Promise<void>) => void;
+  getBilliardsTodayTotal: () => Promise<{ games: number; amount: number } | null>;
+  getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number } | null>;
+  getBilliardsYesterdaySummary: () => Promise<YesterdaySummary | null>;
 };
 
 function ActiveDot() {
@@ -79,21 +87,19 @@ function SettlementBadge({ summary }: { summary: YesterdaySummary }) {
 }
 
 export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
-  const [tables, setTables] = useState<BilliardsTableRow[]>([]);
-  const [tickets, setTickets] = useState<BilliardsTicketRow[]>([]);
-  const [todayTotal, setTodayTotal] = useState({ games: 0, amount: 0 });
-  const [overdueTotal, setOverdueTotal] = useState({ amount: 0, count: 0 });
-  const [yesterday, setYesterday] = useState<YesterdaySummary>({
-    amount: 0,
-    count: 0,
-    unsettledCount: 0,
-  });
+  const [tables, setTables] = useState<BilliardsTableRow[]>(props.initial.tables);
+  const [tickets, setTickets] = useState<BilliardsTicketRow[]>(props.initial.tickets);
+  const [todayTotal, setTodayTotal] = useState(props.initial.todayTotal);
+  const [overdueTotal, setOverdueTotal] = useState(props.initial.overdueTotal);
+  const [yesterday, setYesterday] = useState<YesterdaySummary>(props.initial.yesterday);
   const [showToday, setShowToday] = useState(false);
   // بطاقة "من الأمس — غير مسلّم" وبطاقة "دخل الأمس" تعرضان نفس الدخل، فتتحكم بهما عين واحدة
   const [showYesterday, setShowYesterday] = useState(false);
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
 
+  // تُستدعى بعد إجراءات الكاشير نفسه (دفع/إلغاء) فقط — لا جلب عند العرض ولا دورياً.
+  // كل قيمة null تعني "تعذّر الجلب": نتركها كما هي بدل أن نكتب صفراً على الشاشة
   const load = useCallback(async () => {
     const [t, tk, total, overdue, yesterdaySummary] = await Promise.all([
       props.getBilliardsTables(),
@@ -102,23 +108,11 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
       props.getBilliardsOverdueTotal(),
       props.getBilliardsYesterdaySummary(),
     ]);
-    setTables(t);
-    setTickets(tk);
-    setTodayTotal(total);
-    setOverdueTotal(overdue);
-    setYesterday(yesterdaySummary);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const registerReload = props.registerReload;
-  const registeredRef = useRef(false);
-
-  useEffect(() => {
-    load();
-    if (!registeredRef.current) {
-      registeredRef.current = true;
-      registerReload?.(load);
-    }
+    if (t !== null) setTables(t);
+    if (tk !== null) setTickets(tk);
+    if (total !== null) setTodayTotal(total);
+    if (overdue !== null) setOverdueTotal(overdue);
+    if (yesterdaySummary !== null) setYesterday(yesterdaySummary);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

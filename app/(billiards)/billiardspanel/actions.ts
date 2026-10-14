@@ -67,16 +67,18 @@ function requireBilliardsSession() {
   }
 }
 
-export async function getBilliardsTables(): Promise<BilliardsTableRow[]> {
+// ترجع null عند تعذّر الجلب (لا [] ): الواجهة عندها تُبقي آخر بيانات صحيحة بدل أن
+// تمسح الشاشة. القائمة الفارغة محجوزة لمعناها الحقيقي: لا توجد سجلات
+export async function getBilliardsTables(): Promise<BilliardsTableRow[] | null> {
   requireBilliardsSession();
-  if (!supabaseAdmin) return [];
+  if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("billiards_tables")
     .select("*")
     .order("table_number", { ascending: true });
   if (error) {
     console.error(error);
-    return [];
+    return null;
   }
   return (data ?? []) as BilliardsTableRow[];
 }
@@ -162,9 +164,9 @@ export async function endSession(
 // التذاكر التي أنشأها الموظف بإنهاء الجلسة — يدفعها الكاشير حصراً، لكن يستطيع الموظف
 // إلغاءها بنفسه (بدون دفع) لتصحيح خطأ عرضي كرقم طاولة خاطئ؛ الملغاة لا تظهر هنا
 // (تبقى مرئية للمدير فقط بسجل التدقيق)
-export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
+export async function getPendingTickets(): Promise<BilliardsTicketRow[] | null> {
   requireBilliardsSession();
-  if (!supabaseAdmin) return [];
+  if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("billiards_tickets")
     .select("*")
@@ -172,7 +174,7 @@ export async function getPendingTickets(): Promise<BilliardsTicketRow[]> {
     .order("created_at", { ascending: true });
   if (error) {
     console.error(error);
-    return [];
+    return null;
   }
   return (data ?? []) as BilliardsTicketRow[];
 }
@@ -287,16 +289,16 @@ export async function getBilliardsOperatorStats(): Promise<{
   };
 }
 
-export async function getNotes(): Promise<BilliardsNoteRow[]> {
+export async function getNotes(): Promise<BilliardsNoteRow[] | null> {
   requireBilliardsSession();
-  if (!supabaseAdmin) return [];
+  if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("billiards_notes")
     .select("*")
     .order("created_at", { ascending: false });
   if (error) {
     console.error(error);
-    return [];
+    return null;
   }
   return (data ?? []) as BilliardsNoteRow[];
 }
