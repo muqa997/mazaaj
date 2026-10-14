@@ -30,6 +30,9 @@ import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-o
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
+import { Shuffle } from "lucide-react";
+import DrawBoard from "@/components/draw/DrawBoard";
+import DrawGate from "@/components/draw/DrawGate";
 import {
   findDuplicateTournaments,
   formatTournamentDate,
@@ -67,6 +70,7 @@ type Tab =
   | "promos"
   | "billiards"
   | "tournaments"
+  | "draw"
   | "applicants"
   | "jobs"
   | "suggestions";
@@ -79,6 +83,7 @@ const TAB_VALUES: Tab[] = [
   "promos",
   "billiards",
   "tournaments",
+  "draw",
   "applicants",
   "jobs",
   "suggestions",
@@ -121,6 +126,7 @@ type DashboardProps = {
   settleBilliardsOverdue: () => Promise<{ error: string | null }>;
   getBilliardsNotes: () => Promise<BilliardsNoteRow[]>;
   getCancelledBilliardsTickets: () => Promise<BilliardsTicketRow[]>;
+  verifyDrawCode: (code: string) => Promise<{ ok: boolean }>;
   getTournaments: () => Promise<TournamentRow[]>;
   createTournament: (input: TournamentInput) => Promise<{ error: string | null }>;
   updateTournament: (id: string, input: TournamentInput) => Promise<{ error: string | null }>;
@@ -440,6 +446,8 @@ export default function Dashboard(props: DashboardProps) {
   const [tournamentFormError, setTournamentFormError] = useState("");
   const [expandedTournamentId, setExpandedTournamentId] = useState<string | null>(null);
   const [tournamentSaved, setTournamentSaved] = useState<string | null>(null);
+  // تُفتح شاشة القرعة بعد الرمز فقط، وتُقفل عند مغادرة التبويب فيُطلب الرمز ثانيةً
+  const [drawUnlocked, setDrawUnlocked] = useState(false);
 
   // نفس الدالة التي يستخدمها الموقع حرفياً، فما يُعلَّم هنا "معروضة بالموقع" هو ما
   // يراه الزائر فعلاً — لا تخمين. الموقع يعرضها كلها، كل بطولة ببطاقتها
@@ -895,6 +903,7 @@ export default function Dashboard(props: DashboardProps) {
     { key: "orders", label: "الطلبات", icon: ClipboardList },
     { key: "billiards", label: "البلياردو", icon: CircleDot },
     { key: "tournaments", label: "البطولات", icon: Trophy },
+    { key: "draw", label: "شاشة القرعة", icon: Shuffle },
     { key: "applicants", label: "المتقدمون", icon: Users },
     { key: "coupons", label: "الكوبونات", icon: Ticket },
     { key: "announcements", label: "الإعلانات", icon: Megaphone },
@@ -904,9 +913,23 @@ export default function Dashboard(props: DashboardProps) {
   ];
 
   const selectTab = (key: Tab) => {
+    if (key !== "draw") setDrawUnlocked(false);
     setTab(key);
     setDrawerOpen(false);
   };
+
+  if (tab === "draw" && drawUnlocked) {
+    return (
+      <DrawBoard
+        tournaments={tournaments}
+        tournamentTeams={tournamentTeams}
+        onExit={() => {
+          setDrawUnlocked(false);
+          setTab("tournaments");
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1890,6 +1913,10 @@ export default function Dashboard(props: DashboardProps) {
                   )}
                 </div>
               </div>
+            )}
+
+            {tab === "draw" && (
+              <DrawGate verifyCode={props.verifyDrawCode} onUnlock={() => setDrawUnlocked(true)} />
             )}
 
             {tab === "tournaments" && (

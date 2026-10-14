@@ -465,6 +465,15 @@ export async function getCancelledBilliardsTickets(): Promise<BilliardsTicketRow
   return (data ?? []) as BilliardsTicketRow[];
 }
 
+// التحقق من رمز شاشة القرعة بالخادم لا بالمتصفح: المقارنة بالواجهة تضع الرمز داخل
+// ملفات الصفحة لأي من يفتح أدوات المطوّر. يُغيَّر الرمز بمتغير البيئة DRAW_CODE بلا
+// إعادة بناء الكود
+export async function verifyDrawCode(code: string): Promise<{ ok: boolean }> {
+  requireSession();
+  const expected = process.env.DRAW_CODE || "5555";
+  return { ok: code === expected };
+}
+
 // ===== بطولات الورق =====
 
 export async function getTournaments(): Promise<TournamentRow[]> {

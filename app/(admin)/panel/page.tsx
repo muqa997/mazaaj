@@ -33,6 +33,7 @@ import {
   getBilliardsNotes,
   getCancelledBilliardsTickets,
   getTournaments,
+  verifyDrawCode,
   createTournament,
   updateTournament,
   deleteTournament,
@@ -86,6 +87,7 @@ export default async function AdminPage() {
       getBilliardsNotes={getBilliardsNotes}
       getCancelledBilliardsTickets={getCancelledBilliardsTickets}
       getTournaments={getTournaments}
+      verifyDrawCode={verifyDrawCode}
       createTournament={createTournament}
       updateTournament={updateTournament}
       deleteTournament={deleteTournament}
