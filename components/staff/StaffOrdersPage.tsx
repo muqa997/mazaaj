@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Trash2, MessageSquare, ChevronDown } from "lucide-react";
+import { LogOut, Trash2, MessageSquare, ChevronDown, BellRing } from "lucide-react";
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
@@ -38,6 +38,14 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
   const [tab, setTab] = useState<StaffTab>("billiards");
   const [orders, setOrders] = useState<OrderRow[]>(props.initialOrders);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // التنبيه مربوط بحالة الطلب نفسها لا بوصوله: يبقى ظاهراً ما دام هناك طلب واحد
+  // على "جديد"، ولا يزول إلا بتغيير حالته. فلا يضيع طلب لمجرد أن الكاشير لمح
+  // التنبيه ثم انشغل
+  const newOrdersCount = useMemo(
+    () => orders.filter((o) => o.status === "new").length,
+    [orders]
+  );
 
   // الطلبات تصل مع الصفحة؛ هذي تُستدعى بعد إجراءات الكاشير نفسه فقط (حذف طلب مثلاً).
   // null تعني "تعذّر الجلب" فنُبقي القائمة كما هي بدل أن نُفرّغها أمام الكاشير
@@ -96,16 +104,36 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
           <button
             type="button"
             onClick={() => setTab("orders")}
-            className={`flex-1 rounded-full py-2 text-sm font-bold ${
+            className={`relative flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-sm font-bold ${
               tab === "orders" ? "bg-primary text-background" : "bg-primary/5 text-primary/60"
             }`}
           >
             الطلبات
+            {newOrdersCount > 0 && (
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-black tabular-nums text-white">
+                {newOrdersCount.toLocaleString("en-US")}
+              </span>
+            )}
           </button>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+        {newOrdersCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setTab("orders")}
+            className={`mb-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-red-600 px-4 py-4 text-base font-extrabold text-white shadow-glass active:scale-[0.99] ${
+              tab === "orders" ? "" : "animate-pulse"
+            }`}
+          >
+            <BellRing size={22} />
+            {newOrdersCount === 1
+              ? "عندك طلب جديد لم تُغيَّر حالته"
+              : `عندك ${newOrdersCount.toLocaleString("en-US")} طلبات جديدة لم تُغيَّر حالتها`}
+          </button>
+        )}
+
         {tab === "billiards" && (
           <BilliardsSummaryCard
             initial={props.initialBilliards}
