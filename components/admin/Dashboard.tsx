@@ -32,6 +32,8 @@ import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/l
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import { Shuffle } from "lucide-react";
 import DrawBoard from "@/components/draw/DrawBoard";
+import DrawChooser from "@/components/draw/DrawChooser";
+import ManualDrawBoard from "@/components/draw/ManualDrawBoard";
 import DrawGate from "@/components/draw/DrawGate";
 import {
   findDuplicateTournaments,
@@ -122,6 +124,15 @@ type DashboardProps = {
   uploadPromoImage: (key: PromoKey, formData: FormData) => Promise<{ error: string | null }>;
   getBilliardsTables: () => Promise<BilliardsTableRow[]>;
   getBilliardsTransactions: () => Promise<BilliardsTransactionRow[]>;
+  addManualBilliardsIncome: (input: {
+    date: string;
+    amount: number;
+    eight: number;
+    nine: number;
+    note: string;
+    settled: boolean;
+  }) => Promise<{ error: string | null }>;
+  deleteManualBilliardsIncome: (id: string) => Promise<{ error: string | null }>;
   settleBilliardsToday: () => Promise<{ error: string | null }>;
   settleBilliardsOverdue: () => Promise<{ error: string | null }>;
   getBilliardsNotes: () => Promise<BilliardsNoteRow[]>;
@@ -448,6 +459,20 @@ export default function Dashboard(props: DashboardProps) {
   const [tournamentSaved, setTournamentSaved] = useState<string | null>(null);
   // تُفتح شاشة القرعة بعد الرمز فقط، وتُقفل عند مغادرة التبويب فيُطلب الرمز ثانيةً
   const [drawUnlocked, setDrawUnlocked] = useState(false);
+  // بعد الرمز تُعرض بطاقتا الاختيار، ثم تُفتح الشاشة المطلوبة
+  const [drawMode, setDrawMode] = useState<"wheel" | "manual" | null>(null);
+  // نموذج تسجيل دخل يوم فات تسجيله — المدير وحده
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  const [incomeForm, setIncomeForm] = useState({
+    date: "",
+    amount: "",
+    eight: "",
+    nine: "",
+    note: "",
+    settled: true,
+  });
+  const [incomeBusy, setIncomeBusy] = useState(false);
+  const [incomeMsg, setIncomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // نفس الدالة التي يستخدمها الموقع حرفياً، فما يُعلَّم هنا "معروضة بالموقع" هو ما
   // يراه الزائر فعلاً — لا تخمين. الموقع يعرضها كلها، كل بطولة ببطاقتها
@@ -570,6 +595,42 @@ export default function Dashboard(props: DashboardProps) {
 
   // المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — منفصلة عمداً عن تسوية المتأخر
   // (بطاقة/زر مستقلان) حتى لا يختلط دخل الأمس المنسي بدخل اليوم في رقم واحد مربك
+  const submitManualIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (incomeBusy) return;
+    setIncomeBusy(true);
+    setIncomeMsg(null);
+
+    const result = await props.addManualBilliardsIncome({
+      date: incomeForm.date,
+      amount: Number(incomeForm.amount),
+      eight: Number(incomeForm.eight) || 0,
+      nine: Number(incomeForm.nine) || 0,
+      note: incomeForm.note,
+      settled: incomeForm.settled,
+    });
+
+    if (result.error) {
+      setIncomeMsg({ ok: false, text: result.error });
+    } else {
+      setIncomeMsg({
+        ok: true,
+        text: "تم التسجيل — يظهر الآن عند موظف البلياردو والكاشير ولوحة المدير",
+      });
+      setIncomeForm({ date: "", amount: "", eight: "", nine: "", note: "", settled: true });
+      setIncomeOpen(false);
+      await refreshBilliards();
+    }
+    setIncomeBusy(false);
+  };
+
+  const removeManualIncome = async (id: string) => {
+    if (!confirm("حذف هذا الإدخال اليدوي؟")) return;
+    const result = await props.deleteManualBilliardsIncome(id);
+    if (result.error) setIncomeMsg({ ok: false, text: result.error });
+    else await refreshBilliards();
+  };
+
   const handleSettleToday = async () => {
     const confirmed = window.confirm(
       `تأكيد استلامك ${billiardsStats.outstandingTodayAmount.toLocaleString("en-US")} د.ع نقداً من الكاشير (دخل اليوم)؟`
@@ -913,22 +974,26 @@ export default function Dashboard(props: DashboardProps) {
   ];
 
   const selectTab = (key: Tab) => {
-    if (key !== "draw") setDrawUnlocked(false);
+    if (key !== "draw") {
+      setDrawUnlocked(false);
+      setDrawMode(null);
+    }
     setTab(key);
     setDrawerOpen(false);
   };
 
-  if (tab === "draw" && drawUnlocked) {
+  if (tab === "draw" && drawUnlocked && drawMode === "wheel") {
     return (
       <DrawBoard
         tournaments={tournaments}
         tournamentTeams={tournamentTeams}
-        onExit={() => {
-          setDrawUnlocked(false);
-          setTab("tournaments");
-        }}
+        onExit={() => setDrawMode(null)}
       />
     );
+  }
+
+  if (tab === "draw" && drawUnlocked && drawMode === "manual") {
+    return <ManualDrawBoard onExit={() => setDrawMode(null)} />;
   }
 
   return (
@@ -1565,6 +1630,147 @@ export default function Dashboard(props: DashboardProps) {
 
             {tab === "billiards" && (
               <div className="flex flex-col gap-6">
+                {/* تسجيل دخل يوم فات — المدير وحده. يُكتب بتاريخ ذلك اليوم فيدخل
+                    تلقائياً في حسابات الجميع */}
+                <div className="rounded-2xl border border-primary/10 bg-background p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold text-primary">دخل يوم سابق</p>
+                      <p className="mt-0.5 text-xs text-primary/50">
+                        فات تسجيله لحظتها؟ سجّله هنا بتاريخه
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIncomeOpen((v) => !v);
+                        setIncomeMsg(null);
+                      }}
+                      className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-bold text-background"
+                    >
+                      {incomeOpen ? "إغلاق" : "تسجيل"}
+                    </button>
+                  </div>
+
+                  {incomeMsg && (
+                    <p
+                      className={`mt-3 rounded-xl px-3 py-2 text-xs font-bold ${
+                        incomeMsg.ok
+                          ? "bg-green-50 text-green-800"
+                          : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {incomeMsg.text}
+                    </p>
+                  )}
+
+                  {incomeOpen && (
+                    <form onSubmit={submitManualIncome} className="mt-4 flex flex-col gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold text-primary/50">اليوم</span>
+                        <input
+                          required
+                          type="date"
+                          value={incomeForm.date}
+                          max={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) =>
+                            setIncomeForm({ ...incomeForm, date: e.target.value })
+                          }
+                          className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold text-primary/50">
+                          إجمالي الدخل (د.ع)
+                        </span>
+                        <input
+                          required
+                          type="number"
+                          min="1"
+                          step="250"
+                          inputMode="numeric"
+                          value={incomeForm.amount}
+                          onChange={(e) =>
+                            setIncomeForm({ ...incomeForm, amount: e.target.value })
+                          }
+                          placeholder="50000"
+                          className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base font-bold text-primary outline-none focus:border-accent"
+                        />
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-primary/50">
+                            كيمات ٨ بول (اختياري)
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            inputMode="numeric"
+                            value={incomeForm.eight}
+                            onChange={(e) =>
+                              setIncomeForm({ ...incomeForm, eight: e.target.value })
+                            }
+                            placeholder="0"
+                            className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-primary/50">
+                            كيمات ٩ بول (اختياري)
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            inputMode="numeric"
+                            value={incomeForm.nine}
+                            onChange={(e) =>
+                              setIncomeForm({ ...incomeForm, nine: e.target.value })
+                            }
+                            placeholder="0"
+                            className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold text-primary/50">ملاحظة</span>
+                        <input
+                          value={incomeForm.note}
+                          maxLength={120}
+                          onChange={(e) =>
+                            setIncomeForm({ ...incomeForm, note: e.target.value })
+                          }
+                          placeholder="سبب الإدخال اليدوي"
+                          className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                        />
+                      </label>
+
+                      <label className="flex items-center gap-2.5 py-1">
+                        <input
+                          type="checkbox"
+                          checked={incomeForm.settled}
+                          onChange={(e) =>
+                            setIncomeForm({ ...incomeForm, settled: e.target.checked })
+                          }
+                          className="h-5 w-5 accent-current text-primary"
+                        />
+                        <span className="text-xs font-bold text-primary/70">
+                          المبلغ بيدي فعلاً (وإلا ظهر للكاشير كمتأخر غير مُسلَّم)
+                        </span>
+                      </label>
+
+                      <button
+                        type="submit"
+                        disabled={incomeBusy}
+                        className="min-h-[52px] rounded-xl bg-primary text-sm font-extrabold text-background disabled:opacity-40"
+                      >
+                        {incomeBusy ? "جارِ التسجيل..." : "تسجيل الدخل"}
+                      </button>
+                    </form>
+                  )}
+                </div>
                 <div
                   className={`rounded-2xl border p-4 ${
                     billiardsStats.outstandingTodayAmount > 0
@@ -1723,7 +1929,11 @@ export default function Dashboard(props: DashboardProps) {
                               <span className="font-semibold text-amber-700">لم تُسوَّ مع المدير بعد</span>
                             )}
                           </span>
-                          <span className="text-primary/70">طاولة {t.table_number}</span>
+                          <span className="text-primary/70">
+                            {t.collected_by === "manual"
+                              ? (t.entry_note || "إدخال يدوي")
+                              : `طاولة ${t.table_number}`}
+                          </span>
                           <span dir="ltr" className="text-primary/70">
                             {t.games_count > 0 && `8 Pool ${t.games_count}`}
                             {t.games_count > 0 && t.games_count_9ball > 0 && " + "}
@@ -1736,14 +1946,31 @@ export default function Dashboard(props: DashboardProps) {
                             className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                               t.collected_by === "cashier"
                                 ? "bg-blue-100 text-blue-700"
-                                : "bg-amber-100 text-amber-800"
+                                : t.collected_by === "manual"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-amber-100 text-amber-800"
                             }`}
                           >
-                            {t.collected_by === "cashier" ? "الكاشير" : "موظف البلياردو"}
+                            {t.collected_by === "cashier"
+                              ? "الكاشير"
+                              : t.collected_by === "manual"
+                                ? "يدوي — المدير"
+                                : "موظف البلياردو"}
                           </span>
                           <span className="font-bold text-primary">
                             {Number(t.amount).toLocaleString("en-US")} د.ع
                           </span>
+                          {/* الحذف للإدخالات اليدوية فقط: المعاملات الحقيقية سجلّ مالي */}
+                          {t.collected_by === "manual" && (
+                            <button
+                              type="button"
+                              onClick={() => removeManualIncome(t.id)}
+                              aria-label="حذف الإدخال اليدوي"
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5"
+                            >
+                              <Trash2 size={13} className="text-red-500/70" />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1915,9 +2142,15 @@ export default function Dashboard(props: DashboardProps) {
               </div>
             )}
 
-            {tab === "draw" && (
-              <DrawGate verifyCode={props.verifyDrawCode} onUnlock={() => setDrawUnlocked(true)} />
-            )}
+            {tab === "draw" &&
+              (drawUnlocked ? (
+                <DrawChooser onPick={setDrawMode} />
+              ) : (
+                <DrawGate
+                  verifyCode={props.verifyDrawCode}
+                  onUnlock={() => setDrawUnlocked(true)}
+                />
+              ))}
 
             {tab === "tournaments" && (
               <div>

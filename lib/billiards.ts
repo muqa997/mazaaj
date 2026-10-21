@@ -56,7 +56,27 @@ export function isSameBusinessDay(a: Date, b: Date): boolean {
 // من قام بتحصيل الدفعة — الكاشير حصراً هو من يحصّل الآن (يدفع الفاتورة أو دفعاً مباشراً
 // من العرض الحي)؛ القيمة 'billiards' باقية فقط لتوافق السجلات القديمة قبل حصر التحصيل
 // بالكاشير، ولم تعد تُنشأ لمعاملات جديدة
-export type BilliardsCollectedBy = "billiards" | "cashier";
+// 'manual' = دخل يوم سابق أدخله المدير يدوياً كمبلغ واحد (فات تسجيله لحظتها)
+export type BilliardsCollectedBy = "billiards" | "cashier" | "manual";
+
+/** رقم الطاولة للإدخال اليدوي: ليس طاولة حقيقية، وإحصاءات الطاولات تقرأ ١و٢و٣ فقط */
+export const MANUAL_ENTRY_TABLE = 0;
+
+/**
+ * يحوّل تاريخاً (YYYY-MM-DD) إلى لحظة تقع **داخل** يومه التجاري بأمان.
+ *
+ * اليوم التجاري يمتد من السادسة صباحاً إلى السادسة صباحاً، فلو استُخدم منتصف الليل
+ * لوقع المبلغ في اليوم السابق. نختار التاسعة مساءً بتوقيت بغداد: وسط النافذة، وهو
+ * أصلاً وقت ذروة البلياردو
+ */
+export function businessDayTimestamp(isoDate: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  // ٢١:٠٠ بغداد (UTC+3) = ١٨:٠٠ UTC
+  const at = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 18, 0, 0, 0));
+  return Number.isNaN(at.getTime()) ? null : at;
+}
 
 export type BilliardsTableRow = {
   id: string;
@@ -106,6 +126,8 @@ export type BilliardsTransactionRow = {
   // تُسوَّى كل المعاملات غير المسوّاة دفعة واحدة، لا لكل معاملة على حدة. يبقى null
   // حتى تسوية المدير
   settled_at: string | null;
+  // سبب الإدخال اليدوي كما كتبه المدير — فارغ لكل المعاملات الحقيقية
+  entry_note?: string | null;
 };
 
 // ملاحظة حرة لموظف البلياردو (دين، تذكير، إلخ) — غير مرتبطة بطاولة معينة

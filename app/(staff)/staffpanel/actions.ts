@@ -229,7 +229,9 @@ export async function getStaffBilliardsTodayTotal(): Promise<{
   const { data, error } = await supabaseAdmin
     .from("billiards_transactions")
     .select("games_count, amount")
-    .eq("collected_by", "cashier")
+    // 'manual' معها: لو سجّل المدير دخل اليوم يدوياً، يجب أن يراه الكاشير ضمن
+    // المحصّل لا أن يختفي بصمت
+    .in("collected_by", ["cashier", "manual"])
     .gte("paid_at", startOfDay.toISOString());
   if (error) {
     console.error(error);

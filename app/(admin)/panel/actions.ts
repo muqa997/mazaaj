@@ -8,6 +8,8 @@ import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { PromoKey, PromoRow } from "@/lib/promos";
 import type { MenuCategory } from "@/lib/menu-data";
 import {
+  MANUAL_ENTRY_TABLE,
+  businessDayTimestamp,
   getBusinessDayStart,
   type BilliardsTableRow,
   type BilliardsTransactionRow,
@@ -428,6 +430,83 @@ export async function settleBilliardsOverdue() {
     .is("settled_at", null)
     .lt("paid_at", todayStart.toISOString());
   return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء تسجيل التسوية" : null });
+}
+
+export type ManualIncomeInput = {
+  /** YYYY-MM-DD — اليوم التجاري المقصود */
+  date: string;
+  amount: number;
+  eight: number;
+  nine: number;
+  note: string;
+  /** المبلغ بيد المدير فعلاً، فلا يظهر للكاشير كمتأخر غير مسلَّم */
+  settled: boolean;
+};
+
+/**
+ * تسجيل دخل بلياردو ليوم فات تسجيله — المدير وحده (requireSession).
+ *
+ * يُكتب كحركة عادية بتاريخ ذلك اليوم، فتدخل تلقائياً في كل ما يُحسب من هذا الجدول:
+ * إحصائيات موظف البلياردو، ودخل الأمس عند الكاشير، ومخطط المدير والتسوية — بلا
+ * تعديل أي استعلام. وتُميَّز بـcollected_by='manual' ورقم طاولة 0، ورقم الطاولة هذا
+ * يُبقيها خارج إحصاءات أداء الطاولات (التي تقرأ ١ و٢ و٣ حصراً) فلا تشوّهها
+ */
+export async function addManualBilliardsIncome(input: ManualIncomeInput) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const paidAt = businessDayTimestamp(input.date);
+  if (!paidAt) return { error: "التاريخ غير صحيح" };
+  if (paidAt.getTime() > Date.now()) return { error: "لا يمكن تسجيل دخل ليوم لم يأتِ بعد" };
+
+  const amount = Math.round(Number(input.amount));
+  if (!Number.isFinite(amount) || amount <= 0) return { error: "المبلغ غير صحيح" };
+
+  const eight = Math.max(0, Math.floor(Number(input.eight) || 0));
+  const nine = Math.max(0, Math.floor(Number(input.nine) || 0));
+
+  const row = {
+    table_number: MANUAL_ENTRY_TABLE,
+    games_count: eight,
+    games_count_9ball: nine,
+    amount,
+    paid_at: paidAt.toISOString(),
+    collected_by: "manual",
+    settled_at: input.settled ? new Date().toISOString() : null,
+  };
+  const note = input.note.trim();
+
+  let { error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .insert({ ...row, entry_note: note || null });
+
+  // العمود غير موجود: PostgREST يردّ PGRST204 من ذاكرة المخطط قبل أن يصل Postgres
+  // (الذي يردّ 42703). عمود الملاحظة إضافة اختيارية؛ لو لم يُشغَّل أمر SQL بعد فالمبلغ
+  // أهم من نصّ الملاحظة — نُسجّله بدونها بدل أن يفشل التسجيل كلياً
+  if (error?.code === "PGRST204" || error?.code === "42703") {
+    ({ error } = await supabaseAdmin.from("billiards_transactions").insert(row));
+  }
+
+  return signalOnSuccess("billiards", {
+    error: error ? toArabicError(error) : null,
+  });
+}
+
+/**
+ * حذف إدخال يدوي خاطئ. مقصور على الإدخالات اليدوية: المعاملات الحقيقية سجلّ مالي
+ * لا يُحذف من اللوحة
+ */
+export async function deleteManualBilliardsIncome(id: string) {
+  requireSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("billiards_transactions")
+    .delete()
+    .eq("id", id)
+    .eq("collected_by", "manual");
+  return signalOnSuccess("billiards", {
+    error: error ? "تعذّر حذف الإدخال" : null,
+  });
 }
 
 // ملاحظات/ديون موظف البلياردو — عرض فقط للمدير أسفل تبويب البلياردو بلوحة التحكم

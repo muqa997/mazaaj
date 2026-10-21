@@ -28,6 +28,8 @@ import {
   uploadPromoImage,
   getBilliardsTables,
   getBilliardsTransactions,
+  addManualBilliardsIncome,
+  deleteManualBilliardsIncome,
   settleBilliardsToday,
   settleBilliardsOverdue,
   getBilliardsNotes,
@@ -82,6 +84,8 @@ export default async function AdminPage() {
       uploadPromoImage={uploadPromoImage}
       getBilliardsTables={getBilliardsTables}
       getBilliardsTransactions={getBilliardsTransactions}
+      addManualBilliardsIncome={addManualBilliardsIncome}
+      deleteManualBilliardsIncome={deleteManualBilliardsIncome}
       settleBilliardsToday={settleBilliardsToday}
       settleBilliardsOverdue={settleBilliardsOverdue}
       getBilliardsNotes={getBilliardsNotes}
