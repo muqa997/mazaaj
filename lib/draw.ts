@@ -226,6 +226,85 @@ export function setWinner(bracket: Bracket, matchId: number, team: string | null
 export const isPlayable = (match: BracketMatch) =>
   match.slots[0].team !== null && match.slots[1].team !== null;
 
+const PRELIM_NAME = "الدور التمهيدي";
+
+/**
+ * الفرق التي دخلت الدور الأول مباشرة ولم تلعب بعد — وهي وحدها المرشّحة لمواجهة فريق
+ * متأخر. لا يصحّ سحب فريق خاضت مباراته نتيجةً، ولا فريق صاعد من التمهيدي (وإلا لعب
+ * ثلاث مباريات ليصل حيث يصل غيره بمباراتين)
+ */
+export function eligibleLateOpponents(
+  bracket: Bracket
+): { matchId: number; side: 0 | 1; team: string }[] {
+  const prelimIndex = bracket.rounds.findIndex((r) => r.name === PRELIM_NAME);
+  const mainFirst = bracket.rounds[prelimIndex === 0 ? 1 : 0];
+  if (!mainFirst) return [];
+
+  const out: { matchId: number; side: 0 | 1; team: string }[] = [];
+  for (const matchId of mainFirst.matchIds) {
+    const match = bracket.matches[matchId];
+    if (!match || match.winner !== null) continue;
+    ([0, 1] as const).forEach((side) => {
+      const slot = match.slots[side];
+      if (slot.fromMatch === null && slot.team !== null) {
+        out.push({ matchId, side, team: slot.team });
+      }
+    });
+  }
+  return out;
+}
+
+/**
+ * يُدخل فريقاً وصل **بعد** القرعة بلا المساس بأي مواجهة قائمة.
+ *
+ * الفريق الجديد لا يُمنح مقعداً مجانياً ولا تُعاد القرعة: تُضاف مباراة تمهيدية واحدة
+ * بينه وبين فريق دخل الدور الأول مباشرة (يُسحب بالقرعة)، ويصير مقعد ذلك الفريق بالدور
+ * الأول لفائز المباراة الجديدة. كل اسم وكل مواجهة وكل رقم مباراة يبقى كما هو — ورقم
+ * المباراة الجديدة يأتي بعد الأرقام الحالية، فلا يتغيّر رقم رآه أحد.
+ */
+export function addLateTeam(
+  bracket: Bracket,
+  newTeam: string,
+  opponent: { matchId: number; side: 0 | 1 }
+): Bracket {
+  const target = bracket.matches[opponent.matchId];
+  const opponentName = target?.slots[opponent.side].team;
+  if (!target || !opponentName) return bracket;
+
+  const newMatchId = bracket.matches.length;
+  const newMatch: BracketMatch = {
+    id: newMatchId,
+    round: 0,
+    slots: [
+      { team: opponentName, fromMatch: null },
+      { team: newTeam, fromMatch: null },
+    ],
+    winner: null,
+  };
+
+  const matches = bracket.matches.map((m) =>
+    m.id === opponent.matchId
+      ? {
+          ...m,
+          slots: m.slots.map((slot, i) =>
+            i === opponent.side ? { team: null, fromMatch: newMatchId } : slot
+          ) as [MatchSlot, MatchSlot],
+        }
+      : m
+  );
+  matches.push(newMatch);
+
+  const rounds = bracket.rounds.map((r) =>
+    r.name === PRELIM_NAME ? { ...r, matchIds: [...r.matchIds, newMatchId] } : r
+  );
+  // بطولة بلا دور تمهيدي (عدد الفرق كان قوةً للرقم 2): ننشئ الدور الآن
+  if (!rounds.some((r) => r.name === PRELIM_NAME)) {
+    rounds.unshift({ name: PRELIM_NAME, matchIds: [newMatchId] });
+  }
+
+  return { ...bracket, matches, rounds };
+}
+
 /**
  * اختيار عشوائي حقيقي من مولّد المتصفح المعمّى، لا Math.random.
  * القرعة توزّع اشتراكات مدفوعة، فيجب ألا تكون النتيجة قابلة للتوقع أو التوجيه.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Shuffle } from "lucide-react";
 import { isPlayable, type Bracket, type BracketMatch } from "@/lib/draw";
 
 type BracketViewProps = {
@@ -9,6 +9,10 @@ type BracketViewProps = {
   nextSlot: { matchId: number; side: 0 | 1 } | null;
   /** بعد اكتمال القرعة: الضغط على فريق يُصعّده للدور التالي */
   onPickWinner?: (matchId: number, team: string) => void;
+  /** القرعة اليدوية: الأسماء تُكتب داخل خانات الشجرة مباشرة */
+  onEditTeam?: (matchId: number, side: 0 | 1, value: string) => void;
+  /** زر العجلة على مباراة جاهزة: يسحب فائزها تلقائياً أمام الحضور */
+  onSpinMatch?: (matchId: number) => void;
   compact?: boolean;
 };
 
@@ -18,6 +22,7 @@ function SlotRow({
   isNext,
   canPick,
   onPick,
+  onEdit,
   compact,
 }: {
   match: BracketMatch;
@@ -25,6 +30,7 @@ function SlotRow({
   isNext: boolean;
   canPick: boolean;
   onPick?: (team: string) => void;
+  onEdit?: (value: string) => void;
   compact: boolean;
 }) {
   const slot = match.slots[side];
@@ -35,6 +41,46 @@ function SlotRow({
 
   const height = compact ? "min-h-[30px]" : "min-h-[38px]";
   const text = compact ? "text-[12px]" : "text-[14px]";
+
+  // القرعة اليدوية: خانة البداية حقل كتابة. تبقى قابلة للتعديل بعد الكتابة (خطأ
+  // إملائي بالاسم يُصحَّح بلا إعادة القرعة)، وتُقفل فور أن تُحسم المباراة
+  if (onEdit && slot.fromMatch === null) {
+    return (
+      <div className={`flex ${height} items-center gap-1.5`}>
+        {/* الاسم يبقى قابلاً للتصحيح، وبجانبه زر الفوز فور أن يكتمل طرفا المباراة —
+            فالحسم اليدوي متاح هنا تماماً كما هو متاح بالعجلة */}
+        {canPick && (
+          <button
+            type="button"
+            onClick={() => name && onPick?.(name)}
+            aria-label={name ? `${name} فاز` : "اختر الفائز"}
+            className={`flex ${height} w-8 shrink-0 items-center justify-center rounded-lg text-[13px] font-black transition-colors ${
+              isWinner
+                ? "bg-emerald-400/25 text-emerald-200"
+                : "bg-white/[0.07] text-[#F3EBE1]/40 hover:bg-accent/25 hover:text-accent"
+            }`}
+          >
+            ✓
+          </button>
+        )}
+        <input
+          value={name ?? ""}
+          onChange={(e) => onEdit(e.target.value)}
+          disabled={decided}
+          maxLength={40}
+          placeholder="اسم الفريق"
+          aria-label={`اسم الفريق في مباراة ${match.id + 1}`}
+          className={`w-full ${height} truncate rounded-lg px-2.5 ${text} font-black outline-none transition-colors ${
+            isWinner
+              ? "bg-emerald-400/20 text-emerald-200"
+              : isLoser
+                ? "bg-white/[0.03] text-[#F3EBE1]/30 line-through"
+                : "border border-dashed border-white/15 bg-white/[0.06] text-[#F3EBE1] placeholder:font-bold placeholder:text-[#F3EBE1]/25 focus:border-accent focus:bg-white/[0.12]"
+          }`}
+        />
+      </div>
+    );
+  }
 
   // خانة فارغة: إمّا تنتظر السحب، أو تنتظر فائز مباراة سابقة — ونقول أيّهما صراحةً
   if (!name) {
@@ -109,6 +155,8 @@ export default function BracketView({
   bracket,
   nextSlot,
   onPickWinner,
+  onEditTeam,
+  onSpinMatch,
   compact = false,
 }: BracketViewProps) {
   return (
@@ -149,7 +197,18 @@ export default function BracketView({
                       مباراة {(matchId + 1).toLocaleString("en-US")}
                     </span>
                     {canPick && match.winner === null && (
-                      <span className="text-[9px] font-black text-accent/80">اختر الفائز</span>
+                      onSpinMatch ? (
+                        <button
+                          type="button"
+                          onClick={() => onSpinMatch(matchId)}
+                          className="flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[9px] font-black text-accent"
+                        >
+                          <Shuffle size={10} />
+                          بالعجلة
+                        </button>
+                      ) : (
+                        <span className="text-[9px] font-black text-accent/80">اختر الفائز</span>
+                      )
                     )}
                   </div>
 
@@ -162,6 +221,9 @@ export default function BracketView({
                         isNext={nextSlot?.matchId === matchId && nextSlot.side === side}
                         canPick={canPick}
                         onPick={(team) => onPickWinner?.(matchId, team)}
+                        onEdit={
+                          onEditTeam ? (value) => onEditTeam(matchId, side, value) : undefined
+                        }
                         compact={compact}
                       />
                     ))}
