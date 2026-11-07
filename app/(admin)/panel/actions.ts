@@ -11,6 +11,7 @@ import {
   MANUAL_ENTRY_TABLE,
   businessDayTimestamp,
   getBusinessDayStart,
+  getBusinessMonthStart,
   type BilliardsTableRow,
   type BilliardsTransactionRow,
   type BilliardsNoteRow,
@@ -386,8 +387,11 @@ export async function getBilliardsTables(): Promise<BilliardsTableRow[]> {
 export async function getBilliardsTransactions(): Promise<BilliardsTransactionRow[]> {
   requireSession();
   if (!supabaseAdmin) return [];
-  const fetchSince = new Date();
-  fetchSince.setDate(fetchSince.getDate() - 35);
+  // من أول الشهر التجاري السابق لا "آخر ٣٥ يوماً": يوم ٣٠ من الشهر كانت نافذة الـ٣٥
+  // يوماً تبدأ من ٢٦ الشهر الماضي، فيظهر الشهر السابق ناقصاً ثلاثة أرباعه بالمخطط
+  const fetchSince = getBusinessMonthStart(
+    new Date(getBusinessMonthStart(new Date()).getTime() - 1)
+  );
   const { data, error } = await supabaseAdmin
     .from("billiards_transactions")
     .select("*")

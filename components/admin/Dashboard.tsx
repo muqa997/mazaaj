@@ -300,6 +300,8 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
   const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
   const monthStart = getBusinessMonthStart(now);
+  // الشهر التجاري السابق بالكامل: من أوله إلى أول الشهر الحالي
+  const lastMonthStart = getBusinessMonthStart(new Date(monthStart.getTime() - 1));
   // نقطة داخل اليوم التجاري الحالي (وليس "الآن" الفعلي) — لعرض تسمية التاريخ الصحيحة
   // حتى لو كانت الساعة الفعلية بعد منتصف الليل وقبل السادسة صباحاً
   const businessNow = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
@@ -319,6 +321,10 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   });
   const weekTx = transactions.filter((t) => new Date(t.paid_at) >= weekStart);
   const monthTx = transactions.filter((t) => new Date(t.paid_at) >= monthStart);
+  const lastMonthTx = transactions.filter((t) => {
+    const d = new Date(t.paid_at);
+    return d >= lastMonthStart && d < monthStart;
+  });
 
   // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)، مقسّم ٨ بول/٩ بول
   const perTable = [1, 2, 3].map((n) => {
@@ -359,6 +365,39 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return { label: String(i + 1), amount };
   });
 
+  // الشهر السابق كامل الأيام (لا حتى اليوم الحالي): عدد أيامه = الفرق بين بدايته
+  // وبداية الشهر الحالي، فيصح لشهور ٢٨ و٢٩ و٣٠ و٣١ يوماً بلا حالات خاصة
+  const lastMonthDayCount = Math.round(
+    (monthStart.getTime() - lastMonthStart.getTime()) / (24 * 60 * 60 * 1000)
+  );
+  const lastMonthDays = Array.from({ length: lastMonthDayCount }).map((_, i) => {
+    const dayStart = new Date(lastMonthStart.getTime() + i * 24 * 60 * 60 * 1000);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    const dayTx = lastMonthTx.filter((t) => {
+      const d = new Date(t.paid_at);
+      return d >= dayStart && d < dayEnd;
+    });
+    return {
+      label: String(i + 1),
+      amount: sumBy(dayTx, "amount"),
+      count: dayTx.length,
+    };
+  });
+
+  const lastMonthPerTable = [1, 2, 3].map((n) => {
+    const tableTx = lastMonthTx.filter(
+      (t) => (t.kind ?? "billiards") === "billiards" && t.table_number === n
+    );
+    return { table_number: n, pool: sumPool(tableTx), amount: sumBy(tableTx, "amount") };
+  });
+
+  const lastMonthLabelDate = new Date(lastMonthStart.getTime() + 12 * 60 * 60 * 1000);
+  const activeDays = lastMonthDays.filter((d) => d.amount > 0);
+  const bestDay = lastMonthDays.reduce(
+    (best, d) => (d.amount > best.amount ? d : best),
+    lastMonthDays[0] ?? { label: "-", amount: 0, count: 0 }
+  );
+
   // "بحوزة الكاشير" غير المسوّى — مقسّم عمداً إلى اليوم الحالي والمتأخر من أيام سابقة،
   // بدل رقم واحد مجمّع، حتى لا يختلط دخل الأمس (لو نسي المدير تسويته) مع دخل اليوم
   const outstandingTodayTx = transactions.filter(
@@ -382,6 +421,16 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     perTable,
     weekDays,
     monthDays,
+    lastMonthAmount: sumBy(lastMonthTx, "amount"),
+    lastMonthPool: sumPool(lastMonthTx),
+    lastMonthDays,
+    lastMonthPerTable,
+    lastMonthLabel: `الشهر ${ARABIC_ORDINAL_MONTHS[lastMonthLabelDate.getMonth()]}`,
+    lastMonthActiveDays: activeDays.length,
+    lastMonthBestDay: bestDay,
+    lastMonthAvgPerActiveDay: activeDays.length
+      ? Math.round(sumBy(lastMonthTx, "amount") / activeDays.length)
+      : 0,
     outstandingTodayAmount: sumBy(outstandingTodayTx, "amount"),
     outstandingTodayCount: outstandingTodayTx.length,
     outstandingOverdueAmount: sumBy(outstandingOverdueTx, "amount"),
@@ -680,6 +729,10 @@ export default function Dashboard(props: DashboardProps) {
   const maxBilliardsWeekAmount = Math.max(1, ...billiardsStats.weekDays.map((d) => d.amount));
   const maxBilliardsMonthAmount = Math.max(1, ...billiardsStats.monthDays.map((d) => d.amount));
   const maxBilliardsTableAmount = Math.max(1, ...billiardsStats.perTable.map((t) => t.amount));
+  const maxBilliardsLastMonthAmount = Math.max(
+    1,
+    ...billiardsStats.lastMonthDays.map((d) => d.amount)
+  );
 
   // سجل العمليات: آخر 7 أيام افتراضياً (تخفيفاً للصفحة)، مع رابط لعرض كل ما جُلب (حتى 35 يوماً)
   const visibleBilliardsTransactions = useMemo(() => {
@@ -2129,6 +2182,95 @@ export default function Dashboard(props: DashboardProps) {
                         <span className="text-[9px] text-primary/40">{day.label}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* الشهر السابق كاملاً — يُقرأ بعد انتهاء الشهر لمقارنة الأداء */}
+                <div className="rounded-2xl border border-primary/10 bg-background p-5">
+                  <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-bold text-primary">
+                      دخل {billiardsStats.lastMonthLabel} (الشهر السابق)
+                    </h3>
+                    <span className="text-lg font-extrabold text-primary">
+                      {billiardsStats.lastMonthAmount.toLocaleString("en-US")} د.ع
+                    </span>
+                  </div>
+
+                  <div className="mb-4 grid grid-cols-3 gap-2">
+                    <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+                      <p className="mb-0.5 text-[11px] text-primary/50">أيام فيها دخل</p>
+                      <p className="text-sm font-extrabold text-primary">
+                        {billiardsStats.lastMonthActiveDays.toLocaleString("en-US")} من{" "}
+                        {billiardsStats.lastMonthDays.length.toLocaleString("en-US")}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+                      <p className="mb-0.5 text-[11px] text-primary/50">معدّل اليوم العامل</p>
+                      <p className="text-sm font-extrabold text-primary">
+                        {billiardsStats.lastMonthAvgPerActiveDay.toLocaleString("en-US")} د.ع
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-primary/5 px-3 py-2.5">
+                      <p className="mb-0.5 text-[11px] text-primary/50">أعلى يوم</p>
+                      <p className="text-sm font-extrabold text-primary">
+                        {billiardsStats.lastMonthBestDay.amount.toLocaleString("en-US")} د.ع
+                        <span className="ms-1 text-[11px] font-normal text-primary/50">
+                          (يوم {billiardsStats.lastMonthBestDay.label})
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* نفس أسلوب مخطط الشهر الحالي: الرقم عمودياً فوق شمعته ليتّسع 31 يوماً */}
+                  <div className="flex h-48 items-end justify-between gap-1 overflow-x-auto">
+                    {billiardsStats.lastMonthDays.map((day, i) => (
+                      <div
+                        key={i}
+                        className="flex min-w-[20px] flex-1 flex-col items-center justify-end gap-1"
+                      >
+                        {day.amount > 0 && (
+                          <span
+                            dir="ltr"
+                            className="rotate-180 whitespace-nowrap text-[10px] font-semibold text-primary/70 [writing-mode:vertical-rl]"
+                          >
+                            {day.amount.toLocaleString("en-US")}
+                          </span>
+                        )}
+                        <div
+                          className={`w-full rounded-sm ${
+                            day.amount === billiardsStats.lastMonthBestDay.amount && day.amount > 0
+                              ? "bg-accent"
+                              : "bg-accent/55"
+                          }`}
+                          style={{
+                            height: `${Math.max(
+                              4,
+                              (day.amount / maxBilliardsLastMonthAmount) * 96
+                            )}px`,
+                          }}
+                        />
+                        <span className="text-[9px] text-primary/40">{day.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 border-t border-primary/[0.07] pt-3">
+                    <p className="mb-2 text-[11px] font-bold text-primary/50">
+                      أداء الطاولات في {billiardsStats.lastMonthLabel}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {billiardsStats.lastMonthPerTable.map((t) => (
+                        <div key={t.table_number} className="rounded-xl bg-primary/5 px-3 py-2">
+                          <p className="text-[11px] text-primary/50">طاولة {t.table_number}</p>
+                          <p className="text-sm font-extrabold text-primary">
+                            {t.amount.toLocaleString("en-US")} د.ع
+                          </p>
+                          <p dir="ltr" className="text-[10px] text-primary/40">
+                            {t.pool.eight} × 8 · {t.pool.nine} × 9
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
