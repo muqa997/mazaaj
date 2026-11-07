@@ -850,7 +850,13 @@ export default function Dashboard(props: DashboardProps) {
     const startsAt = new Date(tournamentForm.starts_at);
     const closesAt = new Date(tournamentForm.registration_closes_at);
     if (closesAt > startsAt) {
-      setTournamentFormError("انتهاء التسجيل يجب أن يكون قبل موعد البطولة أو معه");
+      // نعرض الوقتين بالرسالة: الخطأ الغالب هنا هو ص/م بحقل التاريخ (٧:٣٠ ص بدل ٧:٣٠ م)،
+      // وجملة «يجب أن يكون قبل» وحدها لا تكشفه لأن التاريخ نفسه يبدو صحيحاً
+      const time = (d: Date) =>
+        d.toLocaleTimeString("ar-IQ-u-nu-latn", { hour: "numeric", minute: "2-digit" });
+      setTournamentFormError(
+        `انتهاء التسجيل (${time(closesAt)}) بعد موعد البطولة (${time(startsAt)}) — تأكد من ص/م`
+      );
       return;
     }
 
