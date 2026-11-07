@@ -19,6 +19,8 @@ import {
   getStaffBilliardsTodayTotal,
   getStaffBilliardsOverdueTotal,
   getStaffBilliardsYesterdaySummary,
+  getStaffPlaystationDevices,
+  payPlaystationDirect,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
@@ -47,6 +49,7 @@ export default async function StaffPage() {
     initialTodayTotal,
     initialOverdueTotal,
     initialYesterday,
+    initialPlaystation,
   ] = await Promise.all([
     getStaffOrders(),
     getStaffBilliardsTables(),
@@ -54,6 +57,7 @@ export default async function StaffPage() {
     getStaffBilliardsTodayTotal(),
     getStaffBilliardsOverdueTotal(),
     getStaffBilliardsYesterdaySummary(),
+    getStaffPlaystationDevices(),
   ]);
 
   return (
@@ -65,7 +69,10 @@ export default async function StaffPage() {
         todayTotal: initialTodayTotal ?? { games: 0, amount: 0 },
         overdueTotal: initialOverdueTotal ?? { amount: 0, count: 0 },
         yesterday: initialYesterday ?? { amount: 0, count: 0, unsettledCount: 0 },
+        playstation: initialPlaystation ?? [],
       }}
+      getPlaystationDevices={getStaffPlaystationDevices}
+      payPlaystationDirect={payPlaystationDirect}
       logoutAction={staffLogout}
       refreshSessionAction={refreshStaffSession}
       getOrders={getStaffOrders}

@@ -9,6 +9,11 @@ import {
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import {
+  computePlaystationAmount,
+  elapsedMinutes,
+  type PlaystationDeviceRow,
+} from "@/lib/playstation";
+import {
   computePoolAmount,
   getBusinessDayStart,
   type BilliardsTableRow,
@@ -135,6 +140,7 @@ export async function payTableDirect(tableNumber: number) {
   if (table.games_count === 0 && table.games_count_9ball === 0) return { error: null };
 
   const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
+    kind: "billiards",
     table_number: tableNumber,
     games_count: table.games_count,
     games_count_9ball: table.games_count_9ball,
@@ -155,6 +161,65 @@ export async function payTableDirect(tableNumber: number) {
     })
     .eq("table_number", tableNumber);
   return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء التصفير" : null });
+}
+
+// ═══════════════ البلي ستيشن ═══════════════
+
+export async function getStaffPlaystationDevices(): Promise<PlaystationDeviceRow[] | null> {
+  requireStaffSession();
+  if (!supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin
+    .from("playstation_devices")
+    .select("*")
+    .order("device_number", { ascending: true });
+  if (error) {
+    console.error(error);
+    return null;
+  }
+  return (data ?? []) as PlaystationDeviceRow[];
+}
+
+/**
+ * دفع مباشر لجلسة بلي شغّالة — الزبون نزل يدفع قبل أن يُنهيها الموظف.
+ * المدة تُحسب على الخادم من started_at، فلا يُرسل المتصفح مبلغاً
+ */
+export async function payPlaystationDirect(deviceNumber: number) {
+  requireStaffSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const { data: device, error: fetchError } = await supabaseAdmin
+    .from("playstation_devices")
+    .select("started_at, customer_ref")
+    .eq("device_number", deviceNumber)
+    .single();
+  if (fetchError || !device) return { error: "تعذّر إيجاد الجهاز" };
+  if (!device.started_at) return { error: "الجهاز متوقف" };
+
+  const minutes = elapsedMinutes(device.started_at);
+  const amount = computePlaystationAmount(minutes);
+  if (amount <= 0) return { error: "لم تمضِ دقيقة بعد" };
+
+  const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
+    kind: "playstation",
+    minutes,
+    table_number: deviceNumber,
+    games_count: 0,
+    games_count_9ball: 0,
+    amount,
+    collected_by: "cashier",
+    customer_ref: device.customer_ref,
+    session_ended_at: null,
+  });
+  if (txError) {
+    console.error(txError);
+    return { error: "حدث خطأ أثناء تسجيل الدفعة" };
+  }
+
+  const { error } = await supabaseAdmin
+    .from("playstation_devices")
+    .update({ started_at: null, customer_ref: null, updated_at: new Date().toISOString() })
+    .eq("device_number", deviceNumber);
+  return signalOnSuccess("billiards", { error: error ? "سُجّلت الدفعة لكن تعذّر إيقاف الجهاز" : null });
 }
 
 // الفواتير الصادرة من موظف البلياردو بانتظار الدفع أو الإلغاء — الكاشير حصراً هو من
@@ -186,6 +251,8 @@ export async function payTicket(ticketId: string) {
   if (fetchError || !ticket) return { error: "تعذّر إيجاد التذكرة" };
 
   const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
+    kind: ticket.kind ?? "billiards",
+    minutes: ticket.minutes ?? null,
     table_number: ticket.table_number,
     games_count: ticket.games_count,
     games_count_9ball: ticket.games_count_9ball,

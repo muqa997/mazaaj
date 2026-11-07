@@ -436,8 +436,13 @@ export type ManualIncomeInput = {
   /** YYYY-MM-DD — اليوم التجاري المقصود */
   date: string;
   amount: number;
+  /** كيمات ٨ بول — للبلياردو */
   eight: number;
+  /** كيمات ٩ بول — للبلياردو */
   nine: number;
+  /** دقائق اللعب — للبلي ستيشن */
+  minutes: number;
+  kind: "billiards" | "playstation";
   note: string;
   /** المبلغ بيد المدير فعلاً، فلا يظهر للكاشير كمتأخر غير مسلَّم */
   settled: boolean;
@@ -462,10 +467,14 @@ export async function addManualBilliardsIncome(input: ManualIncomeInput) {
   const amount = Math.round(Number(input.amount));
   if (!Number.isFinite(amount) || amount <= 0) return { error: "المبلغ غير صحيح" };
 
-  const eight = Math.max(0, Math.floor(Number(input.eight) || 0));
-  const nine = Math.max(0, Math.floor(Number(input.nine) || 0));
+  const isPs = input.kind === "playstation";
+  const eight = isPs ? 0 : Math.max(0, Math.floor(Number(input.eight) || 0));
+  const nine = isPs ? 0 : Math.max(0, Math.floor(Number(input.nine) || 0));
+  const minutes = isPs ? Math.max(0, Math.floor(Number(input.minutes) || 0)) : 0;
 
   const row = {
+    kind: input.kind,
+    minutes: isPs && minutes > 0 ? minutes : null,
     table_number: MANUAL_ENTRY_TABLE,
     games_count: eight,
     games_count_9ball: nine,

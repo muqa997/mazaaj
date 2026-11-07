@@ -129,6 +129,8 @@ type DashboardProps = {
     amount: number;
     eight: number;
     nine: number;
+    minutes: number;
+    kind: "billiards" | "playstation";
     note: string;
     settled: boolean;
   }) => Promise<{ error: string | null }>;
@@ -468,6 +470,8 @@ export default function Dashboard(props: DashboardProps) {
     amount: "",
     eight: "",
     nine: "",
+    minutes: "",
+    kind: "billiards" as "billiards" | "playstation",
     note: "",
     settled: true,
   });
@@ -606,6 +610,8 @@ export default function Dashboard(props: DashboardProps) {
       amount: Number(incomeForm.amount),
       eight: Number(incomeForm.eight) || 0,
       nine: Number(incomeForm.nine) || 0,
+      minutes: Number(incomeForm.minutes) || 0,
+      kind: incomeForm.kind,
       note: incomeForm.note,
       settled: incomeForm.settled,
     });
@@ -617,7 +623,16 @@ export default function Dashboard(props: DashboardProps) {
         ok: true,
         text: "تم التسجيل — يظهر الآن عند موظف البلياردو والكاشير ولوحة المدير",
       });
-      setIncomeForm({ date: "", amount: "", eight: "", nine: "", note: "", settled: true });
+      setIncomeForm({
+        date: "",
+        amount: "",
+        eight: "",
+        nine: "",
+        minutes: "",
+        kind: incomeForm.kind,
+        note: "",
+        settled: true,
+      });
       setIncomeOpen(false);
       await refreshBilliards();
     }
@@ -968,7 +983,7 @@ export default function Dashboard(props: DashboardProps) {
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid }[] = [
     { key: "overview", label: "الرئيسية", icon: LayoutGrid },
     { key: "orders", label: "الطلبات", icon: ClipboardList },
-    { key: "billiards", label: "البلياردو", icon: CircleDot },
+    { key: "billiards", label: "البليارد والبلي ستيشن", icon: CircleDot },
     { key: "tournaments", label: "البطولات", icon: Trophy },
     { key: "draw", label: "شاشة القرعة", icon: Shuffle },
     { key: "applicants", label: "المتقدمون", icon: Users },
@@ -1194,15 +1209,15 @@ export default function Dashboard(props: DashboardProps) {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <StatCard
-                    label="دخل البلياردو اليوم"
+                    label="دخل البليارد والبلي اليوم"
                     value={`${billiardsStats.todayAmount.toLocaleString("en-US")} د.ع`}
                   />
                   <StatCard
-                    label="دخل البلياردو الأسبوع"
+                    label="دخل البليارد والبلي الأسبوع"
                     value={`${billiardsStats.weekAmount.toLocaleString("en-US")} د.ع`}
                   />
                   <StatCard
-                    label="دخل البلياردو الشهر"
+                    label="دخل البليارد والبلي الشهر"
                     value={`${billiardsStats.monthAmount.toLocaleString("en-US")} د.ع`}
                   />
                 </div>
@@ -1705,6 +1720,46 @@ export default function Dashboard(props: DashboardProps) {
                         />
                       </label>
 
+                      <div className="flex gap-2">
+                        {(
+                          [
+                            ["billiards", "بلياردو"],
+                            ["playstation", "بلي ستيشن"],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setIncomeForm({ ...incomeForm, kind: value })}
+                            className={`min-h-[44px] flex-1 rounded-xl text-sm font-bold ${
+                              incomeForm.kind === value
+                                ? "bg-primary text-background"
+                                : "bg-primary/5 text-primary/60"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {incomeForm.kind === "playstation" ? (
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-primary/50">
+                            مجموع الدقائق (اختياري)
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            inputMode="numeric"
+                            value={incomeForm.minutes}
+                            onChange={(e) =>
+                              setIncomeForm({ ...incomeForm, minutes: e.target.value })
+                            }
+                            placeholder="0"
+                            className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                          />
+                        </label>
+                      ) : (
                       <div className="grid grid-cols-2 gap-3">
                         <label className="flex flex-col gap-1.5">
                           <span className="text-xs font-bold text-primary/50">
@@ -1739,6 +1794,7 @@ export default function Dashboard(props: DashboardProps) {
                           />
                         </label>
                       </div>
+                      )}
 
                       <label className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold text-primary/50">ملاحظة</span>
@@ -1937,8 +1993,10 @@ export default function Dashboard(props: DashboardProps) {
                           </span>
                           <span className="text-primary/70">
                             {t.collected_by === "manual"
-                              ? (t.entry_note || "إدخال يدوي")
-                              : `طاولة ${t.table_number}`}
+                              ? t.entry_note || "إدخال يدوي"
+                              : t.kind === "playstation"
+                                ? `جهاز ${t.table_number}`
+                                : `طاولة ${t.table_number}`}
                           </span>
                           <span dir="ltr" className="text-primary/70">
                             {t.games_count > 0 && `8 Pool ${t.games_count}`}
@@ -1963,6 +2021,12 @@ export default function Dashboard(props: DashboardProps) {
                                 ? "يدوي — المدير"
                                 : "موظف البلياردو"}
                           </span>
+                          {t.kind === "playstation" && (
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-800">
+                              بلي ستيشن
+                              {t.minutes ? ` — ${t.minutes.toLocaleString("en-US")} دقيقة` : ""}
+                            </span>
+                          )}
                           <span className="font-bold text-primary">
                             {Number(t.amount).toLocaleString("en-US")} د.ع
                           </span>

@@ -59,6 +59,11 @@ export function isSameBusinessDay(a: Date, b: Date): boolean {
 // 'manual' = دخل يوم سابق أدخله المدير يدوياً كمبلغ واحد (فات تسجيله لحظتها)
 export type BilliardsCollectedBy = "billiards" | "cashier" | "manual";
 
+// البلياردو يُحاسب بالكيم، والبلي ستيشن بالوقت. الاثنان بنفس الجداول عن قصد: كل
+// حسابات الدخل والتسوية تقرأ billiards_transactions، فجدول منفصل كان سيفرض تعديل
+// ستة استعلامات تجميع وأي واحد يُنسى يعطي رقماً ناقصاً بصمت
+export type BilliardsKind = "billiards" | "playstation";
+
 /** رقم الطاولة للإدخال اليدوي: ليس طاولة حقيقية، وإحصاءات الطاولات تقرأ ١و٢و٣ فقط */
 export const MANUAL_ENTRY_TABLE = 0;
 
@@ -92,6 +97,9 @@ export type BilliardsTableRow = {
 // الحي فوراً (تتصفّر الطاولة لزبون جديد)، وتبقى التذكرة بانتظار الدفع عند الكاشير حصراً —
 // الكاشير وحده من يدفعها أو يلغيها، وموظف البلياردو يراها للعلم فقط (بلا أي إجراء)
 export type BilliardsTicketRow = {
+  kind?: BilliardsKind;
+  /** دقائق اللعب — للبلي ستيشن فقط، وتبقى فارغة بالبلياردو */
+  minutes?: number | null;
   id: string;
   table_number: number;
   games_count: number; // ٨ بول
@@ -128,6 +136,9 @@ export type BilliardsTransactionRow = {
   settled_at: string | null;
   // سبب الإدخال اليدوي كما كتبه المدير — فارغ لكل المعاملات الحقيقية
   entry_note?: string | null;
+  kind?: BilliardsKind;
+  /** دقائق اللعب — للبلي ستيشن فقط، وتبقى فارغة بالبلياردو */
+  minutes?: number | null;
 };
 
 // ملاحظة حرة لموظف البلياردو (دين، تذكير، إلخ) — غير مرتبطة بطاولة معينة

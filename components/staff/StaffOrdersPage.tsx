@@ -6,7 +6,10 @@ import { LogOut, Trash2, MessageSquare, ChevronDown, BellRing } from "lucide-rea
 import { STATUS_META, STATUS_ORDER, toWhatsAppNumber, buildConfirmMessage } from "@/lib/order-helpers";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import type { BilliardsTableRow, BilliardsTicketRow } from "@/lib/billiards";
-import BilliardsSummaryCard, { type InitialBilliards } from "./BilliardsSummaryCard";
+import BilliardsSummaryCard, {
+  type InitialBilliards,
+  type BilliardsSummaryCardProps as BilliardsCardProps,
+} from "./BilliardsSummaryCard";
 
 type StaffOrdersPageProps = {
   // تصل جاهزة مع HTML الصفحة: F5 واحدة تُظهر كل جديد — لا جلب عند العرض ولا دورياً
@@ -29,6 +32,8 @@ type StaffOrdersPageProps = {
     count: number;
     unsettledCount: number;
   } | null>;
+  getPlaystationDevices: BilliardsCardProps["getPlaystationDevices"];
+  payPlaystationDirect: BilliardsCardProps["payPlaystationDirect"];
 };
 
 type StaffTab = "billiards" | "orders";
@@ -99,7 +104,7 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
               tab === "billiards" ? "bg-primary text-background" : "bg-primary/5 text-primary/60"
             }`}
           >
-            البلياردو
+            البليارد والبلي
           </button>
           <button
             type="button"
@@ -145,6 +150,8 @@ export default function StaffOrdersPage(props: StaffOrdersPageProps) {
             getBilliardsTodayTotal={props.getBilliardsTodayTotal}
             getBilliardsOverdueTotal={props.getBilliardsOverdueTotal}
             getBilliardsYesterdaySummary={props.getBilliardsYesterdaySummary}
+            getPlaystationDevices={props.getPlaystationDevices}
+            payPlaystationDirect={props.payPlaystationDirect}
           />
         )}
 

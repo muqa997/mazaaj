@@ -18,6 +18,11 @@ import {
   getNotes,
   addNote,
   deleteNote,
+  getPlaystationDevices,
+  startPlaystation,
+  endPlaystationSession,
+  setPlaystationStart,
+  updatePlaystationCustomerRef,
 } from "./actions";
 
 // هذي الصفحة ما توصلها مباشرة أبداً — فقط عبر rewrite يسويه middleware.ts لما يزور
@@ -39,10 +44,11 @@ export default async function BilliardsPage() {
 
   // تُجلب على الخادم وتصل مع HTML الصفحة: الطاولات تظهر لحظة الفتح حتى على اتصال
   // ضعيف، وبطلب واحد بدل خمسة. الإحصائيات وحدها تبقى على المتصفح لأنها تمسح ٣٥ يوماً
-  const [initialTables, initialTickets, initialNotes] = await Promise.all([
+  const [initialTables, initialTickets, initialNotes, initialPlaystation] = await Promise.all([
     getBilliardsTables(),
     getPendingTickets(),
     getNotes(),
+    getPlaystationDevices(),
   ]);
 
   return (
@@ -50,6 +56,12 @@ export default async function BilliardsPage() {
       initialTables={initialTables ?? []}
       initialTickets={initialTickets ?? []}
       initialNotes={initialNotes ?? []}
+      initialPlaystation={initialPlaystation ?? []}
+      getPlaystationDevices={getPlaystationDevices}
+      startPlaystation={startPlaystation}
+      endPlaystationSession={endPlaystationSession}
+      setPlaystationStart={setPlaystationStart}
+      updatePlaystationCustomerRef={updatePlaystationCustomerRef}
       logoutAction={billiardsLogout}
       refreshSessionAction={refreshBilliardsSession}
       getTables={getBilliardsTables}

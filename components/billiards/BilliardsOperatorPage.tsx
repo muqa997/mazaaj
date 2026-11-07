@@ -10,9 +10,20 @@ import {
   type BilliardsNoteRow,
 } from "@/lib/billiards";
 import PullToRefresh from "./PullToRefresh";
+import PlaystationCard from "./PlaystationCard";
+import type { PlaystationDeviceRow } from "@/lib/playstation";
 
 type PoolType = "eight" | "nine";
 type PoolCounts = { eight: number; nine: number };
+type PsStats = {
+  todayMinutes: number;
+  todayAmount: number;
+  weekMinutes: number;
+  weekAmount: number;
+  monthMinutes: number;
+  monthAmount: number;
+};
+
 type OperatorStats = {
   today: PoolCounts;
   week: PoolCounts;
@@ -20,6 +31,7 @@ type OperatorStats = {
   todayAmount: number;
   yesterdayAmount: number;
   perTable: { table_number: number; eight: number; nine: number }[];
+  ps: PsStats;
 };
 
 const EMPTY_STATS: OperatorStats = {
@@ -29,6 +41,7 @@ const EMPTY_STATS: OperatorStats = {
   todayAmount: 0,
   yesterdayAmount: 0,
   perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
+  ps: { todayMinutes: 0, todayAmount: 0, weekMinutes: 0, weekAmount: 0, monthMinutes: 0, monthAmount: 0 },
 };
 
 type BilliardsOperatorPageProps = {
@@ -36,9 +49,21 @@ type BilliardsOperatorPageProps = {
   initialTables: BilliardsTableRow[];
   initialTickets: BilliardsTicketRow[];
   initialNotes: BilliardsNoteRow[];
+  initialPlaystation: PlaystationDeviceRow[];
   logoutAction: () => Promise<void>;
   refreshSessionAction: () => Promise<void>;
   getTables: () => Promise<BilliardsTableRow[] | null>;
+  getPlaystationDevices: () => Promise<PlaystationDeviceRow[] | null>;
+  startPlaystation: (deviceNumber: number) => Promise<{ error: string | null }>;
+  endPlaystationSession: (deviceNumber: number) => Promise<{ error: string | null }>;
+  setPlaystationStart: (
+    deviceNumber: number,
+    startedAtIso: string
+  ) => Promise<{ error: string | null }>;
+  updatePlaystationCustomerRef: (
+    deviceNumber: number,
+    customerRef: string
+  ) => Promise<{ error: string | null }>;
   setGameCount: (tableNumber: number, pool: PoolType, count: number) => Promise<{ error: string | null }>;
   updateCustomerRef: (tableNumber: number, customerRef: string) => Promise<{ error: string | null }>;
   endSession: (
@@ -93,6 +118,12 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   const [pendingTickets, setPendingTickets] = useState<BilliardsTicketRow[]>(props.initialTickets);
   const [stats, setStats] = useState<OperatorStats>(EMPTY_STATS);
   const [notes, setNotes] = useState<BilliardsNoteRow[]>(props.initialNotes);
+  const [psDevices, setPsDevices] = useState<PlaystationDeviceRow[]>(props.initialPlaystation);
+  const [psRefs, setPsRefs] = useState<Record<number, string>>(() =>
+    Object.fromEntries(props.initialPlaystation.map((d) => [d.device_number, d.customer_ref ?? ""]))
+  );
+  const [busyPs, setBusyPs] = useState<number | null>(null);
+  const psFocusedRef = useRef<number | null>(null);
   // آخر تحديث فشل: نُبقي البيانات الظاهرة كما هي ونكتفي بتنبيه الموظف
   const [staleSince, setStaleSince] = useState<Date | null>(null);
   const [busyTable, setBusyTable] = useState<number | null>(null);
@@ -139,8 +170,13 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
   // بالاستجابة الفورية عند إنهاء الجلسة
   const loadCoreRef = useRef(
     makeCoalescedLoader(
-      () => Promise.all([props.getTables(), props.getPendingTickets()]),
-      ([t, tickets]) => {
+      () =>
+        Promise.all([
+          props.getTables(),
+          props.getPendingTickets(),
+          props.getPlaystationDevices(),
+        ]),
+      ([t, tickets, devices]) => {
         // الجلب فشل (null) — نترك الشاشة كما هي ونرفع علم "البيانات قديمة". بدون هذا
         // كانت قائمة فارغة تمسح الطاولات الثلاث من أمام الموظف
         if (t === null || tickets === null) {
@@ -178,6 +214,21 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
           return next;
         });
         setPendingTickets(tickets);
+
+        // null = تعذّر الجلب؛ نُبقي المعروض بدل أن نُفرّغ الشاشة
+        if (devices !== null) {
+          setPsDevices(devices);
+          setPsRefs((prev) => {
+            const next = { ...prev };
+            for (const d of devices) {
+              // لا نكتب فوق حقل يكتب فيه الموظف الآن
+              if (psFocusedRef.current !== d.device_number) {
+                next[d.device_number] = d.customer_ref ?? "";
+              }
+            }
+            return next;
+          });
+        }
       }
     )
   );
@@ -261,6 +312,25 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     for (const pool of ["eight", "nine"] as const) {
       await counterWritersRef.current[`${tableNumber}:${pool}`]?.running;
     }
+  };
+
+  const runPs = async (deviceNumber: number, action: () => Promise<{ error: string | null }>) => {
+    setBusyPs(deviceNumber);
+    setErrorMsg(null);
+    const result = await action();
+    if (result.error) setErrorMsg(result.error);
+    try {
+      await loadCore();
+    } catch {
+      setStaleSince(new Date());
+    }
+    void loadStats();
+    setBusyPs(null);
+  };
+
+  const handlePsCustomerRefBlur = async (deviceNumber: number) => {
+    psFocusedRef.current = null;
+    await props.updatePlaystationCustomerRef(deviceNumber, psRefs[deviceNumber] ?? "");
   };
 
   const handleCustomerRefBlur = async (tableNumber: number) => {
@@ -372,7 +442,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     <PullToRefresh onRefresh={load}>
       <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary/10 bg-background px-4 py-3 sm:px-6">
-        <span className="font-extrabold text-primary">صالة البلياردو</span>
+        <span className="font-extrabold text-primary">البليارد والبلي ستيشن</span>
         <button
           type="button"
           onClick={handleLogout}
@@ -417,14 +487,14 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
               return (
                 <div
                   key={table.id}
-                  className="relative flex flex-col gap-4 overflow-hidden rounded-3xl p-6 shadow-glass"
+                  className="relative flex flex-col gap-3 overflow-hidden rounded-3xl p-4 shadow-glass"
                   style={{ backgroundColor: "#1a4f8f" }}
                 >
                   <BilliardsTablePockets />
                   {isActive && <ActiveDot />}
 
                   <div className="relative z-10 flex items-start justify-between">
-                    <h2 className="text-2xl font-extrabold text-white">
+                    <h2 className="text-xl font-extrabold text-white">
                       طاولة {table.table_number}
                     </h2>
                     <div dir="ltr" className="text-left">
@@ -521,6 +591,38 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
             })}
         </div>
 
+        {psDevices.length > 0 && (
+          <div className="mt-4 flex flex-col gap-4">
+            {psDevices.map((device) => (
+              <PlaystationCard
+                key={device.id}
+                device={device}
+                customerRef={psRefs[device.device_number] ?? ""}
+                busy={busyPs === device.device_number}
+                onCustomerRefChange={(value) =>
+                  setPsRefs((prev) => ({ ...prev, [device.device_number]: value }))
+                }
+                onCustomerRefFocus={() => {
+                  psFocusedRef.current = device.device_number;
+                }}
+                onCustomerRefBlur={() => handlePsCustomerRefBlur(device.device_number)}
+                onStart={() => runPs(device.device_number, () => props.startPlaystation(device.device_number))}
+                onEnd={() =>
+                  runPs(device.device_number, () => props.endPlaystationSession(device.device_number))
+                }
+                onSetStart={(isoLocal) =>
+                  runPs(device.device_number, () =>
+                    props.setPlaystationStart(
+                      device.device_number,
+                      new Date(isoLocal).toISOString()
+                    )
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
+
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
           <h3 className="mb-3 text-sm font-bold text-primary">الفواتير الصادرة</h3>
           {pendingTickets.length === 0 ? (
@@ -569,7 +671,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
         </div>
 
         <div className="mt-6 rounded-2xl border border-primary/10 bg-background p-5">
-          <h3 className="mb-3 text-sm font-bold text-primary">إحصائيات الكيمات</h3>
+          <h3 className="mb-3 text-sm font-bold text-primary">إحصائيات البلياردو</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {(
               [
@@ -605,6 +707,36 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                 {stats.yesterdayAmount.toLocaleString("en-US")} د.ع
               </p>
             </div>
+          </div>
+
+          <p className="mt-2 text-[11px] text-primary/40">
+            المبلغان يشملان البلياردو والبلي ستيشن معاً
+          </p>
+        </div>
+
+        {/* إحصائيات البلي ستيشن — منفصلة لأنها بالوقت لا بالكيم */}
+        <div className="mt-4 rounded-2xl border border-primary/10 bg-background p-5">
+          <h3 className="mb-3 text-sm font-bold text-primary">إحصائيات البلي ستيشن</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {(
+              [
+                ["اليوم", stats.ps.todayMinutes, stats.ps.todayAmount],
+                ["آخر 7 أيام", stats.ps.weekMinutes, stats.ps.weekAmount],
+                ["هذا الشهر", stats.ps.monthMinutes, stats.ps.monthAmount],
+              ] as const
+            ).map(([label, minutes, amount]) => (
+              <div key={label} className="rounded-xl bg-primary/5 px-3 py-2.5">
+                <p className="mb-1 text-xs font-semibold text-primary/60">{label}</p>
+                <p className="text-sm text-primary">
+                  <span className="font-bold">{Math.floor(minutes / 60).toLocaleString("en-US")}</span>{" "}
+                  ساعة{" "}
+                  <span className="font-bold">{(minutes % 60).toLocaleString("en-US")}</span> دقيقة
+                </p>
+                <p className="text-sm font-extrabold text-primary">
+                  {amount.toLocaleString("en-US")} د.ع
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 

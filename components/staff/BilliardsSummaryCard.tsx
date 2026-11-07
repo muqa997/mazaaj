@@ -3,18 +3,27 @@
 import { useCallback, useState } from "react";
 import { Eye, EyeOff, Wallet, X } from "lucide-react";
 import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
+import {
+  computePlaystationAmount,
+  elapsedMinutes,
+  formatElapsed,
+  isStaleSession,
+  type PlaystationDeviceRow,
+} from "@/lib/playstation";
+import { useNow } from "@/lib/use-now";
 
 type YesterdaySummary = { amount: number; count: number; unsettledCount: number };
 
 export type InitialBilliards = {
   tables: BilliardsTableRow[];
   tickets: BilliardsTicketRow[];
+  playstation: PlaystationDeviceRow[];
   todayTotal: { games: number; amount: number };
   overdueTotal: { amount: number; count: number };
   yesterday: YesterdaySummary;
 };
 
-type BilliardsSummaryCardProps = {
+export type BilliardsSummaryCardProps = {
   // تصل جاهزة مع HTML الصفحة — لا جلب عند العرض، فضغطة F5 وحدها تكفي
   initial: InitialBilliards;
   getBilliardsTables: () => Promise<BilliardsTableRow[] | null>;
@@ -22,6 +31,8 @@ type BilliardsSummaryCardProps = {
   payTicket: (ticketId: string) => Promise<{ error: string | null }>;
   cancelTicket: (ticketId: string, reason: string) => Promise<{ error: string | null }>;
   payTableDirect: (tableNumber: number) => Promise<{ error: string | null }>;
+  getPlaystationDevices: () => Promise<PlaystationDeviceRow[] | null>;
+  payPlaystationDirect: (deviceNumber: number) => Promise<{ error: string | null }>;
   getBilliardsTodayTotal: () => Promise<{ games: number; amount: number } | null>;
   getBilliardsOverdueTotal: () => Promise<{ amount: number; count: number } | null>;
   getBilliardsYesterdaySummary: () => Promise<YesterdaySummary | null>;
@@ -89,6 +100,13 @@ function SettlementBadge({ summary }: { summary: YesterdaySummary }) {
 export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   const [tables, setTables] = useState<BilliardsTableRow[]>(props.initial.tables);
   const [tickets, setTickets] = useState<BilliardsTicketRow[]>(props.initial.tickets);
+  const [psDevices, setPsDevices] = useState<PlaystationDeviceRow[]>(props.initial.playstation);
+  const [busyPs, setBusyPs] = useState<number | null>(null);
+
+  // العدّاد يمشي ما دام جهاز واحد شغّالاً على الأقل
+  const psRunning = psDevices.some((d) => d.started_at);
+  const nowTick = useNow(psRunning);
+  const psAt = nowTick ?? new Date();
   const [todayTotal, setTodayTotal] = useState(props.initial.todayTotal);
   const [overdueTotal, setOverdueTotal] = useState(props.initial.overdueTotal);
   const [yesterday, setYesterday] = useState<YesterdaySummary>(props.initial.yesterday);
@@ -101,20 +119,29 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
   // تُستدعى بعد إجراءات الكاشير نفسه (دفع/إلغاء) فقط — لا جلب عند العرض ولا دورياً.
   // كل قيمة null تعني "تعذّر الجلب": نتركها كما هي بدل أن نكتب صفراً على الشاشة
   const load = useCallback(async () => {
-    const [t, tk, total, overdue, yesterdaySummary] = await Promise.all([
+    const [t, tk, total, overdue, yesterdaySummary, devices] = await Promise.all([
       props.getBilliardsTables(),
       props.getPendingTickets(),
       props.getBilliardsTodayTotal(),
       props.getBilliardsOverdueTotal(),
       props.getBilliardsYesterdaySummary(),
+      props.getPlaystationDevices(),
     ]);
     if (t !== null) setTables(t);
     if (tk !== null) setTickets(tk);
+    if (devices !== null) setPsDevices(devices);
     if (total !== null) setTodayTotal(total);
     if (overdue !== null) setOverdueTotal(overdue);
     if (yesterdaySummary !== null) setYesterday(yesterdaySummary);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handlePayPlaystation = async (deviceNumber: number) => {
+    setBusyPs(deviceNumber);
+    await props.payPlaystationDirect(deviceNumber);
+    await load();
+    setBusyPs(null);
+  };
 
   const handlePay = async (ticketId: string) => {
     setBusyTicket(ticketId);
@@ -210,6 +237,73 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
         </div>
       </div>
 
+      {psDevices.length > 0 && (
+        <div className="rounded-2xl border border-primary/10 bg-background p-4">
+          <h3 className="mb-3 text-sm font-bold text-primary">البلي ستيشن الحي</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {psDevices.map((device) => {
+              const running = Boolean(device.started_at);
+              const minutes = running ? elapsedMinutes(device.started_at!, psAt) : 0;
+              const amount = computePlaystationAmount(minutes);
+              const stale = running && isStaleSession(device.started_at!, psAt);
+              const isBusy = busyPs === device.device_number;
+
+              return (
+                <div
+                  key={device.id}
+                  className={`relative rounded-xl border p-3 ${
+                    running ? "border-indigo-400/40 bg-indigo-500/10" : "border-primary/10 bg-primary/5"
+                  }`}
+                >
+                  {running && (
+                    <span className="absolute end-2.5 top-2.5 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                    </span>
+                  )}
+
+                  <p className="text-xs font-bold text-primary/60">
+                    بلي ستيشن {device.device_number.toLocaleString("en-US")}
+                  </p>
+
+                  {running ? (
+                    <>
+                      <p dir="ltr" className="mt-1 text-lg font-extrabold tabular-nums text-primary">
+                        {formatElapsed(device.started_at!, psAt)}
+                      </p>
+                      <p className="text-sm font-bold text-primary">
+                        {amount.toLocaleString("en-US")} د.ع
+                        <span className="ms-1 text-xs font-normal text-primary/50">
+                          ({minutes.toLocaleString("en-US")} دقيقة)
+                        </span>
+                      </p>
+                      {device.customer_ref && (
+                        <p className="truncate text-[11px] text-primary/50">{device.customer_ref}</p>
+                      )}
+                      {stale && (
+                        <p className="mt-1 text-[11px] font-bold text-red-600">
+                          شغّال أكثر من ٣ ساعات
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handlePayPlaystation(device.device_number)}
+                        className="mt-2 w-full rounded-lg bg-primary py-2 text-xs font-bold text-background disabled:opacity-40"
+                      >
+                        {isBusy ? "..." : "استلام الدفع"}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm font-bold text-primary/40">متوقف</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-primary/10 bg-background p-4">
         <h3 className="mb-3 text-sm font-bold text-primary">التذاكر المعلّقة</h3>
         {tickets.length === 0 ? (
@@ -225,7 +319,10 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-primary/60">
-                      {ticket.customer_ref || "بدون اسم"} — طاولة بلياردو {ticket.table_number}
+                      {ticket.customer_ref || "بدون اسم"} —{" "}
+                      {ticket.kind === "playstation"
+                        ? `بلي ستيشن ${ticket.table_number}`
+                        : `طاولة بلياردو ${ticket.table_number}`}
                       <span className="ms-1 font-normal text-primary/40">
                         (
                         {new Date(ticket.created_at).toLocaleTimeString("ar", {
@@ -237,10 +334,16 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                     </p>
                     <p className="text-sm font-bold text-primary">
                       {Number(ticket.amount).toLocaleString("en-US")} د.ع
-                      <span dir="ltr" className="ms-1 font-normal text-primary/50">
-                        ({ticket.games_count} 8 Pool
-                        {ticket.games_count_9ball > 0 && ` + ${ticket.games_count_9ball} 9 Pool`})
-                      </span>
+                      {ticket.kind === "playstation" ? (
+                        <span className="ms-1 font-normal text-primary/50">
+                          ({(ticket.minutes ?? 0).toLocaleString("en-US")} دقيقة)
+                        </span>
+                      ) : (
+                        <span dir="ltr" className="ms-1 font-normal text-primary/50">
+                          ({ticket.games_count} 8 Pool
+                          {ticket.games_count_9ball > 0 && ` + ${ticket.games_count_9ball} 9 Pool`})
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">

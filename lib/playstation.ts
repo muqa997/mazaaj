@@ -1,0 +1,79 @@
+// حساب وقت وسعر البلي ستيشن — ملف خالٍ من أي استيراد خادمي، تستورده الواجهة مباشرة
+
+/** ١٠٠٠ دينار لكل ربع ساعة = ٤٠٠٠ للساعة */
+export const PS_QUARTER_PRICE = 1000;
+export const PS_MINUTES_PER_QUARTER = 15;
+
+/** بعد هذه المدة نشكّ أن الموظف نسي إيقاف العدّاد والزبون مشى */
+export const PS_STALE_HOURS = 3;
+
+export type PlaystationDeviceRow = {
+  id: string;
+  device_number: number;
+  /** null = الجهاز متوقف */
+  started_at: string | null;
+  customer_ref: string | null;
+  updated_at: string;
+};
+
+/**
+ * دقائق اللعب من لحظة البداية حتى الآن (أو حتى لحظة محددة).
+ *
+ * تُحسب دائماً من `started_at` المحفوظ بقاعدة البيانات لا من عدّاد بالمتصفح، فتبقى
+ * صحيحة بعد تحديث الصفحة، ومتطابقة على شاشة الموظف والكاشير والمدير معاً
+ */
+export function elapsedMinutes(startedAt: string | Date, until: Date = new Date()): number {
+  const start = typeof startedAt === "string" ? new Date(startedAt) : startedAt;
+  const ms = until.getTime() - start.getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.floor(ms / 60000);
+}
+
+/**
+ * سعر مدة لعب: كل ربع ساعة مبدوء يُحسب ربعاً كاملاً.
+ *
+ * ١٥ دقيقة = ١٠٠٠، و١٦ = ٢٠٠٠، و٣٠ = ٢٠٠٠، و٣١ = ٣٠٠٠. التقريب للأعلى هو المتبع
+ * بالكافيهات وأسهل شرحاً للزبون من كسور الدقيقة
+ */
+export function computePlaystationAmount(minutes: number): number {
+  const safe = Math.max(0, Math.floor(minutes));
+  if (safe === 0) return 0;
+  return Math.ceil(safe / PS_MINUTES_PER_QUARTER) * PS_QUARTER_PRICE;
+}
+
+/** «١:٠٥:٣٠» أو «٠٥:٣٠» — عدّاد يُقرأ بطرف العين */
+export function formatElapsed(startedAt: string | Date, until: Date = new Date()): string {
+  const start = typeof startedAt === "string" ? new Date(startedAt) : startedAt;
+  const totalSec = Math.max(0, Math.floor((until.getTime() - start.getTime()) / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+/** كم دقيقة بقيت حتى يرتفع السعر ربعاً آخر — يساعد الموظف يقرر متى يوقف */
+export function minutesToNextQuarter(minutes: number): number {
+  const safe = Math.max(0, Math.floor(minutes));
+  const rem = safe % PS_MINUTES_PER_QUARTER;
+  return rem === 0 ? PS_MINUTES_PER_QUARTER : PS_MINUTES_PER_QUARTER - rem;
+}
+
+/** جلسة طال أمدها بلا إيقاف — الغالب أن الموظف نسيها */
+export function isStaleSession(startedAt: string | Date, until: Date = new Date()): boolean {
+  return elapsedMinutes(startedAt, until) >= PS_STALE_HOURS * 60;
+}
+
+/**
+ * يحوّل وقتاً محلياً من حقل `datetime-local` إلى Date، ويرفض المستقبل.
+ * يُستخدم حين يصحّح الموظف وقت البداية لأنه نسي الضغط على «بدء»
+ */
+export function parseStartOverride(value: string): { at: Date | null; error: string | null } {
+  if (!value) return { at: null, error: "الرجاء تحديد وقت البداية" };
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return { at: null, error: "وقت غير صحيح" };
+  if (at.getTime() > Date.now() + 60_000) {
+    return { at: null, error: "وقت البداية لا يكون بالمستقبل" };
+  }
+  return { at, error: null };
+}

@@ -8,6 +8,11 @@ import {
   verifyBilliardsSessionToken,
 } from "@/lib/billiards-session";
 import {
+  computePlaystationAmount,
+  elapsedMinutes,
+  type PlaystationDeviceRow,
+} from "@/lib/playstation";
+import {
   computePoolAmount,
   getBusinessDayStart,
   getBusinessMonthStart,
@@ -20,6 +25,7 @@ import {
 import { signalOnSuccess } from "@/lib/sync-signal-server";
 
 export type { BilliardsTableRow, BilliardsTicketRow, BilliardsNoteRow, BilliardsTransactionRow };
+export type { PlaystationDeviceRow };
 
 export type PoolType = "eight" | "nine";
 
@@ -203,9 +209,18 @@ export async function getBilliardsOperatorStats(): Promise<{
   today: PoolCounts;
   week: PoolCounts;
   month: PoolCounts;
+  /** مجموع البلياردو + البلي ستيشن */
   todayAmount: number;
   yesterdayAmount: number;
   perTable: { table_number: number; eight: number; nine: number }[];
+  ps: {
+    todayMinutes: number;
+    todayAmount: number;
+    weekMinutes: number;
+    weekAmount: number;
+    monthMinutes: number;
+    monthAmount: number;
+  };
 }> {
   requireBilliardsSession();
   const empty = {
@@ -215,6 +230,14 @@ export async function getBilliardsOperatorStats(): Promise<{
     todayAmount: 0,
     yesterdayAmount: 0,
     perTable: [1, 2, 3].map((n) => ({ table_number: n, eight: 0, nine: 0 })),
+    ps: {
+      todayMinutes: 0,
+      todayAmount: 0,
+      weekMinutes: 0,
+      weekAmount: 0,
+      monthMinutes: 0,
+      monthAmount: 0,
+    },
   };
   if (!supabaseAdmin) return empty;
 
@@ -236,7 +259,7 @@ export async function getBilliardsOperatorStats(): Promise<{
       .gte("created_at", startOfDay.toISOString()),
     supabaseAdmin
       .from("billiards_transactions")
-      .select("table_number, games_count, games_count_9ball, amount, paid_at")
+      .select("table_number, games_count, games_count_9ball, amount, paid_at, kind, minutes")
       .gte("paid_at", fetchSince.toISOString()),
   ]);
 
@@ -255,6 +278,11 @@ export async function getBilliardsOperatorStats(): Promise<{
   });
   const sumAmount = (rows: typeof transactions) => rows.reduce((s, t) => s + Number(t.amount), 0);
 
+  // أداء الطاولات للبلياردو وحده: معاملة بلي ستيشن على الجهاز رقم ١ كانت ستُحسب
+  // ضمن الطاولة ١ لولا تصفية النوع، فتضخّم أرقام طاولة لم تُلعب
+  const isBilliards = (t: { kind?: string | null }) => (t.kind ?? "billiards") === "billiards";
+  const isPs = (t: { kind?: string | null }) => t.kind === "playstation";
+
   const todayTx = transactions.filter((t) => new Date(t.paid_at) >= startOfDay);
   const yesterdayTx = transactions.filter((t) => {
     const d = new Date(t.paid_at);
@@ -267,14 +295,20 @@ export async function getBilliardsOperatorStats(): Promise<{
     return d >= startOfLastMonth && d < startOfMonth;
   });
 
-  const todayPaid = sumTx(todayTx);
-  const weekPaid = sumTx(weekTx);
-  const monthPaid = sumTx(monthTx);
+  const todayPaid = sumTx(todayTx.filter(isBilliards));
+  const weekPaid = sumTx(weekTx.filter(isBilliards));
+  const monthPaid = sumTx(monthTx.filter(isBilliards));
 
   const perTable = [1, 2, 3].map((n) => {
-    const tableTx = sumTx(lastMonthTx.filter((t) => t.table_number === n));
+    const tableTx = sumTx(lastMonthTx.filter((t) => isBilliards(t) && t.table_number === n));
     return { table_number: n, eight: tableTx.eight, nine: tableTx.nine };
   });
+
+  const sumMinutes = (rows: typeof transactions) =>
+    rows.reduce((s, t) => s + (Number(t.minutes) || 0), 0);
+  const psToday = todayTx.filter(isPs);
+  const psWeek = weekTx.filter(isPs);
+  const psMonth = monthTx.filter(isPs);
 
   // نضيف كيمات اليوم الحية/المعلّقة (غير المدفوعة بعد) لمجموعي الأسبوع والشهر أيضاً —
   // وإلا يظهر "الأسبوع/الشهر" أقل من "اليوم" بشكل مربك طالما توجد كيمات لم تُدفع بعد،
@@ -286,7 +320,123 @@ export async function getBilliardsOperatorStats(): Promise<{
     todayAmount: sumAmount(todayTx),
     yesterdayAmount: sumAmount(yesterdayTx),
     perTable,
+    ps: {
+      todayMinutes: sumMinutes(psToday),
+      todayAmount: sumAmount(psToday),
+      weekMinutes: sumMinutes(psWeek),
+      weekAmount: sumAmount(psWeek),
+      monthMinutes: sumMinutes(psMonth),
+      monthAmount: sumAmount(psMonth),
+    },
   };
+}
+
+// ═══════════════ البلي ستيشن ═══════════════
+
+export async function getPlaystationDevices(): Promise<PlaystationDeviceRow[] | null> {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin
+    .from("playstation_devices")
+    .select("*")
+    .order("device_number", { ascending: true });
+  if (error) {
+    console.error(error);
+    return null;
+  }
+  return (data ?? []) as PlaystationDeviceRow[];
+}
+
+/** بدء اللعب: نُثبّت لحظة البداية بقاعدة البيانات لا بالمتصفح، فيتطابق العدّاد على كل الشاشات */
+export async function startPlaystation(deviceNumber: number) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from("playstation_devices")
+    .update({ started_at: now, updated_at: now })
+    .eq("device_number", deviceNumber)
+    .is("started_at", null); // لا نعيد ضبط البداية على جلسة شغّالة فنضيّع وقتها
+  return signalOnSuccess("billiards", { error: error ? "تعذّر بدء الجلسة" : null });
+}
+
+/**
+ * تصحيح وقت البداية — يُستعمل حين ينسى الموظف الضغط على «بدء» فيرجّعه للوقت الحقيقي.
+ * يُرفض المستقبل لأنه يعطي وقتاً سالباً، ويُرفض ما قبل ٢٤ ساعة لأنه غالباً خطأ تاريخ
+ */
+export async function setPlaystationStart(deviceNumber: number, startedAtIso: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const at = new Date(startedAtIso);
+  if (Number.isNaN(at.getTime())) return { error: "وقت غير صحيح" };
+  if (at.getTime() > Date.now() + 60_000) return { error: "وقت البداية لا يكون بالمستقبل" };
+  if (Date.now() - at.getTime() > 24 * 60 * 60 * 1000) {
+    return { error: "وقت البداية أقدم من ٢٤ ساعة — تأكد من التاريخ" };
+  }
+
+  const { error } = await supabaseAdmin
+    .from("playstation_devices")
+    .update({ started_at: at.toISOString(), updated_at: new Date().toISOString() })
+    .eq("device_number", deviceNumber);
+  return signalOnSuccess("billiards", { error: error ? "تعذّر تعديل وقت البداية" : null });
+}
+
+export async function updatePlaystationCustomerRef(deviceNumber: number, customerRef: string) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("playstation_devices")
+    .update({ customer_ref: customerRef.trim() || null })
+    .eq("device_number", deviceNumber);
+  return signalOnSuccess("billiards", { error: error ? "حدث خطأ أثناء الحفظ" : null });
+}
+
+/**
+ * إنهاء جلسة البلي: تُصدر فاتورة بالدقائق والمبلغ ويتوقف الجهاز.
+ *
+ * المدة تُحسب على الخادم من started_at المحفوظ، لا من رقم يرسله المتصفح — فلا يمكن
+ * التلاعب بالمبلغ من الواجهة. والفاتورة تُنشأ قبل إيقاف الجهاز، فإن فشلت بقيت الجلسة
+ * شغّالة بدل أن يضيع وقتها
+ */
+export async function endPlaystationSession(deviceNumber: number) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const { data: device, error: fetchError } = await supabaseAdmin
+    .from("playstation_devices")
+    .select("started_at, customer_ref")
+    .eq("device_number", deviceNumber)
+    .single();
+  if (fetchError || !device) return { error: "تعذّر إيجاد الجهاز" };
+  if (!device.started_at) return { error: "الجهاز متوقف أصلاً" };
+
+  const minutes = elapsedMinutes(device.started_at);
+  const amount = computePlaystationAmount(minutes);
+  if (amount <= 0) return { error: "لم تمضِ دقيقة بعد — لا فاتورة" };
+
+  const { error: ticketError } = await supabaseAdmin.from("billiards_tickets").insert({
+    kind: "playstation",
+    table_number: deviceNumber,
+    games_count: 0,
+    games_count_9ball: 0,
+    minutes,
+    amount,
+    customer_ref: device.customer_ref,
+  });
+  if (ticketError) {
+    console.error(ticketError);
+    return { error: "حدث خطأ أثناء إنشاء الفاتورة — الجهاز ما زال شغّالاً" };
+  }
+
+  const { error } = await supabaseAdmin
+    .from("playstation_devices")
+    .update({ started_at: null, customer_ref: null, updated_at: new Date().toISOString() })
+    .eq("device_number", deviceNumber);
+  if (error) console.error(error);
+  return signalOnSuccess("billiards", {
+    error: error ? "صدرت الفاتورة لكن تعذّر إيقاف الجهاز" : null,
+  });
 }
 
 export async function getNotes(): Promise<BilliardsNoteRow[] | null> {
