@@ -28,9 +28,12 @@ import {
 import {
   businessDayTimestamp,
   computePoolAmount,
+  GAME_PRICE,
+  GAME_PRICE_9BALL,
   getBusinessDayStart,
   getBusinessMonthStart,
 } from "@/lib/billiards";
+import { computePlaystationAmount, PS_MINUTES_PER_QUARTER } from "@/lib/playstation";
 import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
@@ -519,6 +522,9 @@ export default function Dashboard(props: DashboardProps) {
   const [drawMode, setDrawMode] = useState<"wheel" | "manual" | null>(null);
   // نموذج تسجيل دخل يوم فات تسجيله — المدير وحده
   const [incomeOpen, setIncomeOpen] = useState(false);
+  // آخر مبلغ كتبه الحساب التلقائي. نقارن به حقل المبلغ لنعرف إن كان المدير قد كتب
+  // رقماً بيده: ساعتها نتوقف عن الكتابة فوقه مهما عدّل عدد الكيمات
+  const [incomeAutoAmount, setIncomeAutoAmount] = useState<number | null>(null);
   const [incomeForm, setIncomeForm] = useState({
     date: "",
     amount: "",
@@ -651,6 +657,26 @@ export default function Dashboard(props: DashboardProps) {
     router.refresh();
   };
 
+  // تغيير عدد الكيمات أو الدقائق أو نوع اللعبة يحسب المبلغ ويكتبه فوراً. عمداً خارج
+  // دالة التحديث لا داخلها: setState داخل updater غير نقيّ ويُنفَّذ مرتين بطور التطوير
+  const updateIncomeCounts = (
+    patch: Partial<Pick<typeof incomeForm, "eight" | "nine" | "minutes" | "kind">>
+  ) => {
+    const next = { ...incomeForm, ...patch };
+    const auto =
+      next.kind === "playstation"
+        ? computePlaystationAmount(Number(next.minutes) || 0)
+        : computePoolAmount(Number(next.eight) || 0, Number(next.nine) || 0);
+    const typedByHand =
+      incomeForm.amount !== "" && incomeForm.amount !== String(incomeAutoAmount ?? "");
+    if (typedByHand) {
+      setIncomeForm(next);
+      return;
+    }
+    setIncomeForm({ ...next, amount: auto > 0 ? String(auto) : "" });
+    setIncomeAutoAmount(auto > 0 ? auto : null);
+  };
+
   // المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — منفصلة عمداً عن تسوية المتأخر
   // (بطاقة/زر مستقلان) حتى لا يختلط دخل الأمس المنسي بدخل اليوم في رقم واحد مربك
   const submitManualIncome = async (e: React.FormEvent) => {
@@ -687,6 +713,7 @@ export default function Dashboard(props: DashboardProps) {
         note: "",
         settled: true,
       });
+      setIncomeAutoAmount(null);
       setIncomeOpen(false);
       await refreshBilliards();
     }
@@ -752,6 +779,29 @@ export default function Dashboard(props: DashboardProps) {
       count: dayTx.length,
     };
   }, [incomeForm.date, billiardsTransactions]);
+
+  // ناتج العدّادات معروضاً: المدير يرى المبلغ وهو يكتب العدد، ويرى تفصيله فيتأكد
+  // أن الرقم جاء من ٨ بول و٩ بول لا من ضربة واحدة
+  const incomeCountsPreview = useMemo(() => {
+    if (incomeForm.kind === "playstation") {
+      const minutes = Math.max(0, Math.floor(Number(incomeForm.minutes) || 0));
+      if (minutes <= 0) return null;
+      const amount = computePlaystationAmount(minutes);
+      const quarters = Math.ceil(minutes / PS_MINUTES_PER_QUARTER);
+      return {
+        amount,
+        sep: " · ",
+        parts: [`${minutes} دقيقة`, `${quarters} × ربع ساعة`],
+      };
+    }
+    const eight = Math.max(0, Math.floor(Number(incomeForm.eight) || 0));
+    const nine = Math.max(0, Math.floor(Number(incomeForm.nine) || 0));
+    if (eight <= 0 && nine <= 0) return null;
+    const parts: string[] = [];
+    if (eight > 0) parts.push(`${eight} × ${GAME_PRICE.toLocaleString("en-US")}`);
+    if (nine > 0) parts.push(`${nine} × ${GAME_PRICE_9BALL.toLocaleString("en-US")}`);
+    return { amount: computePoolAmount(eight, nine), sep: " + ", parts };
+  }, [incomeForm.kind, incomeForm.eight, incomeForm.nine, incomeForm.minutes]);
 
   const maxWeekChartCount = Math.max(1, ...stats.last7Days.map((d) => d.count));
   const maxMonthChartCount = Math.max(1, ...stats.monthDays.map((d) => d.count));
@@ -1841,7 +1891,7 @@ export default function Dashboard(props: DashboardProps) {
                           <button
                             key={value}
                             type="button"
-                            onClick={() => setIncomeForm({ ...incomeForm, kind: value })}
+                            onClick={() => updateIncomeCounts({ kind: value })}
                             className={`min-h-[44px] flex-1 rounded-xl text-sm font-bold ${
                               incomeForm.kind === value
                                 ? "bg-primary text-background"
@@ -1863,9 +1913,7 @@ export default function Dashboard(props: DashboardProps) {
                             min="0"
                             inputMode="numeric"
                             value={incomeForm.minutes}
-                            onChange={(e) =>
-                              setIncomeForm({ ...incomeForm, minutes: e.target.value })
-                            }
+                            onChange={(e) => updateIncomeCounts({ minutes: e.target.value })}
                             placeholder="0"
                             className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
                           />
@@ -1881,9 +1929,7 @@ export default function Dashboard(props: DashboardProps) {
                             min="0"
                             inputMode="numeric"
                             value={incomeForm.eight}
-                            onChange={(e) =>
-                              setIncomeForm({ ...incomeForm, eight: e.target.value })
-                            }
+                            onChange={(e) => updateIncomeCounts({ eight: e.target.value })}
                             placeholder="0"
                             className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
                           />
@@ -1897,14 +1943,40 @@ export default function Dashboard(props: DashboardProps) {
                             min="0"
                             inputMode="numeric"
                             value={incomeForm.nine}
-                            onChange={(e) =>
-                              setIncomeForm({ ...incomeForm, nine: e.target.value })
-                            }
+                            onChange={(e) => updateIncomeCounts({ nine: e.target.value })}
                             placeholder="0"
                             className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
                           />
                         </label>
                       </div>
+                      )}
+
+                      {incomeCountsPreview && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent/10 px-3 py-2.5">
+                          <span dir="ltr" className="text-[11px] text-primary/60">
+                            {incomeCountsPreview.parts.join(incomeCountsPreview.sep)}
+                          </span>
+                          <span className="text-sm font-extrabold text-primary">
+                            = {incomeCountsPreview.amount.toLocaleString("en-US")} د.ع
+                          </span>
+                          {/* يظهر فقط حين يكتب المدير مبلغاً مخالفاً للاحتساب: ساعتها
+                              رقمه هو المعتمد، والزر يرجّعه للمحسوب إن أرادها */}
+                          {String(incomeCountsPreview.amount) !== incomeForm.amount && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIncomeForm({
+                                  ...incomeForm,
+                                  amount: String(incomeCountsPreview.amount),
+                                });
+                                setIncomeAutoAmount(incomeCountsPreview.amount);
+                              }}
+                              className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-background"
+                            >
+                              اعتمده مبلغاً
+                            </button>
+                          )}
+                        </div>
                       )}
 
                       <label className="flex flex-col gap-1.5">
