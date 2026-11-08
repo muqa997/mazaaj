@@ -25,7 +25,12 @@ import {
   Phone,
   Trophy,
 } from "lucide-react";
-import { computePoolAmount, getBusinessDayStart, getBusinessMonthStart } from "@/lib/billiards";
+import {
+  businessDayTimestamp,
+  computePoolAmount,
+  getBusinessDayStart,
+  getBusinessMonthStart,
+} from "@/lib/billiards";
 import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
@@ -724,6 +729,30 @@ export default function Dashboard(props: DashboardProps) {
     () => computeBilliardsStats(billiardsTransactions),
     [billiardsTransactions]
   );
+  // المسجَّل أصلاً لليوم المختار بنموذج "دخل يوم سابق". الإدخال يُضاف ولا يستبدل،
+  // فبدون هذا الرقم يسهل تسجيل مبلغ اليوم كاملاً مرة ثانية بدل الفرق الناقص وحده
+  const incomeDaySummary = useMemo(() => {
+    const at = businessDayTimestamp(incomeForm.date);
+    if (!at) return null;
+    const dayStart = getBusinessDayStart(at);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    // السجل المُحمَّل يبدأ من أول الشهر التجاري السابق؛ ما قبله لم يُجلب أصلاً
+    // فلا ندّعي أنه صفر
+    const loadedSince = getBusinessMonthStart(
+      new Date(getBusinessMonthStart(new Date()).getTime() - 1)
+    );
+    if (dayStart < loadedSince) return { known: false as const };
+    const dayTx = billiardsTransactions.filter((t) => {
+      const d = new Date(t.paid_at);
+      return d >= dayStart && d < dayEnd;
+    });
+    return {
+      known: true as const,
+      amount: dayTx.reduce((sum, t) => sum + Number(t.amount), 0),
+      count: dayTx.length,
+    };
+  }, [incomeForm.date, billiardsTransactions]);
+
   const maxWeekChartCount = Math.max(1, ...stats.last7Days.map((d) => d.count));
   const maxMonthChartCount = Math.max(1, ...stats.monthDays.map((d) => d.count));
   const maxBilliardsWeekAmount = Math.max(1, ...billiardsStats.weekDays.map((d) => d.amount));
@@ -734,7 +763,8 @@ export default function Dashboard(props: DashboardProps) {
     ...billiardsStats.lastMonthDays.map((d) => d.amount)
   );
 
-  // سجل العمليات: آخر 7 أيام افتراضياً (تخفيفاً للصفحة)، مع رابط لعرض كل ما جُلب (حتى 35 يوماً)
+  // سجل العمليات: آخر 7 أيام افتراضياً (تخفيفاً للصفحة)، مع رابط لعرض كل ما جُلب
+  // (من أول الشهر التجاري السابق)
   const visibleBilliardsTransactions = useMemo(() => {
     if (showFullBilliardsLog) return billiardsTransactions;
     const sevenDaysAgo = new Date();
@@ -1711,7 +1741,8 @@ export default function Dashboard(props: DashboardProps) {
                     <div className="min-w-0">
                       <p className="text-sm font-extrabold text-primary">دخل يوم سابق</p>
                       <p className="mt-0.5 text-xs text-primary/50">
-                        فات تسجيله لحظتها؟ سجّله هنا بتاريخه
+                        فات تسجيله لحظتها؟ سجّله هنا بتاريخه — أو أضف الفرق لو
+                        كان المسجَّل ناقصاً
                       </p>
                     </div>
                     <button
@@ -1752,6 +1783,33 @@ export default function Dashboard(props: DashboardProps) {
                           }
                           className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
                         />
+                        {incomeDaySummary &&
+                          (incomeDaySummary.known ? (
+                            <span className="text-[11px] leading-5 text-primary/50">
+                              المسجَّل حالياً لهذا اليوم:{" "}
+                              <b className="text-primary">
+                                {incomeDaySummary.amount.toLocaleString("en-US")} د.ع
+                              </b>{" "}
+                              · ما تكتبه يُضاف إليه ولا يستبدله
+                              {Number(incomeForm.amount) > 0 && (
+                                <>
+                                  {" "}
+                                  — سيصبح{" "}
+                                  <b className="text-accent">
+                                    {(
+                                      incomeDaySummary.amount +
+                                      Math.round(Number(incomeForm.amount) || 0)
+                                    ).toLocaleString("en-US")}{" "}
+                                    د.ع
+                                  </b>
+                                </>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] leading-5 text-primary/50">
+                              يوم أقدم من السجل المُحمَّل — لا يمكن عرض المسجَّل له
+                            </span>
+                          ))}
                       </label>
 
                       <label className="flex flex-col gap-1.5">
@@ -1762,7 +1820,7 @@ export default function Dashboard(props: DashboardProps) {
                           required
                           type="number"
                           min="1"
-                          step="250"
+                          step="1"
                           inputMode="numeric"
                           value={incomeForm.amount}
                           onChange={(e) =>
