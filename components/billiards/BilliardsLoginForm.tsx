@@ -35,7 +35,7 @@ export default function BilliardsLoginForm({
       <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary/5">
         <Lock size={24} className="text-accent" />
       </div>
-      <h1 className="mb-2 text-xl font-extrabold text-primary">صالة البلياردو</h1>
+      <h1 className="mb-2 text-xl font-extrabold text-primary">صالة الألعاب</h1>
       <p className="mb-8 text-sm text-primary/50">أدخل رمز الدخول للمتابعة</p>
 
       <form onSubmit={handleSubmit} className="flex w-full max-w-xs flex-col gap-4">

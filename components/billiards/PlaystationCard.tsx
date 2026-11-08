@@ -1,14 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Clock, Play, Send, SlidersHorizontal, X } from "lucide-react";
+import { AlertTriangle, Clock, Minus, Play, Plus, Send, SlidersHorizontal, X } from "lucide-react";
 import {
   computePlaystationAmount,
   elapsedMinutes,
+  formatDuration,
   formatElapsed,
   isStaleSession,
   minutesToNextQuarter,
+  PS_DURATION_PRESETS,
+  PS_MAX_SESSION_MINUTES,
+  PS_MINUTES_PER_QUARTER,
   PS_QUARTER_PRICE,
+  roundUpToQuarter,
   type PlaystationDeviceRow,
 } from "@/lib/playstation";
 import { useNow } from "@/lib/use-now";
@@ -21,7 +26,7 @@ type PlaystationCardProps = {
   onCustomerRefBlur: () => void;
   onCustomerRefFocus: () => void;
   onStart: () => void;
-  onEnd: () => void;
+  onBill: (minutes: number) => void;
   onSetStart: (isoLocal: string) => void;
 };
 
@@ -47,11 +52,14 @@ export default function PlaystationCard({
   onCustomerRefBlur,
   onCustomerRefFocus,
   onStart,
-  onEnd,
+  onBill,
   onSetStart,
 }: PlaystationCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  // شاشة تثبيت المدة قبل الترحيل: تُفتح عند الإنهاء وعند تسجيل جلسة بلا عدّاد
+  const [picking, setPicking] = useState<null | "end" | "fixed">(null);
+  const [pick, setPick] = useState(PS_MINUTES_PER_QUARTER);
 
   const running = Boolean(device.started_at);
   const now = useNow(running);
@@ -61,6 +69,26 @@ export default function PlaystationCard({
   const amount = computePlaystationAmount(minutes);
   const toNext = minutesToNextQuarter(minutes);
   const stale = device.started_at ? isStaleSession(device.started_at, at) : false;
+
+  const pickAmount = computePlaystationAmount(pick);
+  const stepPick = (delta: number) =>
+    setPick((m) =>
+      Math.min(
+        PS_MAX_SESSION_MINUTES,
+        Math.max(PS_MINUTES_PER_QUARTER, m + delta * PS_MINUTES_PER_QUARTER)
+      )
+    );
+
+  // الإنهاء يبدأ من الوقت المقيس مقرَّباً للربع — رقمٌ صحيح افتراضاً، والموظف يعدّله
+  // إن اتفق مع الزبون على غيره
+  const openEnd = () => {
+    setPick(Math.max(PS_MINUTES_PER_QUARTER, roundUpToQuarter(minutes)));
+    setPicking("end");
+  };
+  const openFixed = () => {
+    setPick(60);
+    setPicking("fixed");
+  };
 
   const openEditor = () => {
     setDraft(toLocalInput(device.started_at ? new Date(device.started_at) : new Date()));
@@ -122,6 +150,82 @@ export default function PlaystationCard({
         )}
       </div>
 
+      {/* تثبيت المدة قبل الترحيل. الحساب بالربع أصلاً، فالاختيار بالأرباع لا بالدقائق */}
+      {picking && (
+        <div className="relative z-10 flex flex-col gap-3 rounded-2xl bg-black/50 p-3">
+          <p className="text-[12px] font-bold text-white/60">
+            {picking === "end"
+              ? `العدّاد سجّل ${minutes.toLocaleString("en-US")} دقيقة — ثبّت المدة`
+              : "مدة اللعب (جلسة بلا عدّاد)"}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stepPick(-1)}
+              disabled={pick <= PS_MINUTES_PER_QUARTER}
+              aria-label="أنقص ربع ساعة"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white disabled:opacity-30"
+            >
+              <Minus size={18} />
+            </button>
+            <div className="flex-1 rounded-xl bg-white/10 py-2 text-center">
+              <p className="text-base font-extrabold text-white">{formatDuration(pick)}</p>
+              <p className="text-sm font-bold text-green-300">
+                {pickAmount.toLocaleString("en-US")} د.ع
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => stepPick(1)}
+              disabled={pick >= PS_MAX_SESSION_MINUTES}
+              aria-label="زد ربع ساعة"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white disabled:opacity-30"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5">
+            {PS_DURATION_PRESETS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPick(m)}
+                className={`min-h-[38px] rounded-lg px-1 text-[12px] font-bold ${
+                  pick === m ? "bg-white text-[#2a1a6b]" : "bg-white/15 text-white/80"
+                }`}
+              >
+                {formatDuration(m)}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onBill(pick);
+                setPicking(null);
+              }}
+              disabled={busy}
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-white text-sm font-extrabold text-[#2a1a6b] disabled:opacity-50"
+            >
+              <Send size={16} />
+              {busy ? "..." : `رحّل ${pickAmount.toLocaleString("en-US")} د.ع`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPicking(null)}
+              aria-label="إلغاء"
+              className="flex min-h-[48px] w-12 items-center justify-center rounded-xl bg-white/15 text-white"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* تعديل وقت البداية: يُستعمل حين ينسى الموظف الضغط على «بدء» */}
       {editing ? (
         <div className="relative z-10 flex flex-col gap-2 rounded-2xl bg-black/50 p-3">
@@ -181,23 +285,35 @@ export default function PlaystationCard({
       {running ? (
         <button
           type="button"
-          onClick={onEnd}
-          disabled={busy}
+          onClick={openEnd}
+          disabled={busy || Boolean(picking)}
           className="relative z-10 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-white text-base font-extrabold text-[#2a1a6b] disabled:opacity-50"
         >
           <Send size={18} />
-          {busy ? "..." : "إنهاء وإرسال الفاتورة"}
+          {busy ? "..." : "إنهاء وتثبيت المدة"}
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={busy}
-          className="relative z-10 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-green-500 text-base font-extrabold text-white disabled:opacity-50"
-        >
-          <Play size={18} />
-          {busy ? "..." : "بدء اللعب"}
-        </button>
+        <div className="relative z-10 flex gap-2">
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={busy || Boolean(picking)}
+            className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl bg-green-500 text-base font-extrabold text-white disabled:opacity-50"
+          >
+            <Play size={18} />
+            {busy ? "..." : "بدء اللعب"}
+          </button>
+          {/* الجلسة التي فات تشغيل عدّادها: تُسجَّل بمدتها وتُرحَّل بلا عدّاد */}
+          <button
+            type="button"
+            onClick={openFixed}
+            disabled={busy || Boolean(picking)}
+            className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl bg-white/15 text-sm font-extrabold text-white disabled:opacity-50"
+          >
+            <Clock size={16} />
+            وقت ثابت
+          </button>
+        </div>
       )}
 
       <Clock

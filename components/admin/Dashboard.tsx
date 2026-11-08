@@ -33,7 +33,12 @@ import {
   getBusinessDayStart,
   getBusinessMonthStart,
 } from "@/lib/billiards";
-import { computePlaystationAmount, PS_MINUTES_PER_QUARTER } from "@/lib/playstation";
+import {
+  computePlaystationAmount,
+  formatDuration,
+  PS_DURATION_PRESETS,
+  PS_MINUTES_PER_QUARTER,
+} from "@/lib/playstation";
 import { POSITION_KEYS, POSITION_LABELS_AR, type PositionKey } from "@/lib/job-openings";
 import { DELIVERY_FEE } from "@/lib/config";
 import { MENU_CATEGORIES, MENU_CATEGORY_LABELS_AR, type MenuCategory } from "@/lib/menu-data";
@@ -334,15 +339,29 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     return d >= lastMonthStart && d < monthStart;
   });
 
-  // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)، مقسّم ٨ بول/٩ بول
+  const isPool = (t: BilliardsTransactionRow) => (t.kind ?? "billiards") === "billiards";
+  const isPs = (t: BilliardsTransactionRow) => (t.kind ?? "billiards") === "playstation";
+
+  // أداء الطاولات لهذا الشهر فقط (وليس إجمالي منذ البداية)، مقسّم ٨ بول/٩ بول.
+  // تذاكر البلي تحمل رقم الجهاز في table_number ورقم الجهاز الأول ١، فبلا تمييز
+  // النوع يُضاف دخل البلي كله إلى طاولة البلياردو الأولى
   const perTable = [1, 2, 3].map((n) => {
-    const tableTx = monthTx.filter((t) => t.table_number === n);
+    const tableTx = monthTx.filter((t) => isPool(t) && t.table_number === n);
     return {
       table_number: n,
       pool: sumPool(tableTx),
       amount: sumBy(tableTx, "amount"),
     };
   });
+
+  const psSummary = (rows: BilliardsTransactionRow[]) => {
+    const psTx = rows.filter(isPs);
+    return {
+      amount: sumBy(psTx, "amount"),
+      minutes: psTx.reduce((sum, t) => sum + Number(t.minutes ?? 0), 0),
+      count: psTx.length,
+    };
+  };
 
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
     const dayStart = new Date(todayStart.getTime() - (6 - i) * 24 * 60 * 60 * 1000);
@@ -427,6 +446,8 @@ function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
     yesterdayLabel: formatDayMonth(new Date(yesterdayStart.getTime() + 12 * 60 * 60 * 1000)),
     monthLabel: `الشهر ${ARABIC_ORDINAL_MONTHS[businessNow.getMonth()]}`,
     perTable,
+    monthPs: psSummary(monthTx),
+    lastMonthPs: psSummary(lastMonthTx),
     weekDays,
     monthDays,
     lastMonthAmount: sumBy(lastMonthTx, "amount"),
@@ -791,7 +812,7 @@ export default function Dashboard(props: DashboardProps) {
       return {
         amount,
         sep: " · ",
-        parts: [`${minutes} دقيقة`, `${quarters} × ربع ساعة`],
+        parts: [formatDuration(minutes), `${quarters} × ربع ساعة`],
       };
     }
     const eight = Math.max(0, Math.floor(Number(incomeForm.eight) || 0));
@@ -1116,7 +1137,7 @@ export default function Dashboard(props: DashboardProps) {
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid }[] = [
     { key: "overview", label: "الرئيسية", icon: LayoutGrid },
     { key: "orders", label: "الطلبات", icon: ClipboardList },
-    { key: "billiards", label: "البليارد والبلي ستيشن", icon: CircleDot },
+    { key: "billiards", label: "الألعاب", icon: CircleDot },
     { key: "tournaments", label: "البطولات", icon: Trophy },
     { key: "draw", label: "شاشة القرعة", icon: Shuffle },
     { key: "applicants", label: "المتقدمون", icon: Users },
@@ -1904,20 +1925,41 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
 
                       {incomeForm.kind === "playstation" ? (
-                        <label className="flex flex-col gap-1.5">
+                        <div className="flex flex-col gap-2">
                           <span className="text-xs font-bold text-primary/50">
-                            مجموع الدقائق (اختياري)
+                            مدة اللعب — اضغط لتجمع مدد اليوم
                           </span>
-                          <input
-                            type="number"
-                            min="0"
-                            inputMode="numeric"
-                            value={incomeForm.minutes}
-                            onChange={(e) => updateIncomeCounts({ minutes: e.target.value })}
-                            placeholder="0"
-                            className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
-                          />
-                        </label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {PS_DURATION_PRESETS.map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() =>
+                                  updateIncomeCounts({
+                                    minutes: String((Number(incomeForm.minutes) || 0) + m),
+                                  })
+                                }
+                                className="min-h-[42px] flex-1 rounded-xl bg-primary/5 px-2 text-xs font-bold text-primary/70"
+                              >
+                                + {formatDuration(m)}
+                              </button>
+                            ))}
+                          </div>
+                          {Number(incomeForm.minutes) > 0 && (
+                            <div className="flex items-center justify-between rounded-xl bg-primary/5 px-3 py-2">
+                              <span className="text-xs font-bold text-primary">
+                                المجموع: {formatDuration(Number(incomeForm.minutes))}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateIncomeCounts({ minutes: "" })}
+                                className="text-[11px] font-bold text-red-500/80"
+                              >
+                                تصفير
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       ) : (
                       <div className="grid grid-cols-2 gap-3">
                         <label className="flex flex-col gap-1.5">
@@ -2242,7 +2284,7 @@ export default function Dashboard(props: DashboardProps) {
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">
                   <h3 className="mb-4 text-sm font-bold text-primary">
-                    أداء الطاولات (هذا الشهر)
+                    أداء الصالة (هذا الشهر)
                   </h3>
                   <div className="flex flex-col gap-2">
                     {billiardsStats.perTable.map((t) => (
@@ -2259,13 +2301,27 @@ export default function Dashboard(props: DashboardProps) {
                         </span>
                       </div>
                     ))}
+                    <div className="flex items-center justify-between border-t border-primary/[0.07] pt-2 text-sm">
+                      <span className="text-primary/70">بلي ستيشن</span>
+                      <span className="text-primary/70">
+                        {billiardsStats.monthPs.minutes > 0
+                          ? formatDuration(billiardsStats.monthPs.minutes)
+                          : "—"}
+                      </span>
+                      <span className="font-bold text-primary">
+                        {billiardsStats.monthPs.amount.toLocaleString("en-US")} د.ع
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">
-                  <h3 className="mb-4 text-sm font-bold text-primary">
-                    أداء البلياردو (آخر 7 أيام)
+                  <h3 className="mb-1 text-sm font-bold text-primary">
+                    أداء الصالة (آخر 7 أيام)
                   </h3>
+                  <p className="mb-4 text-[11px] text-primary/40">
+                    بلياردو وبلي ستيشن معاً
+                  </p>
                   <div className="flex items-end justify-between gap-2 h-32">
                     {billiardsStats.weekDays.map((day, i) => (
                       <div key={i} className="flex flex-1 flex-col items-center gap-2">
@@ -2284,9 +2340,12 @@ export default function Dashboard(props: DashboardProps) {
                 </div>
 
                 <div className="rounded-2xl border border-primary/10 bg-background p-5">
-                  <h3 className="mb-4 text-sm font-bold text-primary">
-                    أداء البلياردو (هذا الشهر يومياً)
+                  <h3 className="mb-1 text-sm font-bold text-primary">
+                    أداء الصالة (هذا الشهر يومياً)
                   </h3>
+                  <p className="mb-4 text-[11px] text-primary/40">
+                    بلياردو وبلي ستيشن معاً
+                  </p>
                   {/* رقم الدخل المحصّل لكل يوم مكتوب عمودياً فوق شمعته — 31 شمعة لا تتّسع لأرقام
                       أفقية على الجوال، فالرقم الدائر يوفّر العرض ويبقى الرقم كاملاً (بلا اختصار) */}
                   <div className="flex h-48 items-end justify-between gap-1 overflow-x-auto">
@@ -2386,7 +2445,7 @@ export default function Dashboard(props: DashboardProps) {
 
                   <div className="mt-4 border-t border-primary/[0.07] pt-3">
                     <p className="mb-2 text-[11px] font-bold text-primary/50">
-                      أداء الطاولات في {billiardsStats.lastMonthLabel}
+                      أداء الصالة في {billiardsStats.lastMonthLabel}
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {billiardsStats.lastMonthPerTable.map((t) => (
@@ -2400,6 +2459,17 @@ export default function Dashboard(props: DashboardProps) {
                           </p>
                         </div>
                       ))}
+                      {billiardsStats.lastMonthPs.amount > 0 && (
+                        <div className="rounded-xl bg-primary/5 px-3 py-2">
+                          <p className="text-[11px] text-primary/50">بلي ستيشن</p>
+                          <p className="text-sm font-extrabold text-primary">
+                            {billiardsStats.lastMonthPs.amount.toLocaleString("en-US")} د.ع
+                          </p>
+                          <p className="text-[10px] text-primary/40">
+                            {formatDuration(billiardsStats.lastMonthPs.minutes)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

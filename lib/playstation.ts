@@ -7,6 +7,39 @@ export const PS_MINUTES_PER_QUARTER = 15;
 /** بعد هذه المدة نشكّ أن الموظف نسي إيقاف العدّاد والزبون مشى */
 export const PS_STALE_HOURS = 3;
 
+/**
+ * المدد الجاهزة للاختيار. كلها مضاعفات ربع ساعة لأن التسعير بالربع أصلاً: اختيار
+ * «ساعة» أوضح للموظف والزبون من كتابة ٦٣ دقيقة ثم تقريبها بالحساب
+ */
+export const PS_DURATION_PRESETS = [15, 30, 45, 60, 90, 120];
+
+/** سقف الفاتورة الواحدة — ما فوقه غالباً خطأ لا جلسة */
+export const PS_MAX_SESSION_MINUTES = 8 * 60;
+
+/** تقريب للأعلى لأقرب ربع: هو المبلغ الذي سيُحاسَب عليه فعلاً */
+export function roundUpToQuarter(minutes: number): number {
+  const safe = Math.max(0, Math.floor(minutes));
+  return Math.ceil(safe / PS_MINUTES_PER_QUARTER) * PS_MINUTES_PER_QUARTER;
+}
+
+const HOURS_AR = ["", "ساعة", "ساعتان"];
+
+/** «ساعة ونصف» — المدة كما ينطقها الموظف، لا «٩٠ دقيقة» */
+export function formatDuration(minutes: number): string {
+  const safe = Math.max(0, Math.floor(minutes));
+  if (safe === 0) return "٠";
+  const h = Math.floor(safe / 60);
+  const rem = safe % 60;
+  const hoursText = h === 0 ? "" : HOURS_AR[h] ?? `${h.toLocaleString("en-US")} ساعات`;
+  // الكسر يُنطق «ربع» و«نصف» حين يكون جزءاً من ساعة، و«ربع ساعة» حين يقف وحده
+  const remJoined = rem === 15 ? "ربع" : rem === 30 ? "نصف" : rem === 45 ? "٤٥ دقيقة" : "";
+  if (h > 0 && rem === 0) return hoursText;
+  if (h > 0) return `${hoursText} و${remJoined || `${rem.toLocaleString("en-US")} دقيقة`}`;
+  if (rem === 15) return "ربع ساعة";
+  if (rem === 30) return "نصف ساعة";
+  return `${rem.toLocaleString("en-US")} دقيقة`;
+}
+
 export type PlaystationDeviceRow = {
   id: string;
   device_number: number;

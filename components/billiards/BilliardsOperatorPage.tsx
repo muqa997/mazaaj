@@ -55,7 +55,10 @@ type BilliardsOperatorPageProps = {
   getTables: () => Promise<BilliardsTableRow[] | null>;
   getPlaystationDevices: () => Promise<PlaystationDeviceRow[] | null>;
   startPlaystation: (deviceNumber: number) => Promise<{ error: string | null }>;
-  endPlaystationSession: (deviceNumber: number) => Promise<{ error: string | null }>;
+  billPlaystationFixed: (
+    deviceNumber: number,
+    minutes: number
+  ) => Promise<{ error: string | null }>;
   setPlaystationStart: (
     deviceNumber: number,
     startedAtIso: string
@@ -442,7 +445,7 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
     <PullToRefresh onRefresh={load}>
       <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary/10 bg-background px-4 py-3 sm:px-6">
-        <span className="font-extrabold text-primary">البليارد والبلي ستيشن</span>
+        <span className="font-extrabold text-primary">الألعاب</span>
         <button
           type="button"
           onClick={handleLogout}
@@ -607,8 +610,10 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                 }}
                 onCustomerRefBlur={() => handlePsCustomerRefBlur(device.device_number)}
                 onStart={() => runPs(device.device_number, () => props.startPlaystation(device.device_number))}
-                onEnd={() =>
-                  runPs(device.device_number, () => props.endPlaystationSession(device.device_number))
+                onBill={(minutes) =>
+                  runPs(device.device_number, () =>
+                    props.billPlaystationFixed(device.device_number, minutes)
+                  )
                 }
                 onSetStart={(isoLocal) =>
                   runPs(device.device_number, () =>

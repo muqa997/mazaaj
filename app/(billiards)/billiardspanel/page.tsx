@@ -20,7 +20,7 @@ import {
   deleteNote,
   getPlaystationDevices,
   startPlaystation,
-  endPlaystationSession,
+  billPlaystationFixed,
   setPlaystationStart,
   updatePlaystationCustomerRef,
 } from "./actions";
@@ -59,7 +59,7 @@ export default async function BilliardsPage() {
       initialPlaystation={initialPlaystation ?? []}
       getPlaystationDevices={getPlaystationDevices}
       startPlaystation={startPlaystation}
-      endPlaystationSession={endPlaystationSession}
+      billPlaystationFixed={billPlaystationFixed}
       setPlaystationStart={setPlaystationStart}
       updatePlaystationCustomerRef={updatePlaystationCustomerRef}
       logoutAction={billiardsLogout}

@@ -9,7 +9,8 @@ import {
 } from "@/lib/billiards-session";
 import {
   computePlaystationAmount,
-  elapsedMinutes,
+  PS_MAX_SESSION_MINUTES,
+  PS_MINUTES_PER_QUARTER,
   type PlaystationDeviceRow,
 } from "@/lib/playstation";
 import {
@@ -393,15 +394,23 @@ export async function updatePlaystationCustomerRef(deviceNumber: number, custome
 }
 
 /**
- * إنهاء جلسة البلي: تُصدر فاتورة بالدقائق والمبلغ ويتوقف الجهاز.
+ * فاتورة البلي بمدة يختارها الموظف — عند الإنهاء يثبّت المدة («لعب ساعة» بدل ٦٣
+ * دقيقة)، وللجلسة التي نُسي تشغيل عدّادها يسجّلها ويرحّلها مباشرة بلا عدّاد.
  *
- * المدة تُحسب على الخادم من started_at المحفوظ، لا من رقم يرسله المتصفح — فلا يمكن
- * التلاعب بالمبلغ من الواجهة. والفاتورة تُنشأ قبل إيقاف الجهاز، فإن فشلت بقيت الجلسة
- * شغّالة بدل أن يضيع وقتها
+ * المدة لا تُؤخذ كما جاءت: تُحقَّق هنا أنها مضاعف ربع ساعة ضمن سقف، فلا يرسل
+ * المتصفح مبلغاً ولا مدة اعتباطية. والفاتورة تُنشأ قبل إيقاف الجهاز، فإن فشلت بقيت
+ * الجلسة شغّالة بدل أن يضيع وقتها
  */
-export async function endPlaystationSession(deviceNumber: number) {
+export async function billPlaystationFixed(deviceNumber: number, minutes: number) {
   requireBilliardsSession();
   if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+
+  const safe = Math.floor(Number(minutes));
+  if (!Number.isFinite(safe) || safe < PS_MINUTES_PER_QUARTER) {
+    return { error: "أقل مدة ربع ساعة" };
+  }
+  if (safe % PS_MINUTES_PER_QUARTER !== 0) return { error: "المدة بمضاعفات ربع الساعة" };
+  if (safe > PS_MAX_SESSION_MINUTES) return { error: "المدة أطول من المسموح بفاتورة واحدة" };
 
   const { data: device, error: fetchError } = await supabaseAdmin
     .from("playstation_devices")
@@ -409,18 +418,15 @@ export async function endPlaystationSession(deviceNumber: number) {
     .eq("device_number", deviceNumber)
     .single();
   if (fetchError || !device) return { error: "تعذّر إيجاد الجهاز" };
-  if (!device.started_at) return { error: "الجهاز متوقف أصلاً" };
 
-  const minutes = elapsedMinutes(device.started_at);
-  const amount = computePlaystationAmount(minutes);
-  if (amount <= 0) return { error: "لم تمضِ دقيقة بعد — لا فاتورة" };
+  const amount = computePlaystationAmount(safe);
 
   const { error: ticketError } = await supabaseAdmin.from("billiards_tickets").insert({
     kind: "playstation",
     table_number: deviceNumber,
     games_count: 0,
     games_count_9ball: 0,
-    minutes,
+    minutes: safe,
     amount,
     customer_ref: device.customer_ref,
   });

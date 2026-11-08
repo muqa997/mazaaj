@@ -11,7 +11,7 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "صالة البلياردو",
+  title: "صالة الألعاب",
   robots: { index: false, follow: false },
 };
 
