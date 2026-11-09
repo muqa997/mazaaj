@@ -2719,7 +2719,7 @@ export default function Dashboard(props: DashboardProps) {
                     </label>
 
                     <label className="text-xs font-semibold text-primary/60">
-                      سعر الاشتراك للفريق (د.ع)
+                      سعر الطاولة للفريق (د.ع)
                       <input
                         required
                         type="number"
@@ -2829,7 +2829,7 @@ export default function Dashboard(props: DashboardProps) {
                               {formatTournamentDate(tournament.registration_closes_at)}
                             </p>
                             <p className="mt-1 text-xs text-primary/50">
-                              الاشتراك {tournament.entry_fee.toLocaleString("en-US")} د.ع
+                              سعر الطاولة {tournament.entry_fee.toLocaleString("en-US")} د.ع
                               {tournament.max_teams !== null &&
                                 ` — حد أقصى ${tournament.max_teams.toLocaleString("en-US")} فريق`}
                             </p>

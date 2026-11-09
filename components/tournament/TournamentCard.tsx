@@ -80,7 +80,7 @@ export default function TournamentCard({ tournament, teamCount, href }: Tourname
           </p>
           <p className="flex items-center gap-2.5 text-[13px] font-medium text-background/70">
             <Coins size={15} className="shrink-0 text-accent" />
-            الاشتراك {tournament.entry_fee.toLocaleString("en-US")} د.ع للفريق
+            سعر الطاولة {tournament.entry_fee.toLocaleString("en-US")} د.ع للفريق
           </p>
           <p className="flex items-center gap-2.5 text-[13px] font-medium text-background/70">
             <Users size={15} className="shrink-0 text-accent" />

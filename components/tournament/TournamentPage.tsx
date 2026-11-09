@@ -136,7 +136,7 @@ export default function TournamentPageClient({
       value: formatTournamentDate(tournament.starts_at),
     },
     {
-      label: "الاشتراك",
+      label: "سعر الطاولة",
       value: `${tournament.entry_fee.toLocaleString("en-US")} د.ع`,
       sub: "للفريق الواحد — نقداً بالكافيه",
     },
@@ -240,13 +240,13 @@ export default function TournamentPageClient({
                 i > 0 ? "border-t border-primary/[0.06]" : ""
               }`}
             >
-              <span className="shrink-0 text-[11px] font-black tracking-wide text-primary/40">
+              <span className="shrink-0 text-xs font-bold tracking-wide text-primary/55">
                 {row.label}
               </span>
               <span className="text-end">
-                <span className="block text-sm font-black text-primary">{row.value}</span>
+                <span className="block text-base font-extrabold text-primary">{row.value}</span>
                 {row.sub && (
-                  <span className="mt-0.5 block text-[11px] font-medium text-primary/40">
+                  <span className="mt-0.5 block text-xs font-medium text-primary/50">
                     {row.sub}
                   </span>
                 )}
@@ -255,9 +255,9 @@ export default function TournamentPageClient({
           ))}
         </div>
 
-        <p className="mt-3.5 text-center text-[11px] leading-relaxed text-primary/45">
-          التسجيل هنا <span className="font-black text-primary/70">حجز فقط</span> — يُدفع
-          الاشتراك نقداً في الكافيه.
+        <p className="mt-3.5 text-center text-xs leading-relaxed text-primary/55">
+          التسجيل هنا <span className="font-extrabold text-primary/75">حجز فقط</span> — يُدفع
+          سعر الطاولة نقداً في الكافيه.
         </p>
       </section>
 
