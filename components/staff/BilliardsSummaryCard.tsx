@@ -4,8 +4,10 @@ import { useCallback, useState } from "react";
 import { Eye, EyeOff, Wallet, X } from "lucide-react";
 import { computePoolAmount, type BilliardsTableRow, type BilliardsTicketRow } from "@/lib/billiards";
 import {
+  billableFromTimer,
   computePlaystationAmount,
   elapsedMinutes,
+  formatDuration,
   formatElapsed,
   isStaleSession,
   type PlaystationDeviceRow,
@@ -244,7 +246,9 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
             {psDevices.map((device) => {
               const running = Boolean(device.started_at);
               const minutes = running ? elapsedMinutes(device.started_at!, psAt) : 0;
-              const amount = computePlaystationAmount(minutes);
+              // ما سيُدفع فعلاً: مقرَّب للربع وبسقف ساعتين كما يحسبه الخادم
+              const billable = running ? billableFromTimer(minutes) : 0;
+              const amount = computePlaystationAmount(billable);
               const stale = running && isStaleSession(device.started_at!, psAt);
               const isBusy = busyPs === device.device_number;
 
@@ -274,9 +278,14 @@ export default function BilliardsSummaryCard(props: BilliardsSummaryCardProps) {
                       <p className="text-sm font-bold text-primary">
                         {amount.toLocaleString("en-US")} د.ع
                         <span className="ms-1 text-xs font-normal text-primary/50">
-                          ({minutes.toLocaleString("en-US")} دقيقة)
+                          ({formatDuration(billable)})
                         </span>
                       </p>
+                      {minutes > billable && (
+                        <p className="mt-1 text-[11px] font-bold text-amber-700">
+                          العدّاد تجاوز ساعتين — إن لعبوا أكثر، تُثبَّت المدة من صفحة الألعاب
+                        </p>
+                      )}
                       {device.customer_ref && (
                         <p className="truncate text-[11px] text-primary/50">{device.customer_ref}</p>
                       )}

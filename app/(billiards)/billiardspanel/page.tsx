@@ -20,6 +20,7 @@ import {
   deleteNote,
   getPlaystationDevices,
   startPlaystation,
+  stopPlaystationTimer,
   billPlaystationFixed,
   setPlaystationStart,
   updatePlaystationCustomerRef,
@@ -59,6 +60,7 @@ export default async function BilliardsPage() {
       initialPlaystation={initialPlaystation ?? []}
       getPlaystationDevices={getPlaystationDevices}
       startPlaystation={startPlaystation}
+      stopPlaystationTimer={stopPlaystationTimer}
       billPlaystationFixed={billPlaystationFixed}
       setPlaystationStart={setPlaystationStart}
       updatePlaystationCustomerRef={updatePlaystationCustomerRef}

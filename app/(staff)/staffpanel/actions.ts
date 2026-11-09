@@ -9,6 +9,7 @@ import {
 } from "@/lib/staff-session";
 import type { OrderRow, OrderStatus } from "@/lib/orders";
 import {
+  billableFromTimer,
   computePlaystationAmount,
   elapsedMinutes,
   type PlaystationDeviceRow,
@@ -195,9 +196,12 @@ export async function payPlaystationDirect(deviceNumber: number) {
   if (fetchError || !device) return { error: "تعذّر إيجاد الجهاز" };
   if (!device.started_at) return { error: "الجهاز متوقف" };
 
-  const minutes = elapsedMinutes(device.started_at);
+  const elapsed = elapsedMinutes(device.started_at);
+  if (elapsed <= 0) return { error: "لم تمضِ دقيقة بعد" };
+  // العدّاد مساعد: الدفع السريع يأخذ وقته مقرَّباً للربع وبسقف ساعتين، فجلسة نُسي
+  // إيقافها لا تفتح فاتورة بعشرات الآلاف. ما زاد عن ذلك تُثبَّت مدته من صفحة الألعاب
+  const minutes = billableFromTimer(elapsed);
   const amount = computePlaystationAmount(minutes);
-  if (amount <= 0) return { error: "لم تمضِ دقيقة بعد" };
 
   const { error: txError } = await supabaseAdmin.from("billiards_transactions").insert({
     kind: "playstation",

@@ -362,6 +362,20 @@ export async function startPlaystation(deviceNumber: number) {
 }
 
 /**
+ * إيقاف العدّاد بلا إصدار فاتورة — جلسة نُسي إيقافها ليلة كاملة، أو عدّاد شُغّل
+ * بالخطأ. المحاسبة لا تمرّ من هنا: الفاتورة تُصدر بمدة يختارها الموظف
+ */
+export async function stopPlaystationTimer(deviceNumber: number) {
+  requireBilliardsSession();
+  if (!supabaseAdmin) return { error: "Supabase غير مربوط بعد" };
+  const { error } = await supabaseAdmin
+    .from("playstation_devices")
+    .update({ started_at: null, updated_at: new Date().toISOString() })
+    .eq("device_number", deviceNumber);
+  return signalOnSuccess("billiards", { error: error ? "تعذّر إيقاف العدّاد" : null });
+}
+
+/**
  * تصحيح وقت البداية — يُستعمل حين ينسى الموظف الضغط على «بدء» فيرجّعه للوقت الحقيقي.
  * يُرفض المستقبل لأنه يعطي وقتاً سالباً، ويُرفض ما قبل ٢٤ ساعة لأنه غالباً خطأ تاريخ
  */

@@ -139,11 +139,11 @@ type DashboardProps = {
   getBilliardsTransactions: () => Promise<BilliardsTransactionRow[]>;
   addManualBilliardsIncome: (input: {
     date: string;
-    amount: number;
+    billiardsAmount: number;
     eight: number;
     nine: number;
+    playstationAmount: number;
     minutes: number;
-    kind: "billiards" | "playstation";
     note: string;
     settled: boolean;
   }) => Promise<{ error: string | null }>;
@@ -304,6 +304,41 @@ const ARABIC_ORDINAL_MONTHS = [
 ];
 
 const formatDayMonth = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+
+/** «٥ × 1,000 + ٥ × 500 = 7,500 د.ع» تحت العدّادات، مع زر اعتماده مبلغاً */
+function IncomeCalcRow({
+  text,
+  amount,
+  current,
+  onAdopt,
+}: {
+  text: string;
+  amount: number;
+  current: string;
+  onAdopt: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent/10 px-3 py-2">
+      <span dir="ltr" className="text-[11px] text-primary/60">
+        {text}
+      </span>
+      <span className="text-sm font-extrabold text-primary">
+        = {amount.toLocaleString("en-US")} د.ع
+      </span>
+      {/* يظهر فقط حين يكتب المدير مبلغاً مخالفاً للاحتساب: ساعتها رقمه هو المعتمد،
+          والزر يرجّعه للمحسوب إن أرادها */}
+      {String(amount) !== current && (
+        <button
+          type="button"
+          onClick={onAdopt}
+          className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-background"
+        >
+          اعتمده مبلغاً
+        </button>
+      )}
+    </div>
+  );
+}
 
 function computeBilliardsStats(transactions: BilliardsTransactionRow[]) {
   const now = new Date();
@@ -543,16 +578,20 @@ export default function Dashboard(props: DashboardProps) {
   const [drawMode, setDrawMode] = useState<"wheel" | "manual" | null>(null);
   // نموذج تسجيل دخل يوم فات تسجيله — المدير وحده
   const [incomeOpen, setIncomeOpen] = useState(false);
-  // آخر مبلغ كتبه الحساب التلقائي. نقارن به حقل المبلغ لنعرف إن كان المدير قد كتب
-  // رقماً بيده: ساعتها نتوقف عن الكتابة فوقه مهما عدّل عدد الكيمات
-  const [incomeAutoAmount, setIncomeAutoAmount] = useState<number | null>(null);
+// آخر مبلغ كتبه الحساب التلقائي لكل لعبة. نقارن به الخانة لنعرف إن كان المدير قد
+  // كتب رقماً بيده: ساعتها نتوقف عن الكتابة فوقه مهما عدّل العدّادات
+  const [incomeAuto, setIncomeAuto] = useState<{
+    billiards: number | null;
+    playstation: number | null;
+  }>({ billiards: null, playstation: null });
+  // اللعبتان بنموذج واحد: ٢٢ ألفاً بلياردو و٨ آلاف بلي تُسجَّلان معاً ليوم واحد
   const [incomeForm, setIncomeForm] = useState({
     date: "",
-    amount: "",
+    billiards: "",
     eight: "",
     nine: "",
+    playstation: "",
     minutes: "",
-    kind: "billiards" as "billiards" | "playstation",
     note: "",
     settled: true,
   });
@@ -678,24 +717,34 @@ export default function Dashboard(props: DashboardProps) {
     router.refresh();
   };
 
-  // تغيير عدد الكيمات أو الدقائق أو نوع اللعبة يحسب المبلغ ويكتبه فوراً. عمداً خارج
-  // دالة التحديث لا داخلها: setState داخل updater غير نقيّ ويُنفَّذ مرتين بطور التطوير
-  const updateIncomeCounts = (
-    patch: Partial<Pick<typeof incomeForm, "eight" | "nine" | "minutes" | "kind">>
-  ) => {
+  // الكيمات تسعّر خانة البلياردو والمدد تسعّر خانة البلي، كلٌّ منفصلة عن الأخرى.
+  // عمداً خارج دالة التحديث لا داخلها: setState داخل updater غير نقيّ ويُنفَّذ مرتين
+  // بطور التطوير
+  const updatePoolCounts = (patch: { eight?: string; nine?: string }) => {
     const next = { ...incomeForm, ...patch };
-    const auto =
-      next.kind === "playstation"
-        ? computePlaystationAmount(Number(next.minutes) || 0)
-        : computePoolAmount(Number(next.eight) || 0, Number(next.nine) || 0);
+    const auto = computePoolAmount(Number(next.eight) || 0, Number(next.nine) || 0);
     const typedByHand =
-      incomeForm.amount !== "" && incomeForm.amount !== String(incomeAutoAmount ?? "");
+      incomeForm.billiards !== "" && incomeForm.billiards !== String(incomeAuto.billiards ?? "");
     if (typedByHand) {
       setIncomeForm(next);
       return;
     }
-    setIncomeForm({ ...next, amount: auto > 0 ? String(auto) : "" });
-    setIncomeAutoAmount(auto > 0 ? auto : null);
+    setIncomeForm({ ...next, billiards: auto > 0 ? String(auto) : "" });
+    setIncomeAuto((a) => ({ ...a, billiards: auto > 0 ? auto : null }));
+  };
+
+  const updatePsMinutes = (value: string) => {
+    const next = { ...incomeForm, minutes: value };
+    const auto = computePlaystationAmount(Number(value) || 0);
+    const typedByHand =
+      incomeForm.playstation !== "" &&
+      incomeForm.playstation !== String(incomeAuto.playstation ?? "");
+    if (typedByHand) {
+      setIncomeForm(next);
+      return;
+    }
+    setIncomeForm({ ...next, playstation: auto > 0 ? String(auto) : "" });
+    setIncomeAuto((a) => ({ ...a, playstation: auto > 0 ? auto : null }));
   };
 
   // المدير يؤكد استلامه دخل اليوم نقداً من الكاشير — منفصلة عمداً عن تسوية المتأخر
@@ -708,11 +757,11 @@ export default function Dashboard(props: DashboardProps) {
 
     const result = await props.addManualBilliardsIncome({
       date: incomeForm.date,
-      amount: Number(incomeForm.amount),
+      billiardsAmount: Number(incomeForm.billiards) || 0,
       eight: Number(incomeForm.eight) || 0,
       nine: Number(incomeForm.nine) || 0,
+      playstationAmount: Number(incomeForm.playstation) || 0,
       minutes: Number(incomeForm.minutes) || 0,
-      kind: incomeForm.kind,
       note: incomeForm.note,
       settled: incomeForm.settled,
     });
@@ -726,15 +775,15 @@ export default function Dashboard(props: DashboardProps) {
       });
       setIncomeForm({
         date: "",
-        amount: "",
+        billiards: "",
         eight: "",
         nine: "",
+        playstation: "",
         minutes: "",
-        kind: incomeForm.kind,
         note: "",
         settled: true,
       });
-      setIncomeAutoAmount(null);
+      setIncomeAuto({ billiards: null, playstation: null });
       setIncomeOpen(false);
       await refreshBilliards();
     }
@@ -803,26 +852,33 @@ export default function Dashboard(props: DashboardProps) {
 
   // ناتج العدّادات معروضاً: المدير يرى المبلغ وهو يكتب العدد، ويرى تفصيله فيتأكد
   // أن الرقم جاء من ٨ بول و٩ بول لا من ضربة واحدة
-  const incomeCountsPreview = useMemo(() => {
-    if (incomeForm.kind === "playstation") {
-      const minutes = Math.max(0, Math.floor(Number(incomeForm.minutes) || 0));
-      if (minutes <= 0) return null;
-      const amount = computePlaystationAmount(minutes);
-      const quarters = Math.ceil(minutes / PS_MINUTES_PER_QUARTER);
-      return {
-        amount,
-        sep: " · ",
-        parts: [formatDuration(minutes), `${quarters} × ربع ساعة`],
-      };
-    }
+  const incomeCalc = useMemo(() => {
     const eight = Math.max(0, Math.floor(Number(incomeForm.eight) || 0));
     const nine = Math.max(0, Math.floor(Number(incomeForm.nine) || 0));
-    if (eight <= 0 && nine <= 0) return null;
-    const parts: string[] = [];
-    if (eight > 0) parts.push(`${eight} × ${GAME_PRICE.toLocaleString("en-US")}`);
-    if (nine > 0) parts.push(`${nine} × ${GAME_PRICE_9BALL.toLocaleString("en-US")}`);
-    return { amount: computePoolAmount(eight, nine), sep: " + ", parts };
-  }, [incomeForm.kind, incomeForm.eight, incomeForm.nine, incomeForm.minutes]);
+    const minutes = Math.max(0, Math.floor(Number(incomeForm.minutes) || 0));
+    const poolParts: string[] = [];
+    if (eight > 0) poolParts.push(`${eight} × ${GAME_PRICE.toLocaleString("en-US")}`);
+    if (nine > 0) poolParts.push(`${nine} × ${GAME_PRICE_9BALL.toLocaleString("en-US")}`);
+    return {
+      pool: poolParts.length
+        ? { amount: computePoolAmount(eight, nine), text: poolParts.join(" + ") }
+        : null,
+      ps:
+        minutes > 0
+          ? {
+              amount: computePlaystationAmount(minutes),
+              text: `${formatDuration(minutes)} · ${Math.ceil(
+                minutes / PS_MINUTES_PER_QUARTER
+              )} × ربع ساعة`,
+            }
+          : null,
+    };
+  }, [incomeForm.eight, incomeForm.nine, incomeForm.minutes]);
+
+  // ما سيُسجَّل لذلك اليوم: اللعبتان مجموعتين — ٢٢ ألفاً + ٨ آلاف = ٣٠ ألفاً
+  const incomeTotal =
+    Math.max(0, Math.round(Number(incomeForm.billiards) || 0)) +
+    Math.max(0, Math.round(Number(incomeForm.playstation) || 0));
 
   const maxWeekChartCount = Math.max(1, ...stats.last7Days.map((d) => d.count));
   const maxMonthChartCount = Math.max(1, ...stats.monthDays.map((d) => d.count));
@@ -1862,15 +1918,14 @@ export default function Dashboard(props: DashboardProps) {
                                 {incomeDaySummary.amount.toLocaleString("en-US")} د.ع
                               </b>{" "}
                               · ما تكتبه يُضاف إليه ولا يستبدله
-                              {Number(incomeForm.amount) > 0 && (
+                              {incomeTotal > 0 && (
                                 <>
                                   {" "}
                                   — سيصبح{" "}
                                   <b className="text-accent">
-                                    {(
-                                      incomeDaySummary.amount +
-                                      Math.round(Number(incomeForm.amount) || 0)
-                                    ).toLocaleString("en-US")}{" "}
+                                    {(incomeDaySummary.amount + incomeTotal).toLocaleString(
+                                      "en-US"
+                                    )}{" "}
                                     د.ع
                                   </b>
                                 </>
@@ -1883,143 +1938,137 @@ export default function Dashboard(props: DashboardProps) {
                           ))}
                       </label>
 
-                      <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-bold text-primary/50">
-                          إجمالي الدخل (د.ع)
-                        </span>
+                      {/* البلياردو والبلي ستيشن بنموذج واحد: ما يُكتب بالخانتين
+                          يُسجَّل سطرين بنفس التاريخ، فمجموع اليوم يجمعهما */}
+                      <div className="flex flex-col gap-2 rounded-2xl border border-primary/10 p-3">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-xs font-extrabold text-primary">البلياردو</span>
+                          <span className="text-[10px] text-primary/35">اتركه فارغاً إن لم يكن فيه دخل</span>
+                        </div>
                         <input
-                          required
                           type="number"
-                          min="1"
+                          min="0"
                           step="1"
                           inputMode="numeric"
-                          value={incomeForm.amount}
+                          value={incomeForm.billiards}
                           onChange={(e) =>
-                            setIncomeForm({ ...incomeForm, amount: e.target.value })
+                            setIncomeForm({ ...incomeForm, billiards: e.target.value })
                           }
-                          placeholder="50000"
+                          placeholder="22000"
                           className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base font-bold text-primary outline-none focus:border-accent"
                         />
-                      </label>
-
-                      <div className="flex gap-2">
-                        {(
-                          [
-                            ["billiards", "بلياردو"],
-                            ["playstation", "بلي ستيشن"],
-                          ] as const
-                        ).map(([value, label]) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => updateIncomeCounts({ kind: value })}
-                            className={`min-h-[44px] flex-1 rounded-xl text-sm font-bold ${
-                              incomeForm.kind === value
-                                ? "bg-primary text-background"
-                                : "bg-primary/5 text-primary/60"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {incomeForm.kind === "playstation" ? (
-                        <div className="flex flex-col gap-2">
-                          <span className="text-xs font-bold text-primary/50">
-                            مدة اللعب — اضغط لتجمع مدد اليوم
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {PS_DURATION_PRESETS.map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() =>
-                                  updateIncomeCounts({
-                                    minutes: String((Number(incomeForm.minutes) || 0) + m),
-                                  })
-                                }
-                                className="min-h-[42px] flex-1 rounded-xl bg-primary/5 px-2 text-xs font-bold text-primary/70"
-                              >
-                                + {formatDuration(m)}
-                              </button>
-                            ))}
-                          </div>
-                          {Number(incomeForm.minutes) > 0 && (
-                            <div className="flex items-center justify-between rounded-xl bg-primary/5 px-3 py-2">
-                              <span className="text-xs font-bold text-primary">
-                                المجموع: {formatDuration(Number(incomeForm.minutes))}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateIncomeCounts({ minutes: "" })}
-                                className="text-[11px] font-bold text-red-500/80"
-                              >
-                                تصفير
-                              </button>
-                            </div>
-                          )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-primary/50">كيمات ٨ بول</span>
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="numeric"
+                              value={incomeForm.eight}
+                              onChange={(e) => updatePoolCounts({ eight: e.target.value })}
+                              placeholder="0"
+                              className="min-h-[44px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-primary/50">كيمات ٩ بول</span>
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="numeric"
+                              value={incomeForm.nine}
+                              onChange={(e) => updatePoolCounts({ nine: e.target.value })}
+                              placeholder="0"
+                              className="min-h-[44px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                            />
+                          </label>
                         </div>
-                      ) : (
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="flex flex-col gap-1.5">
-                          <span className="text-xs font-bold text-primary/50">
-                            كيمات ٨ بول (اختياري)
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            inputMode="numeric"
-                            value={incomeForm.eight}
-                            onChange={(e) => updateIncomeCounts({ eight: e.target.value })}
-                            placeholder="0"
-                            className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
+                        {incomeCalc.pool && (
+                          <IncomeCalcRow
+                            text={incomeCalc.pool.text}
+                            amount={incomeCalc.pool.amount}
+                            current={incomeForm.billiards}
+                            onAdopt={() => {
+                              setIncomeForm({
+                                ...incomeForm,
+                                billiards: String(incomeCalc.pool!.amount),
+                              });
+                              setIncomeAuto((a) => ({ ...a, billiards: incomeCalc.pool!.amount }));
+                            }}
                           />
-                        </label>
-                        <label className="flex flex-col gap-1.5">
-                          <span className="text-xs font-bold text-primary/50">
-                            كيمات ٩ بول (اختياري)
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            inputMode="numeric"
-                            value={incomeForm.nine}
-                            onChange={(e) => updateIncomeCounts({ nine: e.target.value })}
-                            placeholder="0"
-                            className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base text-primary outline-none focus:border-accent"
-                          />
-                        </label>
+                        )}
                       </div>
-                      )}
 
-                      {incomeCountsPreview && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent/10 px-3 py-2.5">
-                          <span dir="ltr" className="text-[11px] text-primary/60">
-                            {incomeCountsPreview.parts.join(incomeCountsPreview.sep)}
-                          </span>
-                          <span className="text-sm font-extrabold text-primary">
-                            = {incomeCountsPreview.amount.toLocaleString("en-US")} د.ع
-                          </span>
-                          {/* يظهر فقط حين يكتب المدير مبلغاً مخالفاً للاحتساب: ساعتها
-                              رقمه هو المعتمد، والزر يرجّعه للمحسوب إن أرادها */}
-                          {String(incomeCountsPreview.amount) !== incomeForm.amount && (
+                      <div className="flex flex-col gap-2 rounded-2xl border border-primary/10 p-3">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-xs font-extrabold text-primary">البلي ستيشن</span>
+                          <span className="text-[10px] text-primary/35">اتركه فارغاً إن لم يكن فيه دخل</span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          inputMode="numeric"
+                          value={incomeForm.playstation}
+                          onChange={(e) =>
+                            setIncomeForm({ ...incomeForm, playstation: e.target.value })
+                          }
+                          placeholder="8000"
+                          className="min-h-[48px] rounded-xl border border-primary/15 bg-background px-3 text-base font-bold text-primary outline-none focus:border-accent"
+                        />
+                        <span className="text-[11px] text-primary/50">
+                          مدة اللعب — اضغط لتجمع مدد اليوم
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {PS_DURATION_PRESETS.map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() =>
+                                updatePsMinutes(String((Number(incomeForm.minutes) || 0) + m))
+                              }
+                              className="min-h-[42px] rounded-xl bg-primary/5 px-1 text-xs font-bold text-primary/70"
+                            >
+                              + {formatDuration(m)}
+                            </button>
+                          ))}
+                        </div>
+                        {Number(incomeForm.minutes) > 0 && (
+                          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-3 py-2">
+                            <span className="text-xs font-bold text-primary">
+                              المجموع: {formatDuration(Number(incomeForm.minutes))}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => {
-                                setIncomeForm({
-                                  ...incomeForm,
-                                  amount: String(incomeCountsPreview.amount),
-                                });
-                                setIncomeAutoAmount(incomeCountsPreview.amount);
-                              }}
-                              className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-background"
+                              onClick={() => updatePsMinutes("")}
+                              className="text-[11px] font-bold text-red-500/80"
                             >
-                              اعتمده مبلغاً
+                              تصفير
                             </button>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                        {incomeCalc.ps && (
+                          <IncomeCalcRow
+                            text={incomeCalc.ps.text}
+                            amount={incomeCalc.ps.amount}
+                            current={incomeForm.playstation}
+                            onAdopt={() => {
+                              setIncomeForm({
+                                ...incomeForm,
+                                playstation: String(incomeCalc.ps!.amount),
+                              });
+                              setIncomeAuto((a) => ({ ...a, playstation: incomeCalc.ps!.amount }));
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-xl bg-primary/5 px-3 py-3">
+                        <span className="text-xs font-bold text-primary/60">مجموع دخل اليوم</span>
+                        <span className="text-lg font-extrabold text-primary">
+                          {incomeTotal.toLocaleString("en-US")} د.ع
+                        </span>
+                      </div>
 
                       <label className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold text-primary/50">ملاحظة</span>
@@ -2048,12 +2097,17 @@ export default function Dashboard(props: DashboardProps) {
                         </span>
                       </label>
 
+                      {/* لا حقل إجباري بعينه: المطلوب دخل إحدى اللعبتين على الأقل */}
                       <button
                         type="submit"
-                        disabled={incomeBusy}
+                        disabled={incomeBusy || incomeTotal <= 0}
                         className="min-h-[52px] rounded-xl bg-primary text-sm font-extrabold text-background disabled:opacity-40"
                       >
-                        {incomeBusy ? "جارِ التسجيل..." : "تسجيل الدخل"}
+                        {incomeBusy
+                          ? "جارِ التسجيل..."
+                          : incomeTotal > 0
+                            ? `تسجيل ${incomeTotal.toLocaleString("en-US")} د.ع`
+                            : "تسجيل الدخل"}
                       </button>
                     </form>
                   )}

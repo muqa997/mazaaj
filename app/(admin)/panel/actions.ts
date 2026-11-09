@@ -439,26 +439,32 @@ export async function settleBilliardsOverdue() {
 export type ManualIncomeInput = {
   /** YYYY-MM-DD — اليوم التجاري المقصود */
   date: string;
-  amount: number;
-  /** كيمات ٨ بول — للبلياردو */
+  /** دخل البلياردو بذلك اليوم — صفر يعني لا تسجّله */
+  billiardsAmount: number;
+  /** كيمات ٨ بول */
   eight: number;
-  /** كيمات ٩ بول — للبلياردو */
+  /** كيمات ٩ بول */
   nine: number;
-  /** دقائق اللعب — للبلي ستيشن */
+  /** دخل البلي ستيشن بذلك اليوم — صفر يعني لا تسجّله */
+  playstationAmount: number;
+  /** مجموع دقائق اللعب */
   minutes: number;
-  kind: "billiards" | "playstation";
   note: string;
   /** المبلغ بيد المدير فعلاً، فلا يظهر للكاشير كمتأخر غير مسلَّم */
   settled: boolean;
 };
 
 /**
- * تسجيل دخل بلياردو ليوم فات تسجيله — المدير وحده (requireSession).
+ * تسجيل دخل يوم فات تسجيله — المدير وحده (requireSession).
  *
- * يُكتب كحركة عادية بتاريخ ذلك اليوم، فتدخل تلقائياً في كل ما يُحسب من هذا الجدول:
- * إحصائيات موظف البلياردو، ودخل الأمس عند الكاشير، ومخطط المدير والتسوية — بلا
- * تعديل أي استعلام. وتُميَّز بـcollected_by='manual' ورقم طاولة 0، ورقم الطاولة هذا
- * يُبقيها خارج إحصاءات أداء الطاولات (التي تقرأ ١ و٢ و٣ حصراً) فلا تشوّهها
+ * اللعبتان بإدخال واحد: بلياردو ٢٢ ألفاً وبلي ٨ آلاف يُكتبان سطرين بنفس التاريخ،
+ * فيصير دخل ذلك اليوم ٣٠ ألفاً أينما جُمع. سطران لا سطر واحد لأن كل حساب لاحق
+ * (أداء الصالة، ساعات البلي، كيمات البلياردو) يفصل بينهما بعمود kind
+ *
+ * ويُكتبان كحركتين عاديتين بتاريخ ذلك اليوم، فتدخلان تلقائياً في كل ما يُحسب من هذا
+ * الجدول: إحصائيات موظف البلياردو، ودخل الأمس عند الكاشير، ومخطط المدير والتسوية —
+ * بلا تعديل أي استعلام. وتُميَّزان بـcollected_by='manual' ورقم طاولة 0، ورقم الطاولة
+ * هذا يُبقيهما خارج إحصاءات أداء الطاولات (التي تقرأ ١ و٢ و٣ حصراً) فلا تشوّهها
  */
 export async function addManualBilliardsIncome(input: ManualIncomeInput) {
   requireSession();
@@ -468,36 +474,55 @@ export async function addManualBilliardsIncome(input: ManualIncomeInput) {
   if (!paidAt) return { error: "التاريخ غير صحيح" };
   if (paidAt.getTime() > Date.now()) return { error: "لا يمكن تسجيل دخل ليوم لم يأتِ بعد" };
 
-  const amount = Math.round(Number(input.amount));
-  if (!Number.isFinite(amount) || amount <= 0) return { error: "المبلغ غير صحيح" };
+  const clean = (value: number) => {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const billiardsAmount = clean(input.billiardsAmount);
+  const playstationAmount = clean(input.playstationAmount);
+  if (billiardsAmount === 0 && playstationAmount === 0) {
+    return { error: "اكتب دخل البلياردو أو البلي ستيشن (أو الاثنين)" };
+  }
 
-  const isPs = input.kind === "playstation";
-  const eight = isPs ? 0 : Math.max(0, Math.floor(Number(input.eight) || 0));
-  const nine = isPs ? 0 : Math.max(0, Math.floor(Number(input.nine) || 0));
-  const minutes = isPs ? Math.max(0, Math.floor(Number(input.minutes) || 0)) : 0;
-
-  const row = {
-    kind: input.kind,
-    minutes: isPs && minutes > 0 ? minutes : null,
+  const base = {
     table_number: MANUAL_ENTRY_TABLE,
-    games_count: eight,
-    games_count_9ball: nine,
-    amount,
     paid_at: paidAt.toISOString(),
     collected_by: "manual",
     settled_at: input.settled ? new Date().toISOString() : null,
   };
+  const minutes = Math.max(0, Math.floor(Number(input.minutes) || 0));
+  const rows: Record<string, unknown>[] = [];
+  if (billiardsAmount > 0) {
+    rows.push({
+      ...base,
+      kind: "billiards",
+      minutes: null,
+      games_count: Math.max(0, Math.floor(Number(input.eight) || 0)),
+      games_count_9ball: Math.max(0, Math.floor(Number(input.nine) || 0)),
+      amount: billiardsAmount,
+    });
+  }
+  if (playstationAmount > 0) {
+    rows.push({
+      ...base,
+      kind: "playstation",
+      minutes: minutes > 0 ? minutes : null,
+      games_count: 0,
+      games_count_9ball: 0,
+      amount: playstationAmount,
+    });
+  }
   const note = input.note.trim();
 
   let { error } = await supabaseAdmin
     .from("billiards_transactions")
-    .insert({ ...row, entry_note: note || null });
+    .insert(rows.map((row) => ({ ...row, entry_note: note || null })));
 
   // العمود غير موجود: PostgREST يردّ PGRST204 من ذاكرة المخطط قبل أن يصل Postgres
   // (الذي يردّ 42703). عمود الملاحظة إضافة اختيارية؛ لو لم يُشغَّل أمر SQL بعد فالمبلغ
   // أهم من نصّ الملاحظة — نُسجّله بدونها بدل أن يفشل التسجيل كلياً
   if (error?.code === "PGRST204" || error?.code === "42703") {
-    ({ error } = await supabaseAdmin.from("billiards_transactions").insert(row));
+    ({ error } = await supabaseAdmin.from("billiards_transactions").insert(rows));
   }
 
   return signalOnSuccess("billiards", {

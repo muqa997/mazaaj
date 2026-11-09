@@ -22,6 +22,18 @@ export function roundUpToQuarter(minutes: number): number {
   return Math.ceil(safe / PS_MINUTES_PER_QUARTER) * PS_MINUTES_PER_QUARTER;
 }
 
+/**
+ * المدة التي يُحاسَب عليها عدّاد شغّال: مقرَّبة للربع ومسقوفة بأطول مدة جاهزة.
+ *
+ * العدّاد مساعد لا حكم: جلسة يُنسى إيقافها ليلة كاملة كانت ستعطي فاتورة بعشرات
+ * الآلاف. السقف يجعلها اقتراحاً معقولاً، ومن لعب أكثر من ساعتين فعلاً تُثبَّت مدته
+ * باليد من صفحة الألعاب
+ */
+export function billableFromTimer(minutes: number): number {
+  const longest = PS_DURATION_PRESETS[PS_DURATION_PRESETS.length - 1];
+  return Math.min(longest, Math.max(PS_MINUTES_PER_QUARTER, roundUpToQuarter(minutes)));
+}
+
 const HOURS_AR = ["", "ساعة", "ساعتان"];
 
 /** «ساعة ونصف» — المدة كما ينطقها الموظف، لا «٩٠ دقيقة» */
@@ -30,7 +42,11 @@ export function formatDuration(minutes: number): string {
   if (safe === 0) return "٠";
   const h = Math.floor(safe / 60);
   const rem = safe % 60;
-  const hoursText = h === 0 ? "" : HOURS_AR[h] ?? `${h.toLocaleString("en-US")} ساعات`;
+  // ٣–١٠ جمع تكسير («٣ ساعات»)، و١١ فصاعداً تمييز مفرد («١٢ ساعة»)
+  const hoursText =
+    h === 0
+      ? ""
+      : HOURS_AR[h] ?? `${h.toLocaleString("en-US")} ${h <= 10 ? "ساعات" : "ساعة"}`;
   // الكسر يُنطق «ربع» و«نصف» حين يكون جزءاً من ساعة، و«ربع ساعة» حين يقف وحده
   const remJoined = rem === 15 ? "ربع" : rem === 30 ? "نصف" : rem === 45 ? "٤٥ دقيقة" : "";
   if (h > 0 && rem === 0) return hoursText;

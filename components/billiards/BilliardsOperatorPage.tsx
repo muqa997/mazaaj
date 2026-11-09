@@ -55,6 +55,7 @@ type BilliardsOperatorPageProps = {
   getTables: () => Promise<BilliardsTableRow[] | null>;
   getPlaystationDevices: () => Promise<PlaystationDeviceRow[] | null>;
   startPlaystation: (deviceNumber: number) => Promise<{ error: string | null }>;
+  stopPlaystationTimer: (deviceNumber: number) => Promise<{ error: string | null }>;
   billPlaystationFixed: (
     deviceNumber: number,
     minutes: number
@@ -610,6 +611,11 @@ export default function BilliardsOperatorPage(props: BilliardsOperatorPageProps)
                 }}
                 onCustomerRefBlur={() => handlePsCustomerRefBlur(device.device_number)}
                 onStart={() => runPs(device.device_number, () => props.startPlaystation(device.device_number))}
+                onStopTimer={() =>
+                  runPs(device.device_number, () =>
+                    props.stopPlaystationTimer(device.device_number)
+                  )
+                }
                 onBill={(minutes) =>
                   runPs(device.device_number, () =>
                     props.billPlaystationFixed(device.device_number, minutes)
