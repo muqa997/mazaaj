@@ -44,7 +44,7 @@
   "delivery": {
     "eyebrow": "التوصيل",
     "title": "نوصل مزاجك إليك أينما كنت",
-    "description": "قهوتك المفضلة وحلوياتك وأراجيلك — اطلبها أينما كنت وستصلك في أسرع وقت.",
+    "description": "قهوتك المفضلة وحلوياتك وأراكيلك — اطلبها أينما كنت وستصلك في أسرع وقت.",
     "cta": "اطلب توصيل"
   },
   "services": {
@@ -107,15 +107,17 @@
       "dessertsCold": "حلى بارد",
       "dessertsCrepeRoll": "كريب رول",
       "dessertsWaffle": "وافل",
-      "shisha": "أراجيل"
+      "fruits": "الفواكه",
+      "shisha": "أراكيل"
     },
     "addToCart": "أضف للسلة",
     "currency": "د.ع",
+    "shishaNote": "داخل الكافيه فقط — لا يتوفر توصيل أراكيل حالياً",
     "groups": {
       "hot": "المشروبات الساخنة",
       "cold": "المشروبات الباردة",
       "desserts": "الحلويات",
-      "shisha": "الأراجيل"
+      "shisha": "الأراكيل"
     }
   },
   "interactiveMenu": {
@@ -139,7 +141,8 @@
       "dessertsCold": "حلى بارد",
       "dessertsCrepeRoll": "كريب رول",
       "dessertsWaffle": "وافل",
-      "shisha": "أراجيل"
+      "fruits": "الفواكه",
+      "shisha": "أراكيل"
     },
     "currency": "د.ع",
     "orderCta": "تريد الطلب أونلاين؟",

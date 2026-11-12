@@ -130,6 +130,9 @@ export default function TournamentPageClient({
     setStatus("success");
   };
 
+  // عدد الفرق المسجَّلة لا يُعرض للزبون: «٠ فريق» أول ما تُنشر البطولة يثبّط التسجيل
+  // أكثر مما يشجّعه، ويبقى كذلك يوماً أو يومين. المقاعد المتبقية تُعرض حين يكون
+  // للبطولة حد أقصى، لأنها تتكلم عن المتاح لا عن المسجَّل
   const stats: { label: string; value: string; sub?: string }[] = [
     {
       label: "الموعد",
@@ -140,18 +143,13 @@ export default function TournamentPageClient({
       value: `${tournament.entry_fee.toLocaleString("en-US")} د.ع`,
       sub: "للفريق الواحد — نقداً بالكافيه",
     },
-    {
-      label: "الفرق",
-      value:
-        seatsLeft === null
-          ? `${teamCount.toLocaleString("en-US")} فريق`
-          : `${teamCount.toLocaleString("en-US")} / ${tournament.max_teams!.toLocaleString("en-US")}`,
-      sub:
-        seatsLeft === null
-          ? "مسجَّلة حتى الآن"
-          : `متبقٍ ${seatsLeft.toLocaleString("en-US")} مقعد`,
-    },
   ];
+  if (seatsLeft !== null) {
+    stats.push({
+      label: "المقاعد",
+      value: `متبقٍ ${seatsLeft.toLocaleString("en-US")} مقعد`,
+    });
+  }
 
   const showStickyCta = !closed && status !== "success";
 

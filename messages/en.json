@@ -107,9 +107,11 @@
       "dessertsCold": "Cold Desserts",
       "dessertsCrepeRoll": "Crepe Roll",
       "dessertsWaffle": "Waffle",
+      "fruits": "Fruits",
       "shisha": "Shisha"
     },
     "addToCart": "Add to Cart",
+    "shishaNote": "In-cafe only — shisha delivery is not available right now",
     "currency": "IQD",
     "groups": {
       "hot": "Hot Drinks",
@@ -139,6 +141,7 @@
       "dessertsCold": "Cold Desserts",
       "dessertsCrepeRoll": "Crepe Roll",
       "dessertsWaffle": "Waffle",
+      "fruits": "Fruits",
       "shisha": "Shisha"
     },
     "currency": "IQD",

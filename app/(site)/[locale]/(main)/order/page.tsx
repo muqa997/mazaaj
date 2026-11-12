@@ -5,7 +5,16 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
-import { Plus, Minus, Flame, Snowflake, CakeSlice, Wind, type LucideIcon } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  ChevronDown,
+  Flame,
+  Snowflake,
+  CakeSlice,
+  Wind,
+  type LucideIcon,
+} from "lucide-react";
 import {
   menuData,
   MENU_CATEGORIES,
@@ -29,6 +38,9 @@ const GROUP_ICONS: Record<MenuGroupKey, LucideIcon> = {
 
 const MENU_GROUPS: { key: MenuGroupKey; icon: LucideIcon; categories: MenuCategory[] }[] =
   MENU_GROUP_CATEGORIES.map((g) => ({ ...g, icon: GROUP_ICONS[g.key] }));
+
+// مجموعات الطلب: بلا الأراكيل (لا توصيل لها حالياً)
+const ORDERABLE_GROUPS = MENU_GROUPS.filter((g) => g.key !== "shisha");
 
 // تجميع دخول متتابع (staggered) لبطاقات الأصناف — تُعاد كل مرة يتغيّر القسم
 // النشط (بمفتاح key={activeCategory} على الحاوية) بدل ظهور القائمة دفعة واحدة بلا حركة
@@ -132,10 +144,13 @@ function ShishaFlavorCard({
   item,
   base,
   locale,
+  readOnly = false,
 }: {
   item: Extract<MenuItem, { category: "shisha" }>;
   base: ShishaBase;
   locale: "ar" | "en";
+  /** عرض السعر بلا سلة — لا توصيل أراكيل حالياً */
+  readOnly?: boolean;
 }) {
   const t = useTranslations("menuPage");
   const tBase = useTranslations("shishaBase");
@@ -158,7 +173,7 @@ function ShishaFlavorCard({
         </p>
       </div>
 
-      {cartItem ? (
+      {readOnly ? null : cartItem ? (
         <QtyControl
           qty={cartItem.qty}
           onDecrease={() => updateQty(cartId, cartItem.qty - 1)}
@@ -199,13 +214,19 @@ function OrderMenuPageContent() {
   const initialCategory = useInitialCategory();
   const initialGroupKey = initialCategory
     ? getGroupKeyForCategory(initialCategory)
-    : MENU_GROUPS[0].key;
+    : ORDERABLE_GROUPS[0].key;
+  // الأراكيل خارج مجموعات الطلب: لا توصيل لها حالياً، فلا تبويب لها ولا سلة —
+  // تُعرض أسعارها بقسم يُفتح بزر أسفل الصفحة
+  const startsOnShisha = initialGroupKey === "shisha";
 
-  const [activeGroupKey, setActiveGroupKey] = useState(initialGroupKey);
-  const activeGroup = MENU_GROUPS.find((g) => g.key === activeGroupKey)!;
+  const [activeGroupKey, setActiveGroupKey] = useState<MenuGroupKey>(
+    startsOnShisha ? ORDERABLE_GROUPS[0].key : initialGroupKey
+  );
+  const activeGroup = ORDERABLE_GROUPS.find((g) => g.key === activeGroupKey)!;
 
+  const [shishaOpen, setShishaOpen] = useState(startsOnShisha);
   const [activeCategory, setActiveCategory] = useState<MenuCategory>(
-    initialCategory ?? activeGroup.categories[0]
+    initialCategory && !startsOnShisha ? initialCategory : activeGroup.categories[0]
   );
   // قسم الأراجيل يُقسَّم لتبويبات حسب القاعدة (خشب/بابلي/طبيعي) بدل التصنيفات
   // العادية — كل نكهة تظهر تحت كل قاعدة متوفرة لها فعلياً (قد تظهر بأكثر من تبويب)
@@ -213,12 +234,9 @@ function OrderMenuPageContent() {
 
   const selectGroup = (key: MenuGroupKey) => {
     setActiveGroupKey(key);
-    const group = MENU_GROUPS.find((g) => g.key === key)!;
-    setActiveCategory(group.categories[0]);
-    if (key === "shisha") setActiveShishaBase("wood");
+    setActiveCategory(ORDERABLE_GROUPS.find((g) => g.key === key)!.categories[0]);
   };
 
-  const isShishaGroup = activeGroupKey === "shisha";
   const visibleShishaItems = menuData.filter(
     (item): item is Extract<MenuItem, { category: "shisha" }> =>
       item.category === "shisha" && item.basePrices[activeShishaBase] !== undefined
@@ -242,9 +260,9 @@ function OrderMenuPageContent() {
           variants={container}
           initial="hidden"
           animate="show"
-          className="mb-8 grid grid-cols-2 gap-3"
+          className="mb-8 grid grid-cols-3 gap-3"
         >
-          {MENU_GROUPS.map(({ key, icon: Icon }) => (
+          {ORDERABLE_GROUPS.map(({ key, icon: Icon }) => (
             <motion.button
               key={key}
               variants={fadeUp}
@@ -272,52 +290,98 @@ function OrderMenuPageContent() {
         </motion.div>
 
         <div className="mb-8 grid grid-flow-col grid-rows-2 gap-2 overflow-x-auto pb-2 [grid-auto-columns:max-content]">
-          {isShishaGroup
-            ? SHISHA_BASES.map((base) => (
-                <motion.button
-                  key={base}
-                  type="button"
-                  onClick={() => setActiveShishaBase(base)}
-                  whileTap={{ scale: 0.94 }}
-                  className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
-                    activeShishaBase === base ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
-                  }`}
-                >
-                  {tBase(base)}
-                </motion.button>
-              ))
-            : activeGroup.categories.map((category) => (
-                <motion.button
-                  key={category}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                  whileTap={{ scale: 0.94 }}
-                  className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
-                    activeCategory === category ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
-                  }`}
-                >
-                  {t(`categories.${category}`)}
-                </motion.button>
-              ))}
+          {activeGroup.categories.map((category) => (
+            <motion.button
+              key={category}
+              type="button"
+              onClick={() => setActiveCategory(category)}
+              whileTap={{ scale: 0.94 }}
+              className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
+                activeCategory === category ? `${ORDER_ACTIVE_FILL} border-transparent` : ORDER_UNSELECTED
+              }`}
+            >
+              {t(`categories.${category}`)}
+            </motion.button>
+          ))}
         </div>
 
         <motion.div
-          key={isShishaGroup ? `shisha-${activeShishaBase}` : activeCategory}
+          key={activeCategory}
           variants={container}
           initial="hidden"
           animate="show"
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
-          {isShishaGroup
-            ? visibleShishaItems.map((item) => (
-                <ShishaFlavorCard key={item.id} item={item} base={activeShishaBase} locale={locale} />
-              ))
-            : visibleItems.map((item) =>
-                item.category === "shisha" ? null : (
-                  <RegularItemCard key={item.id} item={item} locale={locale} />
-                )
-              )}
+          {visibleItems.map((item) =>
+            item.category === "shisha" ? null : (
+              <RegularItemCard key={item.id} item={item} locale={locale} />
+            )
+          )}
         </motion.div>
+
+        {/* الأراكيل — مطويّة وللعرض فقط: إظهارها بأزرار "أضف للسلة" يفتح طلبات
+            توصيل لا نستطيع تنفيذها، وإخفاؤها كلياً يحجب أسعاراً يسأل عنها الزبون */}
+        <div className="mt-10">
+          <button
+            type="button"
+            onClick={() => setShishaOpen((v) => !v)}
+            className={`flex w-full items-center justify-between gap-3 rounded-2xl border bg-background px-5 py-4 shadow-glass ${ORDER_BORDER}`}
+          >
+            <span className="flex items-center gap-3">
+              <Wind size={18} strokeWidth={1.8} className="shrink-0 text-[#3A4027] dark:text-accent" />
+              <span className="text-start">
+                <span className={`block text-sm font-semibold ${ORDER_HEADING}`}>
+                  {tGroups("shisha")}
+                </span>
+                <span className={`block text-[11px] ${ORDER_MUTED}`}>{t("shishaNote")}</span>
+              </span>
+            </span>
+            <ChevronDown
+              size={18}
+              className={`shrink-0 transition-transform ${ORDER_MUTED} ${
+                shishaOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {shishaOpen && (
+            <div className="mt-4">
+              <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                {SHISHA_BASES.map((base) => (
+                  <button
+                    key={base}
+                    type="button"
+                    onClick={() => setActiveShishaBase(base)}
+                    className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
+                      activeShishaBase === base
+                        ? `${ORDER_ACTIVE_FILL} border-transparent`
+                        : ORDER_UNSELECTED
+                    }`}
+                  >
+                    {tBase(base)}
+                  </button>
+                ))}
+              </div>
+              <motion.div
+                key={`shisha-${activeShishaBase}`}
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+              >
+                {visibleShishaItems.map((item) => (
+                  <ShishaFlavorCard
+                    key={item.id}
+                    item={item}
+                    base={activeShishaBase}
+                    locale={locale}
+                    readOnly
+                  />
+                ))}
+              </motion.div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

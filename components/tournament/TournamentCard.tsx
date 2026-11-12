@@ -82,12 +82,14 @@ export default function TournamentCard({ tournament, teamCount, href }: Tourname
             <Coins size={15} className="shrink-0 text-accent" />
             سعر الطاولة {tournament.entry_fee.toLocaleString("en-US")} د.ع للفريق
           </p>
-          <p className="flex items-center gap-2.5 text-[13px] font-medium text-background/70">
-            <Users size={15} className="shrink-0 text-accent" />
-            {seatsLeft === null
-              ? `${teamCount.toLocaleString("en-US")} فريق مسجَّل`
-              : `${teamCount.toLocaleString("en-US")} من ${tournament.max_teams!.toLocaleString("en-US")} — متبقٍ ${seatsLeft.toLocaleString("en-US")}`}
-          </p>
+          {/* عدد المسجَّلين لا يُعرض — فقط المقاعد المتبقية حين يكون هناك حد أقصى */}
+          {seatsLeft !== null && (
+            <p className="flex items-center gap-2.5 text-[13px] font-medium text-background/70">
+              <Users size={15} className="shrink-0 text-accent" />
+              متبقٍ {seatsLeft.toLocaleString("en-US")} مقعد من{" "}
+              {tournament.max_teams!.toLocaleString("en-US")}
+            </p>
+          )}
         </div>
 
         <span className="relative flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-accent px-6 text-sm font-black text-[#1C120B] [box-shadow:inset_0_1px_0_rgba(255,255,255,0.45)]">

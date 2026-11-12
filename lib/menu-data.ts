@@ -16,6 +16,7 @@ export type MenuCategory =
   | "dessertsCold"
   | "dessertsCrepeRoll"
   | "dessertsWaffle"
+  | "fruits"
   | "shisha";
 
 export type ShishaBase = "wood" | "bubble" | "natural";
@@ -45,6 +46,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   "dessertsCold",
   "dessertsCrepeRoll",
   "dessertsWaffle",
+  "fruits",
   "shisha",
 ];
 
@@ -67,7 +69,8 @@ export const MENU_CATEGORY_LABELS_AR: Record<MenuCategory, string> = {
   dessertsCold: "حلى بارد",
   dessertsCrepeRoll: "كريب رول",
   dessertsWaffle: "وافل",
-  shisha: "أراجيل",
+  fruits: "الفواكه",
+  shisha: "أراكيل",
 };
 
 export type MenuGroupKey = "hot" | "cold" | "desserts" | "shisha";
@@ -95,7 +98,7 @@ export const MENU_GROUPS: { key: MenuGroupKey; categories: MenuCategory[] }[] = 
   },
   {
     key: "desserts",
-    categories: ["dessertsCrepe", "dessertsCold", "dessertsCrepeRoll", "dessertsWaffle"],
+    categories: ["dessertsCrepe", "dessertsCold", "dessertsCrepeRoll", "dessertsWaffle", "fruits"],
   },
   { key: "shisha", categories: ["shisha"] },
 ];
@@ -134,6 +137,7 @@ export const menuData: MenuItem[] = [
   { id: "cc5", category: "coffeeClassic", name: { ar: "ماكياتو", en: "Macchiato" }, price: 3000, description: { ar: "إسبريسو بلمسة رغوة حليب خفيفة", en: "Espresso with a touch of milk foam" } },
   { id: "cc7", category: "coffeeClassic", name: { ar: "قهوة تركية سنكل", en: "Turkish Coffee Single" }, price: 2500, description: { ar: "قهوة تركية أصيلة تُقدَّم ساخنة", en: "Authentic Turkish coffee, served hot" } },
   { id: "cc8", category: "coffeeClassic", name: { ar: "قهوة تركية دبل", en: "Turkish Coffee Double" }, price: 4000, description: { ar: "جرعة مضاعفة من القهوة التركية الأصيلة", en: "Double serving of authentic Turkish coffee" } },
+  { id: "cc9", category: "coffeeClassic", name: { ar: "قهوة جكليتية", en: "Chocolate Coffee" }, price: 2500, description: { ar: "قهوة بنكهة الشوكولاتة الغنية", en: "Coffee with a rich chocolate flavor" } },
 
   // مشروبات القهوة الساخنة
   { id: "ch1", category: "coffeeHot", name: { ar: "امريكانو هوت", en: "Americano Hot" }, price: 3000, description: { ar: "إسبريسو ممدد بالماء الساخن", en: "Espresso lengthened with hot water" } },
@@ -204,6 +208,9 @@ export const menuData: MenuItem[] = [
   { id: "tea4", category: "tea", name: { ar: "شاي ليمون بالنعناع", en: "Lemon Mint Tea" }, price: 2500, description: { ar: "شاي بالليمون والنعناع المنعش", en: "Tea with lemon and refreshing mint" } },
   { id: "tea5", category: "tea", name: { ar: "شاي بالقرفة (دارسين)", en: "Cinnamon Tea" }, price: 1000, description: { ar: "شاي دافئ بنكهة القرفة", en: "Warm tea with cinnamon flavor" } },
   { id: "tea6", category: "tea", name: { ar: "شاي كرك", en: "Karak Tea" }, price: 3000, description: { ar: "شاي كرك غني بالحليب والهيل", en: "Rich Karak tea with milk and cardamom" } },
+  { id: "tea7", category: "tea", name: { ar: "حليب", en: "Milk" }, price: 2000, description: { ar: "كوب حليب ساخن", en: "A cup of hot milk" } },
+  { id: "tea8", category: "tea", name: { ar: "حامض", en: "Hot Lemon" }, price: 1000, description: { ar: "مشروب الحامض الساخن", en: "Warm lemon drink" } },
+  { id: "tea9", category: "tea", name: { ar: "شاي رمان", en: "Pomegranate Tea" }, price: 2000, description: { ar: "شاي بنكهة الرمان", en: "Tea with pomegranate flavor" } },
 
   // الموهيتو
   { id: "mj1", category: "mojito", name: { ar: "فراولة موهيتو", en: "Strawberry Mojito" }, price: 3000, description: { ar: "موهيتو منعش بنكهة الفراولة", en: "Refreshing mojito with strawberry flavor" } },
@@ -248,10 +255,12 @@ export const menuData: MenuItem[] = [
   { id: "jc11", category: "juice", name: { ar: "موز بالشوكلاته", en: "Banana with Chocolate" }, price: 4000, description: { ar: "عصير موز غني بالشوكولاتة", en: "Rich banana juice with chocolate" } },
 
   // المشروبات الغازية
-  { id: "sd1", category: "soda", name: { ar: "بيبسي", en: "Pepsi" }, price: 500, description: { ar: "مشروب غازي كلاسيكي منعش", en: "Classic, refreshing soft drink" } },
-  { id: "sd2", category: "soda", name: { ar: "بيبسي دايت", en: "Pepsi Diet" }, price: 500, description: { ar: "بيبسي دايت خفيف ومنعش", en: "Light, refreshing Diet Pepsi" } },
-  { id: "sd3", category: "soda", name: { ar: "سفن اب", en: "7Up" }, price: 500, description: { ar: "مشروب غازي منعش بنكهة الليمون", en: "Refreshing lemon-lime soft drink" } },
-  { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1000, description: { ar: "صودا منعشة بنكهة الليمون", en: "Refreshing soda with lemon flavor" } },
+  { id: "sd1", category: "soda", name: { ar: "بيبسي", en: "Pepsi" }, price: 1000, description: { ar: "مشروب غازي كلاسيكي منعش", en: "Classic, refreshing soft drink" } },
+  { id: "sd2", category: "soda", name: { ar: "بيبسي دايت", en: "Pepsi Diet" }, price: 1000, description: { ar: "بيبسي دايت خفيف ومنعش", en: "Light, refreshing Diet Pepsi" } },
+  { id: "sd3", category: "soda", name: { ar: "سفن اب", en: "7Up" }, price: 1000, description: { ar: "مشروب غازي منعش بنكهة الليمون", en: "Refreshing lemon-lime soft drink" } },
+  { id: "sd4", category: "soda", name: { ar: "ميرندا", en: "Mirinda" }, price: 1000, description: { ar: "مشروب غازي منعش بنكهة البرتقال", en: "Refreshing orange soft drink" } },
+  { id: "sd5", category: "soda", name: { ar: "صودا سادة", en: "Plain Soda" }, price: 1000, description: { ar: "صودا سادة باردة", en: "Chilled plain soda water" } },
+  { id: "sd7", category: "soda", name: { ar: "صودا ليمون", en: "Lemon Soda" }, price: 1500, description: { ar: "صودا منعشة بنكهة الليمون", en: "Refreshing soda with lemon flavor" } },
   { id: "sd8", category: "soda", name: { ar: "تايكر", en: "Tiger" }, price: 2000, description: { ar: "مشروب طاقة منعش", en: "Refreshing energy drink" } },
   { id: "sd9", category: "soda", name: { ar: "ريدبول", en: "Red Bull" }, price: 4000, description: { ar: "مشروب طاقة كلاسيكي منعش", en: "Classic, refreshing energy drink" } },
 
@@ -267,13 +276,11 @@ export const menuData: MenuItem[] = [
   { id: "ds27", category: "dessertsCrepe", name: { ar: "سبيشيل كريب", en: "Special Crepe" }, price: 6500, description: { ar: "كريب مميز بحشوة خاصة وتوليفة غنية", en: "A specialty crepe with a rich, distinctive filling" } },
 
   // الحلويات — حلى بارد
-  { id: "ds9", category: "dessertsCold", name: { ar: "ليزي", en: "Lazy Cake" }, price: 3000, description: { ar: "حلى بارد غني بالشوكولاتة والبسكويت", en: "Cold dessert rich with chocolate and biscuit" } },
   { id: "ds10", category: "dessertsCold", name: { ar: "كرواسون سادة", en: "Plain Croissant" }, price: 3500, description: { ar: "كرواسون طازج هش وذهبي", en: "Fresh, flaky golden croissant" } },
   { id: "ds11", category: "dessertsCold", name: { ar: "كرواسون شوكولاته بلجيكي", en: "Belgian Chocolate Croissant" }, price: 4500, description: { ar: "كرواسون هش محشو بشوكولاتة بلجيكية", en: "Flaky croissant filled with Belgian chocolate" } },
-  { id: "ds12", category: "dessertsCold", name: { ar: "تراليتشة", en: "Tres Leches" }, price: 4500, description: { ar: "كيك إسفنجي غني بثلاثة أنواع حليب", en: "Sponge cake soaked in three milks" } },
-  { id: "ds13", category: "dessertsCold", name: { ar: "سان سباستيان", en: "San Sebastian" }, price: 6000, description: { ar: "تشيز كيك محروق كريمي من الداخل", en: "Burnt cheesecake, creamy at the center" } },
   { id: "ds14", category: "dessertsCold", name: { ar: "تشيز كيك", en: "Cheesecake" }, price: 6000, description: { ar: "تشيز كيك كريمي وغني", en: "Rich, creamy cheesecake" } },
-  { id: "ds15", category: "dessertsCold", name: { ar: "قطعة كيك", en: "Cake Slice" }, price: 3000, description: { ar: "قطعة كيك طازجة يومياً", en: "Fresh daily cake slice" } },
+  { id: "ds13", category: "dessertsCold", name: { ar: "سان سباستيان", en: "San Sebastian" }, price: 5000, description: { ar: "تشيز كيك محروق كريمي من الداخل", en: "Burnt cheesecake, creamy at the center" } },
+  { id: "ds28", category: "dessertsCold", name: { ar: "مافن كيك", en: "Muffin Cake" }, price: 3500, description: { ar: "مافن طازج طري", en: "Fresh, soft muffin" } },
 
   // الحلويات — كريب رول
   { id: "ds16", category: "dessertsCrepeRoll", name: { ar: "كريب رول بيستاشيو", en: "Pistachio Crepe Roll" }, price: 6000, description: { ar: "رول كريب ملفوف بنكهة الفستق", en: "Rolled crepe with pistachio flavor" } },
@@ -290,7 +297,11 @@ export const menuData: MenuItem[] = [
   { id: "ds25", category: "dessertsWaffle", name: { ar: "وافل فواكه", en: "Fruit Waffle" }, price: 7000, description: { ar: "وافل مقرمش بتشكيلة فواكه منعشة", en: "Crispy waffle with assorted fruit" } },
   { id: "ds26", category: "dessertsWaffle", name: { ar: "فوتيشيني وافل", en: "Fettuccine Waffle" }, price: 6000, description: { ar: "وافل مقطّع بأسلوب فوتيشيني المميز", en: "Waffle cut in the Fettuccine style" } },
 
-  // الأراجيل — أغلب النكهات بقاعدتي خشب/بابلي فقط (بدون طبيعي)
+  // الفواكه
+  { id: "fruit1", category: "fruits", name: { ar: "صحن فواكه صغير", en: "Small Fruit Plate" }, price: 3000, description: { ar: "تشكيلة فواكه طازجة — حجم صغير", en: "Fresh seasonal fruit — small plate" } },
+  { id: "fruit2", category: "fruits", name: { ar: "صحن فواكه كبير", en: "Large Fruit Plate" }, price: 5000, description: { ar: "تشكيلة فواكه طازجة — حجم كبير", en: "Fresh seasonal fruit — large plate" } },
+
+  // الأراكيل — أغلب النكهات بقاعدتي خشب/بابلي فقط (بدون طبيعي)
   { id: "sh1", category: "shisha", name: { ar: "اركيلة كوفي مزاج", en: "Mazaaj Coffee Shisha" }, basePrices: SHISHA_BASE_PRICES, description: { ar: "أركيلة بنكهة القهوة المميزة", en: "Shisha with a signature coffee flavor" } },
   { id: "sh2", category: "shisha", name: { ar: "انكليزي 2026", en: "English 2026" }, basePrices: SHISHA_BASE_PRICES, description: { ar: "مزيج نكهات إنكليزي مميز", en: "A distinctive English flavor blend" } },
   { id: "sh3", category: "shisha", name: { ar: "ليمون ونعناع", en: "Lemon & Mint" }, basePrices: SHISHA_BASE_PRICES, description: { ar: "أركيلة منعشة بالليمون والنعناع", en: "Refreshing shisha with lemon and mint" } },
